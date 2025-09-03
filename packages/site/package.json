@@ -7,12 +7,17 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "lint:fix": "biome check --write"
   },
   "dependencies": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "next": "15.5.2"
+    "next": "15.5.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.542.0",
+    "tailwind-merge": "^3.3.1",
+    "tw-animate-css": "^1.3.8"
   },
   "devDependencies": {
     "typescript": "^5",
