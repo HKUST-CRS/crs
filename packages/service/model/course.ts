@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox'
-import { UserId, CourseId, RequestId } from './util';
+import { UserId, CourseId, RequestId, RequestType } from './util';
 
 export const Course = Type.Object({
     id: CourseId,
@@ -8,5 +8,5 @@ export const Course = Type.Object({
     instructorIds: Type.Array(UserId),
     taIds: Type.Array(UserId),
     requestIds: Type.Array(RequestId),
-    requestTypesEnabled: Type.Array(Type.String()),
+    requestTypesEnabled: Type.Array(RequestType),
 })

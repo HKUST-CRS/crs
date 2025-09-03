@@ -1,5 +1,5 @@
-import { Type } from '@sinclair/typebox';
-import { RequestId, UserId, CourseId, FileReference } from './util.js';
+import { Type, type TObject } from '@sinclair/typebox';
+import { RequestId, UserId, CourseId, FileReference, type RequestType } from './util.js';
 
 export const RequestDetails = Type.Object({
     reason: Type.String(),
@@ -8,57 +8,61 @@ export const RequestDetails = Type.Object({
 
 export const Response = Type.Object({
     instructorId: UserId,
-    timestamp: Type.Date(),
+    timestamp: Type.String({ format: "date-time" }),
     approved: Type.Boolean(),
     remark: Type.String(),
 });
 
-export const BaseRequest = Type.Object({
-    id: RequestId,
-    type: Type.String(),
-    studentId: UserId,
-    courseId: CourseId,
-    timestamp: Type.Date(),
-    metadata: Type.Object({}, { additionalProperties: true }),
-    details: RequestDetails,
-    response: Type.Union([Response, Type.Null()]),
-});
+const BaseRequest = (type: RequestType, metadata: TObject) => {
+    return Type.Object({
+        id: RequestId,
+        type: Type.Literal(type),
+        studentId: UserId,
+        courseId: CourseId,
+        timestamp: Type.String({ format: "date-time" }),
+        metadata: metadata,
+        details: RequestDetails,
+        response: Type.Union([Response, Type.Null()]),
+    });
+}
 
-/* Below are actual requests */
+/* Below are actual request types */
 /* Description of fields under metadata can be used at frontend */
 
-export const SwapSectionRequest = Type.Intersect([
-    BaseRequest,
+export const SwapSectionRequest = BaseRequest(
+    'Swap Section',
     Type.Object({
-        type: Type.Literal('Swap Section'),
-        metadata: Type.Object({
-            fromSection: Type.String({
-                description: "original section code"
-            }), // such as LA1, to be fetched from ITSO
-            fromDate: Type.String({
-                description: "date of the original class"
-            }),
-            toSection: Type.String({
-                description: "desired section code"
-            }),
-            toDate: Type.String({
-                description: "date of the desired class"
-            }),
+        fromSection: Type.String({
+            description: "Original Section Code"
+        }), // such as LA1, to be fetched from ITSO
+        fromDate: Type.String({
+            format: "date",
+            description: "Date of the Original Class"
         }),
-    }),
-]);
+        toSection: Type.String({
+            description: "Desired Section Code"
+        }),
+        toDate: Type.String({
+            format: "date",
+            description: "Date of the Desired Class"
+        }),
+    })
+);
 
-export const DeadlineExtensionRequest = Type.Intersect([
-    BaseRequest,
+export const DeadlineExtensionRequest = BaseRequest(
+    'Deadline Extension',
     Type.Object({
-        type: Type.Literal('Deadline Extension'),
-        metadata: Type.Object({
-            assignmentName: Type.String({
-                description: "name of the assignment"
-            }), // fill by the student or added by instructors?
-            requestedDeadline: Type.Date({
-                description: "the new deadline being requested"
-            }),
+        assignmentName: Type.String({
+            description: "Name of the Assignment"
+        }), // filled by the student or added by instructors?
+        requestedDeadline: Type.String({
+            format: "date-time",
+            description: "The New Deadline Being Requested"
         }),
-    }),
+    })
+);
+
+export const Request = Type.Union([
+    SwapSectionRequest,
+    DeadlineExtensionRequest,
 ]);
