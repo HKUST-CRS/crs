@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { RequestId, UserId, CourseId, FileReference, type RequestType } from './util.js';
+import { RequestId, UserId, CourseId, FileReference, RequestType } from './util.js';
 
 export const RequestDetails = z.object({
     reason: z.string(),
@@ -13,23 +13,28 @@ export const Response = z.object({
     remark: z.string(),
 });
 
-const BaseRequest = (type: RequestType, metadata: z.ZodObject) => {
-    return z.object({
-        _id: RequestId,
+export const BaseRequest = z.object({
+    _id: RequestId,
+    type: RequestType,
+    studentId: UserId,
+    courseId: CourseId,
+    timestamp: z.iso.datetime(),
+    metadata: z.object(),
+    details: RequestDetails,
+    response: z.union([Response, z.null()]),
+});
+
+const RequestConstructor = (type: RequestType, metadata: z.ZodObject) => {
+    return BaseRequest.extend({
         type: z.literal(type),
-        studentId: UserId,
-        courseId: CourseId,
-        timestamp: z.iso.datetime(),
         metadata: metadata,
-        details: RequestDetails,
-        response: z.union([Response, z.null()]),
     });
-}
+};
 
 /* Below are actual request types */
 /* Description of fields under metadata can be used at frontend */
 
-export const SwapSectionRequest = BaseRequest(
+export const SwapSectionRequest = RequestConstructor(
     'Swap Section',
     z.object({
         fromSection: z.string()
@@ -43,7 +48,7 @@ export const SwapSectionRequest = BaseRequest(
     })
 );
 
-export const DeadlineExtensionRequest = BaseRequest(
+export const DeadlineExtensionRequest = RequestConstructor(
     'Deadline Extension',
     z.object({
         assignmentName: z.string()
@@ -53,7 +58,7 @@ export const DeadlineExtensionRequest = BaseRequest(
     })
 );
 
-export const Request = z.union([
+export const ConcreteRequest = z.union([
     SwapSectionRequest,
     DeadlineExtensionRequest,
 ]);
