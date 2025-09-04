@@ -9,12 +9,16 @@ import {
 } from "../models";
 
 /* schemas and models of basic stuff */
-
-const UserSchema = new Schema(z.toJSONSchema(User), { _id: false });
-const CourseSchema = new Schema(z.toJSONSchema(Course), { _id: false });
+/* TODO: these may not work */
+const UserSchema = new Schema(z.toJSONSchema(User)).index(
+  { id: 1 },
+  { unique: true }
+);
+const CourseSchema = new Schema(z.toJSONSchema(Course)).index(
+  { id: 1 },
+  { unique: true }
+);
 const BaseRequestSchema = new Schema(z.toJSONSchema(BaseRequest), {
-  _id: false,
-  timestamps: false,
   discriminatorKey: "type",
 });
 

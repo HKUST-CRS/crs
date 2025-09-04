@@ -1,11 +1,9 @@
 import { z } from "zod";
-import {
-  RequestId,
-  UserId,
-  CourseId,
-  FileReference,
-  RequestType,
-} from "./util.js";
+import { UserId, CourseId, FileReference } from "./util.js";
+
+const ALL_REQUEST_TYPES = ["Swap Section", "Deadline Extension"] as const;
+export const RequestType = z.literal(ALL_REQUEST_TYPES);
+export type RequestType = z.infer<typeof RequestType>;
 
 export const RequestDetails = z.object({
   reason: z.string(),
@@ -20,7 +18,6 @@ export const Response = z.object({
 });
 
 export const BaseRequest = z.object({
-  _id: RequestId,
   type: RequestType,
   studentId: UserId,
   courseId: CourseId,
