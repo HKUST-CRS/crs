@@ -1,21 +1,21 @@
-import { Type } from '@sinclair/typebox'
+import { z } from 'zod';
 import { UserId, CourseId, RequestId } from './util'
 
-const Role = Type.Union([
-    Type.Literal('student'),
-    Type.Literal('instructor'),
-    Type.Literal('ta'),
+const Role = z.literal([
+    'student',
+    'instructor',
+    'ta',
 ]);
 
-export const User = Type.Object({
-    id: UserId,
-    name: Type.String(),
-    email: Type.String(),
-    courses: Type.Array(
-        Type.Object({
+export const User = z.object({
+    _id: UserId,
+    name: z.string().min(1, 'Name cannot be empty'),
+    email: z.email('Invalid email format'),
+    courses: z.array(
+        z.object({
             courseId: CourseId,
             role: Role,
         })
-    ),
-    requestIds: Type.Array(RequestId),
+    ).default([]),
+    requestIds: z.array(RequestId).default([]),
 });
