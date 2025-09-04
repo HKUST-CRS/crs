@@ -1,7 +1,7 @@
-import { defineConfig } from 'eslint/config'
-import eslint from '@eslint/js'
-import tseslint from 'typescript-eslint'
-import stylistic from '@stylistic/eslint-plugin'
+import { defineConfig } from "eslint/config";
+import eslint from "@eslint/js";
+import tseslint from "typescript-eslint";
+import stylistic from "@stylistic/eslint-plugin";
 
 export default defineConfig([
   eslint.configs.recommended,
@@ -16,4 +16,4 @@ export default defineConfig([
       },
     },
   },
-])
+]);
