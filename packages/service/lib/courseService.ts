@@ -1,5 +1,5 @@
-import { CourseModel } from "../schemas/course";
-import type { ICourse } from "../schemas/course";
+import { CourseModel } from "../db/schemas/course";
+import type { ICourse } from "../db/schemas/course";
 
 export class CourseService {
   /**

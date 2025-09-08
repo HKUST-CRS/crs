@@ -1,5 +1,5 @@
-import { UserModel } from "../schemas/user";
-import type { IUser } from "../schemas/user";
+import { UserModel } from "../db/schemas/user";
+import type { IUser } from "../db/schemas/user";
 
 export class UserService {
   /**

@@ -2,14 +2,14 @@ import {
   RequestModel,
   SwapSectionRequestModel,
   DeadlineExtensionRequestModel,
-} from "../schemas/request";
+} from "../db/schemas/request";
 import type {
   IBaseRequest,
   ISwapSectionRequest,
   IDeadlineExtensionRequest,
   IRequestDetails,
   IResponse,
-} from "../schemas/request";
+} from "../db/schemas/request";
 import { REQUEST_TYPES, type RequestTypeValue } from "../models/requests/types";
 
 export class RequestService {

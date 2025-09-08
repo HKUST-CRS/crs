@@ -3,7 +3,7 @@ import {
   ALL_REQUEST_TYPES,
   REQUEST_TYPES,
   type RequestTypeValue,
-} from "../models/requests/types";
+} from "../../models/requests/types";
 
 export interface IFileReference {
   filename: string;
