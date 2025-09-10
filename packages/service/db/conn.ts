@@ -8,31 +8,60 @@ export interface Collections {
   requests: mongoDB.Collection<Request>;
 }
 
-let collections: Collections | null = null;
+export class DbConn {
+  private _dbConnString: string;
+  private _dbName: string;
+  protected _client: mongoDB.MongoClient | null = null;
+  protected _db: mongoDB.Db | null = null;
+  protected _collections: Collections | null = null;
 
-export async function getCollections(): Promise<Readonly<Collections>> {
-  if (!collections) {
-    dotenv.config();
+  constructor(dbConnString: string, dbName: string) {
+    this._dbConnString = dbConnString;
+    this._dbName = dbName;
+  }
 
-    const DB_CONN_STRING = Bun.env.DB_CONN_STRING;
-    if (!DB_CONN_STRING) {
-      throw new Error("Missing DB_CONN_STRING environment variable");
+  private async _connect(): Promise<void> {
+    if (!this._client || !this._db) {
+      this._client = new mongoDB.MongoClient(this._dbConnString);
+      await this._client.connect();
+      this._db = this._client.db(this._dbName);
     }
-    const client = new mongoDB.MongoClient(DB_CONN_STRING);
+  }
 
-    await client.connect();
-
-    const DB_NAME = Bun.env.DB_NAME;
-    if (!DB_NAME) {
-      throw new Error("Missing DB_NAME environment variable");
+  async getCollections(): Promise<Readonly<Collections>> {
+    if (!this._db) {
+      await this._connect();
     }
-    const db = client.db(DB_NAME);
-
-    collections = {
-      users: db.collection<User>("users"),
-      courses: db.collection<Course>("courses"),
-      requests: db.collection<Request>("requests"),
+    this._db = this._db as mongoDB.Db; // ensured by _connect()
+    return {
+      users: this._db.collection<User>("users"),
+      courses: this._db.collection<Course>("courses"),
+      requests: this._db.collection<Request>("requests"),
     };
   }
-  return collections;
+
+  async close(): Promise<void> {
+    this._collections = null;
+    this._db = null;
+    if (this._client) {
+      await this._client.close();
+      this._client = null;
+    }
+  }
+
+  static fromEnv(envPath?: string): DbConn {
+    dotenv.config({ path: envPath });
+
+    const dbConnString = Bun.env.DB_CONN_STRING;
+    if (!dbConnString) {
+      throw new Error("Missing DB_CONN_STRING environment variable");
+    }
+
+    const dbName = Bun.env.DB_NAME;
+    if (!dbName) {
+      throw new Error("Missing DB_NAME environment variable");
+    }
+
+    return new DbConn(dbConnString, dbName);
+  }
 }

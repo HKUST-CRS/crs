@@ -19,7 +19,7 @@ export class CourseService {
   async addPeople(courseId: CourseId, people: Course["people"]): Promise<void> {
     const course = await this.collections.courses.findOne(courseId);
     if (!course) throw new Error("Course not found"); // TODO: 404?
-    const updatedPeople = { ...course.people, ...people };
+    const updatedPeople = { ...course.people, ...people }; // TODO: verify people exist?
     await this.collections.courses.updateOne(courseId, {
       $set: { people: updatedPeople },
     });
@@ -54,7 +54,7 @@ export class CourseService {
 
   async setEnabledRequestTypes(
     courseId: CourseId,
-    requestTypesEnabled: Course["requestTypesEnabled"]
+    requestTypesEnabled: Partial<Course["requestTypesEnabled"]>
   ): Promise<void> {
     const course = await this.collections.courses.findOne(courseId);
     if (!course) throw new Error("Course not found");

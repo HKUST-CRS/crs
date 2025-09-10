@@ -1,27 +1,27 @@
 import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
 
-let mongoServer: MongoMemoryServer;
+export class TestConn extends DbConn {
+  private _memoryServer: MongoMemoryServer;
 
-export const connectTestDB = async (): Promise<void> => {
-  mongoServer = await MongoMemoryServer.create();
-  const mongoUri = mongoServer.getUri();
-  await mongoose.connect(mongoUri);
-};
-
-export const closeTestDB = async (): Promise<void> => {
-  await mongoose.connection.dropDatabase();
-  await mongoose.connection.close();
-  if (mongoServer) {
-    await mongoServer.stop();
+  constructor(memoryServer: MongoMemoryServer) {
+    super(memoryServer.getUri(), "__test__");
+    this._memoryServer = memoryServer;
   }
-};
 
-export const clearTestDB = async (): Promise<void> => {
-  const collections = mongoose.connection.collections;
-  for (const key in collections) {
-    const collection = collections[key];
-    if (collection) {
-      await collection.deleteMany({});
+  async clear() {
+    if (this._db) {
+      await this._db.dropDatabase();
     }
   }
-};
+
+  override async close() {
+    await this.clear();
+    await super.close();
+    await this._memoryServer.stop();
+  }
+}
+
+export async function getTestConn(): Promise<TestConn> {
+  return new TestConn(await MongoMemoryServer.create());
+}
