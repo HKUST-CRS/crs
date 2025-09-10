@@ -1,28 +1,27 @@
 import { z } from "zod";
-import { UserId, CourseId, FileReference } from "../util.js";
-import { ALL_REQUEST_TYPES, type RequestTypeValue } from "./types.js";
+import { User } from "../user";
+import { Course } from "../course";
 
-export const RequestType = z.enum(
-  ALL_REQUEST_TYPES as [RequestTypeValue, ...RequestTypeValue[]]
-);
+export const RequestType = z.enum(["Swap Section", "Deadline Extension"]);
 export type RequestType = z.infer<typeof RequestType>;
 
 export const RequestDetails = z.object({
   reason: z.string(),
-  proof: z.array(FileReference),
+  proof: z.array(z.file().max(5 * 1024 * 1024)),
 });
 
 export const Response = z.object({
-  instructorId: UserId,
+  instructorEmail: User.shape.email,
   timestamp: z.iso.datetime(),
   approved: z.boolean(),
   remark: z.string(),
 });
 
-export const BaseRequest = z.object({
+const BaseRequest = z.object({
   type: RequestType,
-  studentId: UserId,
-  courseId: CourseId,
+  studentEmail: User.shape.email,
+  courseCode: Course.shape.code,
+  courseSemester: Course.shape.semester,
   timestamp: z.iso.datetime(),
   metadata: z.object(),
   details: RequestDetails,
@@ -30,14 +29,14 @@ export const BaseRequest = z.object({
 });
 
 /**
- * Helper function to create request constructors
+ * Helper function to create request type
  */
-export const createRequestConstructor = (
-  type: RequestTypeValue,
+export const createRequestType = (
+  type: RequestType,
   metadata: z.ZodTypeAny
 ) => {
   return BaseRequest.extend({
-    type: z.literal(type),
+    type: type,
     metadata: metadata,
   });
 };

@@ -1,12 +1,13 @@
 import { z } from "zod";
-import { UserId, CourseId } from "./util";
-import { RequestType } from "./request";
+import { User } from "./user";
+import { RequestType } from "./requests";
 
-const PeopleType = z.literal(["student", "instructor", "ta"]);
+const Role = z.enum(["student", "instructor", "ta"]);
 
 export const Course = z.object({
-  id: CourseId,
+  code: z.string().meta({ examples: ["COMP1023"] }),
+  semester: z.string().meta({ examples: ["2510"] }),
   title: z.string(),
-  people: z.record(UserId, PeopleType),
+  people: z.record(User.shape.email, Role),
   requestTypesEnabled: z.record(RequestType, z.boolean()),
 });

@@ -1,19 +1,16 @@
 import { z } from "zod";
-import { createRequestConstructor } from "./base.js";
-import { REQUEST_TYPES } from "./types.js";
+import { createRequestType } from "./base";
 
-/**
- * Deadline Extension Request
- * Allows students to request extension of assignment deadlines
- */
-export const DeadlineExtensionRequest = createRequestConstructor(
-  REQUEST_TYPES.DEADLINE_EXTENSION,
+export const DeadlineExtensionRequest = createRequestType(
+  "Deadline Extension",
   z.object({
-    assignmentName: z.string().describe("Name of the Assignment"),
+    assignmentName: z.string().meta({ description: "Name of the Assignment" }),
     requestedDeadline: z.iso
       .datetime()
-      .describe("The New Deadline Being Requested"),
+      .meta({ description: "The New Deadline Being Requested" }),
   })
-);
+).meta({
+  description: "Request for extension of assignment deadlines",
+});
 
 export type DeadlineExtensionRequest = z.infer<typeof DeadlineExtensionRequest>;

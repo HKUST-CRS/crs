@@ -1,19 +1,16 @@
 import { z } from "zod";
-import { createRequestConstructor } from "./base.js";
-import { REQUEST_TYPES } from "./types.js";
+import { createRequestType } from "./base";
 
-/**
- * Swap Section Request
- * Allows students to request switching from one section to another
- */
-export const SwapSectionRequest = createRequestConstructor(
-  REQUEST_TYPES.SWAP_SECTION,
+export const SwapSectionRequest = createRequestType(
+  "Swap Section",
   z.object({
-    fromSection: z.string().describe("Original Section Code"), // such as LA2, to be fetched from ITSO
-    fromDate: z.iso.date().describe("Date of the Original Class"),
-    toSection: z.string().describe("Desired Section Code"),
-    toDate: z.iso.date().describe("Date of the Desired Class"),
+    fromSection: z.string().meta({ description: "Original Section Code" }),
+    fromDate: z.iso.date().meta({ description: "Date of the Original Class" }),
+    toSection: z.string().meta({ description: "Desired Section Code" }),
+    toDate: z.iso.date().meta({ description: "Date of the Desired Class" }),
   })
-);
+).meta({
+  description: "Request for swapping to another section for one class",
+});
 
 export type SwapSectionRequest = z.infer<typeof SwapSectionRequest>;
