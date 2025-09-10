@@ -5,16 +5,26 @@
   "private": true,
   "scripts": {
     "lint": "bunx --bun eslint .",
-    "lint:fix": "bunx --bun eslint . --fix"
+    "lint:fix": "bunx --bun eslint . --fix",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "test:coverage": "bun test --coverage"
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
     "@stylistic/eslint-plugin": "^5.3.1",
     "@types/bun": "latest",
     "eslint": "^9.34.0",
+    "jiti": "^2.5.1",
+    "mongodb-memory-server": "^10.2.0",
     "typescript-eslint": "^8.42.0"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "mongodb": "^6.19.0",
+    "zod": "^4.1.5"
   }
 }
