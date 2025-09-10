@@ -29,7 +29,7 @@ export default function Home() {
               <em>Lab Deadline Extension</em> requests...
             </>
           }
-          target={""}
+          target={"request"}
         />
         <NavigationCard
           title={"Assignment Requests"}

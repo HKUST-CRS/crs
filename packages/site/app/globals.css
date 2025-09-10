@@ -131,6 +131,7 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans)
   }
   h1 {
     @apply text-7xl;
