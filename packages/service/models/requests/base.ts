@@ -16,6 +16,7 @@ export const Response = z.object({
   approved: z.boolean(),
   remark: z.string(),
 });
+export type Response = z.infer<typeof Response>;
 
 const BaseRequest = z.object({
   type: RequestType,
@@ -36,7 +37,7 @@ export const createRequestType = (
   metadata: z.ZodTypeAny
 ) => {
   return BaseRequest.extend({
-    type: type,
+    type: z.literal(type),
     metadata: metadata,
   });
 };

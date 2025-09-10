@@ -11,4 +11,5 @@ export * from "./deadlineExtension";
 import { SwapSectionRequest } from "./swapSection";
 import { DeadlineExtensionRequest } from "./deadlineExtension";
 
-export const Request = z.union([SwapSectionRequest, DeadlineExtensionRequest]);
+export const Request = z.discriminatedUnion("type", [SwapSectionRequest, DeadlineExtensionRequest]);
+export type Request = z.infer<typeof Request>;

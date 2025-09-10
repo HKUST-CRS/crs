@@ -1,110 +1,78 @@
-import { CourseModel } from "../db/schemas/course";
-import type { ICourse } from "../db/schemas/course";
+import type { WithId } from "mongodb";
+import type { Collections } from "../db";
+import type { Course, CourseId, User, Request } from "../models";
 
 export class CourseService {
-  /**
-   * Create a new course
-   */
-  async createCourse(courseData: {
-    code: string;
-    semester: string;
-    title: string;
-    people?: Map<string, "student" | "instructor" | "ta">;
-    requestTypesEnabled?: Map<string, boolean>;
-  }): Promise<ICourse> {
-    const course = new CourseModel(courseData);
-    return await course.save();
+  private collections: Collections;
+  constructor(collection: Collections) {
+    this.collections = collection;
   }
 
-  /**
-   * Find a course by code and semester
-   */
-  async findCourseById(
-    code: string,
-    semester: string
-  ): Promise<ICourse | null> {
-    return await CourseModel.findOne({ code, semester });
+  async createCourse(data: Course): Promise<void> {
+    await this.collections.courses.insertOne(data);
   }
 
-  /**
-   * Update course information
-   */
-  async updateCourse(
-    code: string,
-    semester: string,
-    updates: Partial<{
-      title: string;
-      people: Map<string, "student" | "instructor" | "ta">;
-      requestTypesEnabled: Map<string, boolean>;
-    }>
-  ): Promise<ICourse | null> {
-    return await CourseModel.findOneAndUpdate({ code, semester }, updates, {
-      new: true,
-      runValidators: true,
+  async getCourse(id: CourseId): Promise<Course | null> {
+    return await this.collections.courses.findOne(id);
+  }
+
+  async addPeople(courseId: CourseId, people: Course["people"]): Promise<void> {
+    const course = await this.collections.courses.findOne(courseId);
+    if (!course) throw new Error("Course not found"); // TODO: 404?
+    const updatedPeople = { ...course.people, ...people };
+    await this.collections.courses.updateOne(courseId, {
+      $set: { people: updatedPeople },
     });
   }
 
-  /**
-   * Delete a course
-   */
-  async deleteCourse(code: string, semester: string): Promise<boolean> {
-    const result = await CourseModel.deleteOne({ code, semester });
-    return result.deletedCount > 0;
-  }
-
-  /**
-   * Add a person to a course with specified role
-   */
-  async addPersonToCourse(
-    code: string,
-    semester: string,
-    userId: string,
-    role: "student" | "instructor" | "ta"
-  ): Promise<ICourse | null> {
-    return await CourseModel.findOneAndUpdate(
-      { code, semester },
-      { $set: { [`people.${userId}`]: role } },
-      { new: true }
-    );
-  }
-
-  /**
-   * Remove a person from a course
-   */
-  async removePersonFromCourse(
-    code: string,
-    semester: string,
-    userId: string
-  ): Promise<ICourse | null> {
-    return await CourseModel.findOneAndUpdate(
-      { code, semester },
-      { $unset: { [`people.${userId}`]: "" } },
-      { new: true }
-    );
-  }
-
-  /**
-   * Enable or disable a request type for a course
-   */
-  async enableRequestType(
-    code: string,
-    semester: string,
-    requestType: string,
-    enabled: boolean = true
-  ): Promise<ICourse | null> {
-    return await CourseModel.findOneAndUpdate(
-      { code, semester },
-      { $set: { [`requestTypesEnabled.${requestType}`]: enabled } },
-      { new: true }
-    );
-  }
-
-  /**
-   * Get all courses where a user is enrolled/teaching
-   */
-  async getCoursesByUser(userId: string): Promise<ICourse[]> {
-    return await CourseModel.find({
-      [`people.${userId}`]: { $exists: true },
+  async removePeople(
+    courseId: CourseId,
+    people: User["email"][]
+  ): Promise<void> {
+    const course = await this.collections.courses.findOne(courseId);
+    if (!course) throw new Error("Course not found");
+    const updatedPeople = { ...course.people };
+    for (const email of people) {
+      delete updatedPeople[email];
+    }
+    await this.collections.courses.updateOne(courseId, {
+      $set: { people: updatedPeople },
     });
+  }
+
+  async checkAccess(
+    courseId: CourseId,
+    userEmail: User["email"],
+    role: Course["people"][string]
+  ): Promise<boolean> {
+    const course = await this.collections.courses.findOne(courseId);
+    if (!course) return false;
+    const actualRole = course.people[userEmail];
+    if (!actualRole) return false;
+    return actualRole === role;
+  }
+
+  async setEnabledRequestTypes(
+    courseId: CourseId,
+    requestTypesEnabled: Course["requestTypesEnabled"]
+  ): Promise<void> {
+    const course = await this.collections.courses.findOne(courseId);
+    if (!course) throw new Error("Course not found");
+    const updatedRequestTypesEnabled = {
+      ...course.requestTypesEnabled,
+      ...requestTypesEnabled,
+    };
+    await this.collections.courses.updateOne(courseId, {
+      $set: { requestTypesEnabled: updatedRequestTypesEnabled },
+    });
+  }
+
+  async getCourseRequests(courseId: CourseId): Promise<WithId<Request>[]> {
+    return await this.collections.requests
+      .find({
+        "courseId.code": courseId.code,
+        "courseId.semester": courseId.semester,
+      })
+      .toArray();
   }
 }

@@ -1,129 +1,24 @@
-import {
-  RequestModel,
-  SwapSectionRequestModel,
-  DeadlineExtensionRequestModel,
-} from "../db/schemas/request";
-import type {
-  IBaseRequest,
-  ISwapSectionRequest,
-  IDeadlineExtensionRequest,
-  IRequestDetails,
-  IResponse,
-} from "../db/schemas/request";
-import { REQUEST_TYPES, type RequestTypeValue } from "../models/requests/types";
+import { ObjectId } from "mongodb";
+import type { Collections } from "../db";
+import type { Request, Response } from "../models";
 
 export class RequestService {
-  /**
-   * Create a swap section request
-   */
-  async createSwapSectionRequest(requestData: {
-    studentId: string;
-    courseId: { code: string; semester: string };
-    metadata: {
-      fromSection: string;
-      fromDate: Date;
-      toSection: string;
-      toDate: Date;
-    };
-    details: IRequestDetails;
-  }): Promise<ISwapSectionRequest> {
-    const request = new SwapSectionRequestModel({
-      type: REQUEST_TYPES.SWAP_SECTION,
-      ...requestData,
-      timestamp: new Date(),
-    });
-    return (await request.save()) as ISwapSectionRequest;
+  private collections: Collections;
+  constructor(collection: Collections) {
+    this.collections = collection;
   }
 
-  /**
-   * Create a deadline extension request
-   */
-  async createDeadlineExtensionRequest(requestData: {
-    studentId: string;
-    courseId: { code: string; semester: string };
-    metadata: {
-      assignmentName: string;
-      requestedDeadline: Date;
-    };
-    details: IRequestDetails;
-  }): Promise<IDeadlineExtensionRequest> {
-    const request = new DeadlineExtensionRequestModel({
-      type: REQUEST_TYPES.DEADLINE_EXTENSION,
-      ...requestData,
-      timestamp: new Date(),
-    });
-    return (await request.save()) as IDeadlineExtensionRequest;
+  async createRequest(data: Request): Promise<void> {
+    await this.collections.requests.insertOne(data);
   }
 
-  /**
-   * Find a request by its ID
-   */
-  async findRequestById(id: string): Promise<IBaseRequest | null> {
-    return await RequestModel.findById(id);
-  }
-
-  /**
-   * Get all requests for a specific student
-   */
-  async getRequestsByStudent(studentId: string): Promise<IBaseRequest[]> {
-    return await RequestModel.find({ studentId }).sort({ timestamp: -1 });
-  }
-
-  /**
-   * Get all requests for a specific course
-   */
-  async getRequestsByCourse(
-    code: string,
-    semester: string
-  ): Promise<IBaseRequest[]> {
-    return await RequestModel.find({
-      "courseId.code": code,
-      "courseId.semester": semester,
-    }).sort({ timestamp: -1 });
-  }
-
-  /**
-   * Get all pending requests (without response)
-   */
-  async getPendingRequests(): Promise<IBaseRequest[]> {
-    return await RequestModel.find({ response: null }).sort({ timestamp: 1 });
-  }
-
-  /**
-   * Respond to a request (approve or reject)
-   */
-  async respondToRequest(
-    requestId: string,
-    response: {
-      instructorId: string;
-      approved: boolean;
-      remark: string;
-    }
-  ): Promise<IBaseRequest | null> {
-    return await RequestModel.findByIdAndUpdate(
-      requestId,
-      {
-        response: {
-          ...response,
-          timestamp: new Date(),
-        },
-      },
-      { new: true }
+  async addResponse(requestId: ObjectId, response: Response): Promise<void> {
+    const request = await this.collections.requests.findOne({ _id: requestId });
+    if (!request) throw new Error("Request not found");
+    if (request.response) throw new Error("Request already has a response");
+    await this.collections.requests.updateOne(
+      { _id: requestId },
+      { $set: { response } }
     );
-  }
-
-  /**
-   * Get requests by type
-   */
-  async getRequestsByType(type: RequestTypeValue): Promise<IBaseRequest[]> {
-    return await RequestModel.find({ type }).sort({ timestamp: -1 });
-  }
-
-  /**
-   * Delete a request by ID
-   */
-  async deleteRequest(requestId: string): Promise<boolean> {
-    const result = await RequestModel.deleteOne({ _id: requestId });
-    return result.deletedCount > 0;
   }
 }

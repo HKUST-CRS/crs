@@ -1,58 +1,33 @@
-import { UserModel } from "../db/schemas/user";
-import type { IUser } from "../db/schemas/user";
+import type { WithId } from "mongodb";
+import type { Collections } from "../db";
+import type { Course, User, Request, Role } from "../models";
 
 export class UserService {
-  /**
-   * Create a new user
-   */
-  async createUser(userData: {
-    id: string;
-    name: string;
-    email: string;
-  }): Promise<IUser> {
-    const user = new UserModel(userData);
-    return await user.save();
+  private collections: Collections;
+  constructor(collection: Collections) {
+    this.collections = collection;
   }
 
-  /**
-   * Find a user by ID
-   */
-  async findUserById(id: string): Promise<IUser | null> {
-    return await UserModel.findOne({ id });
+  async createUser(data: User): Promise<void> {
+    await this.collections.users.insertOne(data);
   }
 
-  /**
-   * Find a user by email
-   */
-  async findUserByEmail(email: string): Promise<IUser | null> {
-    return await UserModel.findOne({ email });
+  async getUser(email: User["email"]): Promise<User | null> {
+    return await this.collections.users.findOne({ email });
   }
 
-  /**
-   * Update user information
-   */
-  async updateUser(
-    id: string,
-    updates: Partial<{ name: string; email: string }>
-  ): Promise<IUser | null> {
-    return await UserModel.findOneAndUpdate({ id }, updates, {
-      new: true,
-      runValidators: true,
-    });
+  async getUserCourses(email: User["email"]): Promise<[Course, Role][]> {
+    const courses = await this.collections.courses
+      .find({ [`people.${email}`]: { $exists: true } })
+      .toArray();
+    return courses.map((course) => [course, course.people[email]!]);
   }
 
-  /**
-   * Delete a user by ID
-   */
-  async deleteUser(id: string): Promise<boolean> {
-    const result = await UserModel.deleteOne({ id });
-    return result.deletedCount > 0;
-  }
-
-  /**
-   * Get all users sorted by name
-   */
-  async getAllUsers(): Promise<IUser[]> {
-    return await UserModel.find({}).sort({ name: 1 });
+  async getUserRequests(
+    email: User["email"]
+  ): Promise<WithId<Request>[] | null> {
+    return await this.collections.requests
+      .find({ studentEmail: email })
+      .toArray();
   }
 }
