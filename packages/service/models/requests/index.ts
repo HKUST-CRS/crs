@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
-// Request types and utilities
+export * from './type'
 export * from './base'
 
-// Specific request types
-export * from './swapSection'
-export * from './deadlineExtension'
+export * from './SwapSection'
+export * from './DeadlineExtension'
 
-// Union of all request types
-import { SwapSectionRequest } from './swapSection'
-import { DeadlineExtensionRequest } from './deadlineExtension'
+import { SwapSectionRequest } from './SwapSection'
+import { DeadlineExtensionRequest } from './DeadlineExtension'
 
-export const Request = z.discriminatedUnion('type', [SwapSectionRequest, DeadlineExtensionRequest])
+export const Requests = [SwapSectionRequest, DeadlineExtensionRequest] as const
+
+export const Request = z.discriminatedUnion('type', Requests)
 export type Request = z.infer<typeof Request>
