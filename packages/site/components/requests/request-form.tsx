@@ -26,30 +26,40 @@ export default function RequestForm(props: RequestFormProps) {
   );
 
   const MetaForm = () => {
-    if (props.default) {
-      switch (props.default.type) {
-        case "Swap Section":
+    if (base) {
+      switch (base.type) {
+        case "Swap Section": {
+          const def =
+            props.default?.type === "Swap Section"
+              ? {
+                  ...props.default.metadata,
+                  details: props.default.details,
+                }
+              : undefined;
           return (
             <SwapSectionRequestForm
-              base={props.default}
-              default={{
-                ...props.default.metadata,
-                details: props.default.details,
-              }}
+              base={base}
+              default={def}
               viewonly={viewonly}
             />
           );
-        case "Deadline Extension":
+        }
+        case "Deadline Extension": {
+          const def =
+            props.default?.type === "Deadline Extension"
+              ? {
+                  ...props.default.metadata,
+                  details: props.default.details,
+                }
+              : undefined;
           return (
             <DeadlineExtensionRequestForm
-              base={props.default}
-              default={{
-                ...props.default.metadata,
-                details: props.default.details,
-              }}
+              base={base}
+              default={def}
               viewonly={viewonly}
             />
           );
+        }
       }
     }
     return null;
