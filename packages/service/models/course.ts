@@ -18,6 +18,36 @@ export const Course = z.object({
     }),
   title: z.string()
     .meta({ description: 'The title of the course.' }),
+  sections: z.array(z.object({
+    code: z.string()
+      .meta({
+        description: 'The section code.',
+        examples: ['L1', 'L01', 'T1', 'LA1'],
+      }),
+    schedule: z.array(z.object({
+      day: z.number().min(1).max(7),
+      from: z.string(),
+      to: z.string(),
+    })),
+  })),
+  assignments: z.array(z.object({
+    code: z.string()
+      .meta({
+        description: 'The assignment code, acting as the ID for the assignment.',
+        examples: ['Lab1', 'PA1'],
+      }),
+    name: z.string()
+      .meta({ description: 'The name of the assignment.' }),
+    due: z.iso
+      .datetime()
+      .meta({
+        description: 'The due date of the assignment.',
+      }),
+    maxExtension: z.iso.duration()
+      .meta({
+        description: 'The maximum extension duration allowed for this assignment.',
+      }),
+  })),
   effectiveRequestTypes: z.record(RequestType, z.boolean())
     .meta({ description: 'A mapping of request types that are effective for this course.' }),
 }).meta({

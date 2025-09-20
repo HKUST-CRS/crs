@@ -60,8 +60,8 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = ({ onSubmit }) => {
               <FormLabel>Course & Class Section</FormLabel>
               <FormControl>
                 <Select
-                  onValueChange={(code) => field.onChange(findCourse({ code }))}
                   value={field.value?.code}
+                  onValueChange={(code) => field.onChange(findCourse({ code }))}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Course" />

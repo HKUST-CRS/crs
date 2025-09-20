@@ -2,11 +2,13 @@ import { z } from 'zod'
 import { createRequestType } from './base'
 
 export const DeadlineExtensionMeta = z.object({
-  assignmentName: z.string()
-    .meta({ description: 'The name of the assignment.' }),
-  requestedDeadline: z.iso
+  assignment: z.string()
+    .meta({
+      description: 'The assignment code of the assignment to extend the deadline for. ',
+    }),
+  deadline: z.iso
     .datetime()
-    .meta({ description: 'The proposed and requested new deadline.' }),
+    .meta({ description: 'The new deadline for the assignment.' }),
 })
 export type DeadlineExtensionMeta = z.infer<typeof DeadlineExtensionMeta>
 

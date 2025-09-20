@@ -138,3 +138,11 @@ body {
     @apply font-bold;
   }
 }
+
+@utility typo-small {
+  @apply text-sm leading-none font-medium;
+}
+
+@utility typo-muted {
+  @apply text-muted-foreground text-sm;
+}

@@ -35,6 +35,23 @@ export const Courses: Course[] = [
       "Swap Section": true,
       "Deadline Extension": true,
     },
+    sections: [
+      {
+        code: "L1",
+        schedule: [
+          { day: 1, from: "10:30", to: "12:00" },
+          { day: 3, from: "10:30", to: "12:00" },
+        ],
+      },
+    ],
+    assignments: [
+      {
+        code: "Lab1",
+        name: "Python Basics",
+        due: "2025-09-25T23:59:00.000+08:00",
+        maxExtension: "P3D",
+      },
+    ],
   },
   {
     code: "COMP 2211",
@@ -44,6 +61,8 @@ export const Courses: Course[] = [
       "Swap Section": true,
       "Deadline Extension": true,
     },
+    sections: [],
+    assignments: [],
   },
 ];
 
@@ -54,12 +73,18 @@ export function findCourse(code: { code: string }): Course | undefined {
 }
 
 export function findInstructors(course: CourseId) {
-  console.log("Finding instructors for", course, "in", Users);
   return Users.filter((u) => {
     const enrollment = u.enrollment.find((e) => {
       return e.code === course.code && e.term === course.term;
     });
-    console.log("  Checking user", u.email, "enrollment", enrollment);
     return enrollment?.role === "instructor";
   });
+}
+
+export function findSection(course: Course, sectionCode: string) {
+  return course.sections.find((s) => s.code === sectionCode);
+}
+
+export function findAssignment(course: Course, assignmentCode: string) {
+  return course.assignments?.find((a) => a.code === assignmentCode);
 }

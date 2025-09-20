@@ -1,14 +1,26 @@
 import { z } from 'zod'
-import { RequestType } from './type'
-import { UserId } from '../user'
 import { CourseId } from '../course'
+import { UserId } from '../user'
+import { RequestType } from './type'
 
 export const RequestDetails = z.object({
-  reason: z.string()
+  reason: z
+    .string()
     .meta({ description: 'A brief explanation of the request.' }),
-  proof: z.array(z.file().max(5 * 1024 * 1024))
-    .meta({ description: 'Optional supporting documents or files for the request.' }),
+  proof: z
+    .array(
+      z
+        .file()
+        .max(2 * 1024 * 1024)
+        .mime(['image/*', 'application/pdf', 'text/plain']),
+    )
+    .meta({
+      description: 'Optional supporting documents or files for the request.',
+    }),
 })
+export type RequestDetails = z.infer<typeof RequestDetails>
+
+export const RequestDetailsProofAccept = RequestDetails.shape.proof.def.element._zod.bag.mime ?? []
 
 export const Response = z.object({
   from: UserId,
@@ -33,9 +45,9 @@ export const BaseRequest = z.object({
  * @param metadata The metadata schema specific to the request type.
  * @returns A Zod schema representing the complete request structure.
  */
-export const createRequestType = (
+export const createRequestType = <O, I>(
   type: RequestType,
-  metadata: z.ZodType,
+  metadata: z.ZodType<O, I>,
 ) => {
   return BaseRequest.extend({
     type: z.literal(type),

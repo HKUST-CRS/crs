@@ -5,7 +5,8 @@ import {
   BaseRequestForm,
   type BaseRequestFormSchema,
 } from "./base-request-form";
-import { BaseRequestSection } from "./base-request-section";
+import { DeadlineExtensionRequestForm } from "./request-form-deadline-extension";
+import { SwapSectionRequestForm } from "./request-form-swap-section";
 
 type Step = "base" | "meta" | "details";
 
@@ -28,11 +29,14 @@ export default function Home() {
         if (!baseData) {
           return <div>Error: Missing base data</div>;
         }
-        return (
-          <div className="grid grid-cols-12 gap-x-8 gap-y-4 m-4">
-            <BaseRequestSection data={baseData} />
-          </div>
-        );
+        switch (baseData.type) {
+          case "Swap Section":
+            return <SwapSectionRequestForm dataBase={baseData} />;
+          case "Deadline Extension":
+            return <DeadlineExtensionRequestForm dataBase={baseData} />;
+          default:
+            return null;
+        }
       case "details":
         return <div>Details</div>;
     }
