@@ -76,7 +76,7 @@ export default function ResponseForm(props: ResponseFormProps) {
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-full">
-              <FormLabel>Remarks</FormLabel>
+              <FormLabel>Decision</FormLabel>
               <FormControl>
                 <Select
                   value={field.value}
