@@ -18,6 +18,13 @@ export const Course = z.object({
     }),
   title: z.string()
     .meta({ description: 'The title of the course.' }),
+  sections: z.array(
+    z.string()
+      .meta({
+        description: 'The sections of the course.',
+        examples: ['L1', 'L01', 'T1', 'LA1'],
+      }),
+  ),
   effectiveRequestTypes: z.record(RequestType, z.boolean())
     .meta({ description: 'A mapping of request types that are effective for this course.' }),
 }).meta({

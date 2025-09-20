@@ -1,6 +1,6 @@
-import type { WithId } from 'mongodb'
+import type { WithId, InsertOneResult, UpdateResult } from 'mongodb'
 import type { Collections } from '../db'
-import type { Course, User, Request, Role } from '../models'
+import type { User, UserId, Request } from '../models'
 
 export class UserService {
   private collections: Collections
@@ -8,26 +8,28 @@ export class UserService {
     this.collections = collection
   }
 
-  async createUser(data: User): Promise<void> {
-    await this.collections.users.insertOne(data)
+  async createUser(data: User): Promise<InsertOneResult<User>> {
+    return await this.collections.users.insertOne(data)
   }
 
-  async getUser(email: User['email']): Promise<User | null> {
-    return await this.collections.users.findOne({ email })
+  async getUser(userId: UserId): Promise<WithId<User>> {
+    const user = await this.collections.users.findOne(userId)
+    if (!user) throw new Error(`User ${userId.email} not found`)
+    return user
   }
 
-  async getUserCourses(email: User['email']): Promise<[Course, Role][]> {
-    const courses = await this.collections.courses
-      .find({ [`people.${email}`]: { $exists: true } })
-      .toArray()
-    return courses.map(course => [course, course.people[email]])
+  async updateEnrollment(userId: UserId, enrollment: User['enrollment']): Promise<UpdateResult<User>> {
+    return await this.collections.users.updateOne(
+      userId,
+      { $set: { enrollment } },
+    )
   }
 
   async getUserRequests(
-    email: User['email'],
+    userId: UserId,
   ): Promise<WithId<Request>[] | null> {
     return await this.collections.requests
-      .find({ studentEmail: email })
+      .find({ from: userId })
       .toArray()
   }
 }
