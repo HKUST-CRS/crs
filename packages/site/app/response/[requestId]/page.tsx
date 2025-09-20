@@ -17,8 +17,8 @@ export default async function ({
   }
 
   return (
-    <article className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen">
-      <h2>New Response</h2>
+    <article className="max-w-4xl mx-auto flex flex-col gap-4 items-center justify-center min-h-screen">
+      <h3 className="typo-h3">New Response</h3>
       <ResponseForm request={request} />
     </article>
   );

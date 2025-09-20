@@ -139,6 +139,71 @@ body {
   }
 }
 
+@utility typo-h1 {
+  @apply scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance;
+}
+
+@utility typo-h2 {
+  @apply scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0;
+}
+
+@utility typo-h3 {
+  @apply scroll-m-20 text-2xl font-semibold tracking-tight;
+}
+
+@utility typo-h4 {
+  @apply scroll-m-20 text-xl font-semibold tracking-tight;
+}
+
+@utility typo-p {
+  @apply leading-7 [&:not(:first-child)]:mt-6;
+}
+
+@utility typo-blockquote {
+  @apply mt-6 border-l-2 pl-6 italic;
+}
+
+  /* wrapper around table to allow horizontal scroll */
+@utility typo-table-wrap {
+  @apply my-6 w-full overflow-y-auto;
+}
+
+@utility typo-table {
+  @apply w-full;
+}
+
+/* table row style used on <tr> in the example */
+@utility typo-tr {
+  @apply even:bg-muted m-0 border-t p-0;
+}
+
+/* table cell / header cell common styles */
+@utility typo-th {
+  @apply border px-4 py-2 text-left font-bold;
+  /* alignment variants in markup: [align=center] etc. come from Tailwind */
+}
+
+@utility typo-td {
+  @apply border px-4 py-2 text-left;
+  /* alignment variants in markup: [align=center] etc. come from Tailwind */
+}
+
+@utility typo-list {
+  @apply my-6 ml-6 list-disc [&>li]:mt-2;
+}
+
+@utility typo-inline-code {
+  @apply bg-muted relative rounded px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold;
+}
+
+@utility typo-lead {
+  @apply text-muted-foreground text-xl;
+}
+
+@utility typo-large {
+  @apply text-lg font-semibold;
+}
+
 @utility typo-small {
   @apply text-sm leading-none font-medium;
 }
