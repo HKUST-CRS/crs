@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { FC } from "react";
+import clsx from "clsx";
+import { type FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { CourseId, Requests, RequestType } from "service/models";
 import z from "zod";
@@ -10,7 +11,6 @@ import {
   findCourse,
   findInstructors,
 } from "@/components/_test-data";
-import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -35,21 +35,43 @@ export const BaseRequestFormSchema = z.object({
 export type BaseRequestFormSchema = z.infer<typeof BaseRequestFormSchema>;
 
 export type BaseRequestFormProps = {
-  onSubmit: (data: BaseRequestFormSchema) => void;
-};
+  default?: BaseRequestFormSchema;
 
-export const BaseRequestForm: FC<BaseRequestFormProps> = ({ onSubmit }) => {
+  className?: string;
+} & (
+  | {
+      viewonly?: false;
+      onSubmit: (data: BaseRequestFormSchema) => void;
+    }
+  | {
+      viewonly: true;
+    }
+);
+
+export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
+  const viewonly = props.viewonly ?? false;
+  const onSubmit = props.viewonly ? () => {} : props.onSubmit;
+
   const form = useForm<BaseRequestFormSchema>({
     resolver: zodResolver(BaseRequestFormSchema),
+    defaultValues: props.default,
   });
 
   const course = form.watch("course");
+  const type = form.watch("type");
+
+  useEffect(() => {
+    if (course && type) {
+      form.handleSubmit(onSubmit)();
+    }
+  }, [form.handleSubmit, onSubmit, course, type]);
+
+  const Wrapper = viewonly ? "div" : "form";
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="grid grid-cols-12 gap-x-8 gap-y-4 m-4"
+      <Wrapper
+        className={clsx("grid grid-cols-12 gap-x-8 gap-y-4", props.className)}
       >
         {/* Course */}
         <FormField
@@ -62,6 +84,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = ({ onSubmit }) => {
                 <Select
                   value={field.value?.code}
                   onValueChange={(code) => field.onChange(findCourse({ code }))}
+                  disabled={viewonly}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Course" />
@@ -134,6 +157,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = ({ onSubmit }) => {
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  disabled={viewonly || !course}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Request Type" />
@@ -155,13 +179,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = ({ onSubmit }) => {
             </FormItem>
           )}
         />
-
-        <div className="col-span-full flex flex-col items-end">
-          <Button type="submit" className="">
-            Next
-          </Button>
-        </div>
-      </form>
+      </Wrapper>
     </Form>
   );
 };

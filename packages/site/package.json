@@ -19,6 +19,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "es-toolkit": "^1.39.10",
     "gsap": "^3.13.0",
     "lucide-react": "^0.542.0",
     "luxon": "^3.7.2",

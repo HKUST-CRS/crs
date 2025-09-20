@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
 import { DateTime, Duration } from "luxon";
 import type { FC } from "react";
@@ -28,41 +29,46 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { BaseRequestSection } from "./base-request-section";
 import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
-
-export type DeadlineExtensionRequestFormProps = {
-  dataBase: BaseRequestFormSchema;
-};
 
 export const DeadlineExtensionFormSchema = FormSchema(DeadlineExtensionMeta);
 export type DeadlineExtensionFormSchema = z.infer<
   typeof DeadlineExtensionFormSchema
 >;
 
+export type DeadlineExtensionRequestFormProps = {
+  viewonly?: boolean;
+  base: BaseRequestFormSchema;
+  default?: DeadlineExtensionFormSchema;
+
+  className?: string;
+};
+
 export const DeadlineExtensionRequestForm: FC<
   DeadlineExtensionRequestFormProps
 > = (props) => {
   const form = useForm<DeadlineExtensionFormSchema>({
     resolver: zodResolver(DeadlineExtensionFormSchema),
+    defaultValues: props.default,
   });
 
-  const { dataBase } = props;
+  const { viewonly = false, base } = props;
 
-  const course = findCourse(dataBase.course);
+  const course = findCourse(base.course);
 
   const assignment = course && findAssignment(course, form.watch("assignment"));
   const deadline = DateTime.fromISO(form.watch("deadline"));
 
   const isMetaDone = assignment && deadline.isValid;
 
+  const Wrapper = viewonly ? "div" : "form";
+
   return (
     <Form {...form}>
-      <form className="grid grid-cols-12 gap-x-8 gap-y-4 m-4">
-        <div className="col-span-full grid grid-cols-12 gap-x-8 gap-y-4">
-          <BaseRequestSection data={dataBase} />
-        </div>
+      <Wrapper
+        className={clsx("grid grid-cols-12 gap-x-8 gap-y-4", props.className)}
+      >
         <FormField
           name="assignment"
           control={form.control}
@@ -70,7 +76,11 @@ export const DeadlineExtensionRequestForm: FC<
             <FormItem className="col-span-8">
               <FormLabel>Assignment</FormLabel>
               <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={viewonly}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select Assignment" />
                   </SelectTrigger>
@@ -102,7 +112,10 @@ export const DeadlineExtensionRequestForm: FC<
               <FormControl>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" disabled={!assignment}>
+                    <Button
+                      variant="outline"
+                      disabled={viewonly || !assignment}
+                    >
                       <CalendarIcon />
                       {field.value ? (
                         DateTime.fromISO(field.value).toLocaleString()
@@ -154,8 +167,8 @@ export const DeadlineExtensionRequestForm: FC<
               </div>
             );
           })()}
-        {isMetaDone && <RequestFormDetails form={form} />}
-      </form>
+        {isMetaDone && <RequestFormDetails form={form} viewonly={viewonly} />}
+      </Wrapper>
     </Form>
   );
 };

@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
 import { DateTime } from "luxon";
 import type { FC } from "react";
@@ -28,42 +29,62 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { BaseRequestSection } from "./base-request-section";
 import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
 
-export type SwapSectionRequestFormProps = {
-  dataBase: BaseRequestFormSchema;
-};
-
 export const SwapSectionFormSchema = FormSchema(SwapSectionMeta);
 export type SwapSectionFormSchema = z.infer<typeof SwapSectionFormSchema>;
+
+export type SwapSectionRequestFormProps = {
+  viewonly?: boolean;
+  base: BaseRequestFormSchema;
+  default?: SwapSectionFormSchema;
+
+  className?: string;
+};
 
 export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
   props,
 ) => {
   const form = useForm<SwapSectionFormSchema>({
     resolver: zodResolver(SwapSectionFormSchema),
+    defaultValues: props.default,
   });
 
-  const { dataBase } = props;
+  const { viewonly = false, base } = props;
 
-  const course = findCourse(dataBase.course);
+  const course = findCourse(base.course);
   const fromSection = course && findSection(course, form.watch("fromSection"));
   const toSection = course && findSection(course, form.watch("toSection"));
 
   const fromDate = DateTime.fromISO(form.watch("fromDate"));
   const toDate = DateTime.fromISO(form.watch("toDate"));
 
+  console.log({
+    fromSectionRaw: form.watch("fromSection"),
+    toSectionRaw: form.watch("toSection"),
+    fromDateRaw: form.watch("fromDate"),
+    toDateRaw: form.watch("toDate"),
+    fromSection,
+    toSection,
+    fromDate,
+    toDate,
+  });
+
   const isMetaDone =
     fromSection && toSection && fromDate.isValid && toDate.isValid;
 
+  const Wrapper = viewonly ? "div" : "form";
+
   return (
     <Form {...form}>
-      <form className="grid grid-cols-12 gap-x-8 gap-y-4 m-4">
-        <div className="col-span-full grid grid-cols-12 gap-x-8 gap-y-4">
-          <BaseRequestSection data={dataBase} />
-        </div>
+      <Wrapper
+        className={clsx(
+          "grid grid-cols-12 gap-x-8 gap-y-4",
+          viewonly && "pointer-events-none",
+          props.className,
+        )}
+      >
         <FormField
           name="fromSection"
           control={form.control}
@@ -71,7 +92,11 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
             <FormItem className="col-span-2">
               <FormLabel>From Section...</FormLabel>
               <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={viewonly}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="From Section" />
                   </SelectTrigger>
@@ -98,7 +123,10 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               <FormControl>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" disabled={!fromSection}>
+                    <Button
+                      variant="outline"
+                      disabled={viewonly || !fromSection}
+                    >
                       <CalendarIcon />
                       {field.value ? (
                         DateTime.fromISO(field.value).toLocaleString()
@@ -143,7 +171,11 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
             <FormItem className="col-span-2">
               <FormLabel>To Section...</FormLabel>
               <FormControl>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={viewonly}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="From Section" />
                   </SelectTrigger>
@@ -170,7 +202,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               <FormControl>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" disabled={!toSection}>
+                    <Button variant="outline" disabled={viewonly || !toSection}>
                       <CalendarIcon />
                       {field.value ? (
                         DateTime.fromISO(field.value).toLocaleString()
@@ -247,8 +279,8 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               </div>
             );
           })()}
-        {isMetaDone && <RequestFormDetails form={form} />}
-      </form>
+        {isMetaDone && <RequestFormDetails form={form} viewonly={viewonly} />}
+      </Wrapper>
     </Form>
   );
 };

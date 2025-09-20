@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import type { UseFormReturn } from "react-hook-form";
 import { type RequestDetails, RequestDetailsProofAccept } from "service/models";
 import {
@@ -15,6 +16,7 @@ export type RequestFormDetailsProps<
   TContext = unknown,
   TTransformedValues = TFieldValues,
 > = {
+  viewonly?: boolean;
   form: UseFormReturn<TFieldValues, TContext, TTransformedValues>;
 };
 
@@ -23,6 +25,7 @@ export function RequestFormDetails<
   TContext,
   TTransformedValues extends TFieldValues,
 >(props: RequestFormDetailsProps<TFieldValues, TContext, TTransformedValues>) {
+  const viewonly = props.viewonly ?? false;
   const form = props.form as unknown as UseFormReturn<
     { details: RequestDetails },
     TContext,
@@ -35,10 +38,12 @@ export function RequestFormDetails<
         name={"details.reason"}
         control={form.control}
         render={({ field }) => (
-          <FormItem className="col-span-full">
+          <FormItem
+            className={clsx("col-span-full", viewonly && "pointer-events-none")}
+          >
             <FormLabel>Reason</FormLabel>
             <FormControl>
-              <Textarea {...field} />
+              <Textarea {...field} disabled={viewonly} />
             </FormControl>
             <FormDescription>
               Please provide a brief explanation/justification for your request
@@ -51,7 +56,9 @@ export function RequestFormDetails<
         name="details.proof"
         control={form.control}
         render={({ field }) => (
-          <FormItem className="col-span-full">
+          <FormItem
+            className={clsx("col-span-full", viewonly && "pointer-events-none")}
+          >
             <FormLabel>Proof Documentation(s)</FormLabel>
             <FormControl>
               <div>
@@ -64,6 +71,7 @@ export function RequestFormDetails<
                   type="file"
                   accept={RequestDetailsProofAccept.join(",")}
                   multiple
+                  disabled={viewonly}
                 />
               </div>
             </FormControl>

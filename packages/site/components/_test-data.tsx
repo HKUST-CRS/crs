@@ -1,4 +1,74 @@
-import type { Course, CourseId, User } from "service/models";
+import type { Course, CourseId, Request, User } from "service/models";
+
+export const Requests: Request[] = [
+  {
+    id: "1",
+    type: "Swap Section",
+    course: {
+      code: "COMP 1023",
+      term: "2510",
+    },
+    from: "yhliaf@connect.ust.hk",
+    details: {
+      reason: "Clash with another course",
+      proof: [],
+    },
+    metadata: {
+      fromSection: "L1",
+      toSection: "L1",
+      fromDate: "2024-09-01",
+      toDate: "2024-12-15",
+    },
+    response: null,
+    timestamp: "2025-09-20T10:00:00+08:00",
+  },
+  {
+    id: "2",
+    type: "Swap Section",
+    course: {
+      code: "COMP 1023",
+      term: "2510",
+    },
+    from: "yhliaf@connect.ust.hk",
+    details: {
+      reason: "Clash with another course",
+      proof: [],
+    },
+    metadata: {
+      fromSection: "L1",
+      toSection: "L1",
+      fromDate: "2024-09-02",
+      toDate: "2024-12-16",
+    },
+    response: {
+      decision: "Approve",
+      from: "desmond@ust.hk",
+      remarks:
+        "Approved. Please contact the instructor of the new section for further arrangement.",
+      timestamp: "2025-09-21T10:00:00+08:00",
+    },
+    timestamp: "2025-09-20T10:25:00+08:00",
+  },
+  {
+    id: "3",
+    type: "Deadline Extension",
+    course: {
+      code: "COMP 1023",
+      term: "2510",
+    },
+    from: "yhliaf@connect.ust.hk",
+    details: {
+      reason: "Clash with another course",
+      proof: [],
+    },
+    metadata: {
+      assignment: "Lab1",
+      deadline: "2024-09-26T23:59:00.000+08:00",
+    },
+    response: null,
+    timestamp: "2025-09-20T11:00:00+08:00",
+  },
+];
 
 export const Users: User[] = [
   {
@@ -87,4 +157,8 @@ export function findSection(course: Course, sectionCode: string) {
 
 export function findAssignment(course: Course, assignmentCode: string) {
   return course.assignments?.find((a) => a.code === assignmentCode);
+}
+
+export function findRequest(id: string) {
+  return Requests.find((r) => r.id === id);
 }

@@ -2,22 +2,26 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
+import { DateTime } from "luxon";
+import type { Request, Response } from "service/models";
+import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
-
-// Placeholder type.
-// TODO: replace with actual Request from packages/service
-export type Request = {
-  id: string;
-  type: string;
-  course: string;
-  time: string;
-  response: boolean;
-};
 
 export const columns: ColumnDef<Request>[] = [
   {
-    accessorKey: "id",
-    header: "ID",
+    accessorKey: "from",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
+        >
+          From
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
   },
   {
     accessorKey: "type",
@@ -26,34 +30,55 @@ export const columns: ColumnDef<Request>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
         >
           Type
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
+    cell: ({ row }) => {
+      return <div className="font-medium">{row.original.type}</div>;
+    },
   },
   {
     accessorKey: "course",
+    accessorFn: (row) => `${row.course.code} (${row.course.term})`,
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
         >
           Course
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
+    sortingFn: (rowA, rowB) => {
+      // Sort:
+      // 1. by course code (lexicographically)
+      // 2. by term (numerically, descending)
+      if (rowA.original.course.code !== rowB.original.course.code) {
+        return rowA.original.course.code > rowB.original.course.code ? 1 : -1;
+      }
+      return parseInt(rowA.original.course.term, 10) <
+        parseInt(rowB.original.course.term, 10)
+        ? 1
+        : -1;
+    },
   },
   {
     accessorKey: "time",
+    accessorFn: (row) =>
+      DateTime.fromISO(row.timestamp).toLocaleString(DateTime.DATETIME_MED),
     header: ({ column }) => {
       return (
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
         >
           Time
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -63,6 +88,43 @@ export const columns: ColumnDef<Request>[] = [
   },
   {
     accessorKey: "response",
-    header: "Status",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
+        >
+          Status
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      const response = row.original.response;
+      return response ? (
+        response.decision ? (
+          <span>
+            <span className="text-green-800">Approved</span>{" "}
+            <span>({response.from})</span>
+          </span>
+        ) : (
+          <span>
+            <span className="text-red-800">Rejected</span>{" "}
+            <span>({response.from})</span>
+          </span>
+        )
+      ) : (
+        <span className="text-yellow-800">Pending</span>
+      );
+    },
+    sortingFn: (rowA, rowB) => {
+      function toStatus(r: Response | null) {
+        return r ? (r.decision ? "approved" : "rejected") : "pending";
+      }
+      return toStatus(rowA.original.response) > toStatus(rowB.original.response)
+        ? 1
+        : -1;
+    },
   },
 ];
