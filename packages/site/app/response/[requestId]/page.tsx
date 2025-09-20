@@ -1,5 +1,5 @@
 import { findRequest } from "@/components/_test-data";
-import ResponseForm from "../../../components/requests/response-form";
+import ResponseForm from "@/components/requests/response-form";
 
 export default async function ({
   params,
