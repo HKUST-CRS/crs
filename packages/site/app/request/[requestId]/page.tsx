@@ -17,7 +17,7 @@ export default async function ({
   }
 
   return (
-    <article className="max-w-4xl mx-auto flex flex-col items-center justify-center h-screen">
+    <article className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen">
       <h2>View Request</h2>
       <ResponseForm request={request} viewonly />
     </article>
