@@ -1,6 +1,7 @@
-import type { ObjectId, InsertOneResult, UpdateResult } from 'mongodb'
+import type { ObjectId, InsertOneResult, UpdateResult, WithId } from 'mongodb'
 import type { Collections } from '../db'
-import type { Request, Response } from '../models'
+import { Request, type Response } from '../models'
+import { CourseNotFound, RequestNotFound, RequestHasResponse, UserNotFound } from './util'
 
 export class RequestService {
   private collections: Collections
@@ -9,13 +10,28 @@ export class RequestService {
   }
 
   async createRequest(data: Request): Promise<InsertOneResult<Request>> {
+    const user = await this.collections.users.findOne({ email: data.from.email })
+    if (!user) throw UserNotFound(data.from)
+    const course = await this.collections.courses.findOne({
+      code: data.course.code,
+      term: data.course.term,
+    })
+    if (!course) throw CourseNotFound(data.course)
     return await this.collections.requests.insertOne(data)
   }
 
-  async addResponse(requestId: ObjectId, response: Response): Promise<UpdateResult<Request>> {
+  async getRequest(requestId: ObjectId): Promise<WithId<Request>> {
     const request = await this.collections.requests.findOne({ _id: requestId })
-    if (!request) throw new Error('Request not found')
-    if (request.response) throw new Error('Request already has a response')
+    if (!request) throw RequestNotFound(requestId)
+    return request
+  }
+
+  async addResponse(requestId: ObjectId, response: Response): Promise<UpdateResult<Request>> {
+    const user = await this.collections.users.findOne({ email: response.from.email })
+    if (!user) throw UserNotFound(response.from)
+    const request = await this.collections.requests.findOne({ _id: requestId })
+    if (!request) throw RequestNotFound(requestId)
+    if (request.response) throw RequestHasResponse(requestId)
     return await this.collections.requests.updateOne(
       { _id: requestId },
       { $set: { response } },

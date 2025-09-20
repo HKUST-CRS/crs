@@ -1,6 +1,7 @@
 import type { WithId, InsertOneResult, UpdateResult } from 'mongodb'
 import type { Collections } from '../db'
 import type { Course, CourseId, Request } from '../models'
+import { CourseNotFound } from './util'
 
 export class CourseService {
   private collections: Collections
@@ -14,7 +15,7 @@ export class CourseService {
 
   async getCourse(courseId: CourseId): Promise<WithId<Course>> {
     const course = await this.collections.courses.findOne(courseId)
-    if (!course) throw new Error(`Course ${courseId.code} (${courseId.term}) not found`)
+    if (!course) throw CourseNotFound(courseId)
     return course
   }
 
