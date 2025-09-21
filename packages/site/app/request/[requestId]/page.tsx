@@ -18,7 +18,7 @@ export default async function ({
 
   return (
     <article className="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-screen">
-      <h2>View Request</h2>
+      <h3 className="typo-h3">View Request</h3>
       <ResponseForm request={request} viewonly />
     </article>
   );
