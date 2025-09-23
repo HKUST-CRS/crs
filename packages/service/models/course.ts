@@ -26,8 +26,8 @@ export const Course = z.object({
       }),
     schedule: z.array(z.object({
       day: z.number().min(1).max(7),
-      from: z.string(),
-      to: z.string(),
+      from: z.iso.time(),
+      to: z.iso.time(),
     })),
   })),
   assignments: z.array(z.object({
