@@ -55,16 +55,16 @@ describe('RequestService', () => {
     instructorInDb = mockDataGen.makeNewUser()
     await userService.createUser(instructorInDb)
     // add a mock course to the db for request tests
-    courseInDb = mockDataGen.makeNewCourse({ sections: ['L1', 'L2', 'T1', 'T2'] })
+    courseInDb = mockDataGen.makeNewCourse()
     await courseService.createCourse(courseInDb)
     // register the student and instructor to the course
-    await userService.updateEnrollment({ email: studentInDb.email }, [{
+    await userService.updateEnrollment(studentInDb.email, [{
       role: 'student',
       sections: ['L1', 'T1'],
       code: courseInDb.code,
       term: courseInDb.term,
     }])
-    await userService.updateEnrollment({ email: studentInDb.email }, [{
+    await userService.updateEnrollment(studentInDb.email, [{
       role: 'instructor',
       sections: ['L1', 'T1'],
       code: courseInDb.code,
@@ -73,7 +73,7 @@ describe('RequestService', () => {
     // initialize request data
     request = {
       type: 'Swap Section',
-      from: { email: studentInDb.email },
+      from: studentInDb.email,
       course: { code: courseInDb.code, term: courseInDb.term },
       details: {
         reason: 'Schedule conflict with another course',
@@ -98,7 +98,7 @@ describe('RequestService', () => {
     })
 
     test('should throw error when user not found', async () => {
-      const invalidRequest = { ...request, from: { email: 'dne@test.com' } }
+      const invalidRequest = { ...request, from: 'dne@test.com' }
       try {
         await requestService.createRequest(invalidRequest)
         expect.unreachable('Should have thrown an error')
@@ -151,10 +151,10 @@ describe('RequestService', () => {
 
     beforeEach(() => {
       response = {
-        from: { email: instructorInDb.email },
+        from: instructorInDb.email,
         timestamp: new Date().toISOString(),
-        approved: true,
-        remark: 'Request approved',
+        decision: 'Approve',
+        remarks: 'Request approved',
       }
     })
 
@@ -169,7 +169,7 @@ describe('RequestService', () => {
     test('should throw error when responder not found', async () => {
       const createResult = await requestService.createRequest(request)
       const requestId = createResult.insertedId
-      const invalidResponse = { ...response, from: { email: 'dne@test.com' } }
+      const invalidResponse = { ...response, from: 'dne@test.com' }
       try {
         await requestService.addResponse(requestId, invalidResponse)
         expect.unreachable('Should have thrown an error')
@@ -197,7 +197,7 @@ describe('RequestService', () => {
       await requestService.addResponse(requestId, response)
       const secondResponse: Response = {
         ...response,
-        approved: false,
+        decision: 'Reject',
       }
       try {
         await requestService.addResponse(requestId, secondResponse)

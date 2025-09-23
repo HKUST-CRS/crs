@@ -10,7 +10,7 @@ export class RequestService {
   }
 
   async createRequest(data: Request): Promise<InsertOneResult<Request>> {
-    const user = await this.collections.users.findOne({ email: data.from.email })
+    const user = await this.collections.users.findOne({ email: data.from })
     if (!user) throw UserNotFound(data.from)
     const course = await this.collections.courses.findOne({
       code: data.course.code,
@@ -27,7 +27,7 @@ export class RequestService {
   }
 
   async addResponse(requestId: ObjectId, response: Response): Promise<UpdateResult<Request>> {
-    const user = await this.collections.users.findOne({ email: response.from.email })
+    const user = await this.collections.users.findOne({ email: response.from })
     if (!user) throw UserNotFound(response.from)
     const request = await this.collections.requests.findOne({ _id: requestId })
     if (!request) throw RequestNotFound(requestId)

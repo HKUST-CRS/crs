@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 import type { UserId, CourseId } from '../models'
 
 export function UserNotFound(userId: UserId) {
-  return new Error(`User ${userId.email} not found`)
+  return new Error(`User ${userId} not found`)
 }
 
 export function CourseNotFound(courseId: CourseId) {

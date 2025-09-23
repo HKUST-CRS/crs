@@ -68,7 +68,10 @@ describe('CourseService', () => {
   describe('updateSections', () => {
     test('should update course sections successfully', async () => {
       await courseService.createCourse(course)
-      const newSections = ['L1', 'L2', 'L3', 'T1', 'T2', 'T3']
+      const newSections = [
+        { code: 'L1', schedule: [{ day: 1, from: '09:00', to: '10:30' }] },
+        { code: 'LA1', schedule: [{ day: 4, from: '13:00', to: '15:00' }] },
+      ]
       const result = await courseService.updateSections(course, newSections)
       expect(result.acknowledged).toBe(true)
       expect(result.modifiedCount).toBe(1)

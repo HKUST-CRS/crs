@@ -5,7 +5,7 @@ export class MockDataGenerator {
   private userCount = 0
 
   makeNewUserId(): UserId {
-    const newId = { email: `user${this.userCount.toString()}@test.com` }
+    const newId = `user${this.userCount.toString()}@test.com`
     this.userCount += 1
     return newId
   }
@@ -19,8 +19,8 @@ export class MockDataGenerator {
   makeNewUser(overrides?: Partial<User>): User {
     const userId = this.makeNewUserId()
     return {
-      email: userId.email,
-      name: `User ${userId.email}`,
+      email: userId,
+      name: `User ${userId}`,
       enrollment: [],
       ...overrides,
     }
@@ -32,11 +32,17 @@ export class MockDataGenerator {
       code: courseId.code,
       term: courseId.term,
       title: `Course Title ${courseId.code}`,
-      sections: ['L1', 'L2', 'T1', 'T2'],
+      sections: [
+        { code: 'L1', schedule: [{ day: 1, from: '10:30', to: '12:00' }] },
+        { code: 'L2', schedule: [{ day: 2, from: '10:30', to: '12:00' }] },
+        { code: 'T1', schedule: [{ day: 3, from: '14:00', to: '15:00' }] },
+        { code: 'T2', schedule: [{ day: 3, from: '14:00', to: '15:00' }] },
+      ],
       effectiveRequestTypes: {
         'Swap Section': true,
         'Deadline Extension': false,
       },
+      assignments: [],
       ...overrides,
     }
   }

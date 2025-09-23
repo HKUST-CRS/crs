@@ -19,7 +19,7 @@ describe('UserService', () => {
   let courseService: CourseService
 
   let user: User
-  let userId: { email: User['email'] }
+  let userId: User['email']
 
   beforeAll(async () => {
     testConn = await getTestConn()
@@ -36,7 +36,7 @@ describe('UserService', () => {
   beforeEach(async () => {
     await testConn.clear()
     user = mockDataGen.makeNewUser()
-    userId = { email: user.email }
+    userId = user.email
   })
 
   describe('createUser', () => {
@@ -70,13 +70,13 @@ describe('UserService', () => {
   describe('updateEnrollment', () => {
     let course: Course
     let userInDb: User
-    let userInDbId: { email: User['email'] }
+    let userInDbId: User['email']
 
     beforeEach(async () => {
       await userService.createUser(user)
       userInDb = await userService.getUser(userId)
-      userInDbId = { email: userInDb.email }
-      course = mockDataGen.makeNewCourse({ sections: ['L1', 'L2', 'T1', 'T2'] })
+      userInDbId = userInDb.email
+      course = mockDataGen.makeNewCourse()
     })
 
     test('should update user enrollment successfully', async () => {

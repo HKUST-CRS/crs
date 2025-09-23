@@ -14,7 +14,7 @@ export class UserService {
   }
 
   async getUser(userId: UserId): Promise<WithId<User>> {
-    const user = await this.collections.users.findOne(userId)
+    const user = await this.collections.users.findOne({ email: userId })
     if (!user) throw UserNotFound(userId)
     return user
   }
@@ -27,13 +27,13 @@ export class UserService {
       })
       if (!course) throw CourseNotFound(inputCourse)
       for (const inputSection of inputCourse.sections) {
-        if (!course.sections.includes(inputSection)) {
+        if (!course.sections.map(course => course.code).includes(inputSection)) {
           throw SectionNotFound(inputCourse, inputSection)
         }
       }
     }
     return await this.collections.users.updateOne(
-      userId,
+      { email: userId },
       { $set: { enrollment } },
     )
   }

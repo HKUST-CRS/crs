@@ -44,27 +44,27 @@ describe('RequestQuery', () => {
     }
     // add a mock course to the db for request tests
     const coursesInDb = [
-      mockDataGen.makeNewCourse({ code: 'COMP 1023', term: '2510', sections: ['L1', 'L2'] }),
-      mockDataGen.makeNewCourse({ code: 'COMP 2011', term: '2510', sections: ['L1', 'L2'] }),
-      mockDataGen.makeNewCourse({ code: 'COMP 2012', term: '2510', sections: ['L1', 'L2'] }),
+      mockDataGen.makeNewCourse({ code: 'COMP 1023', term: '2510' }),
+      mockDataGen.makeNewCourse({ code: 'COMP 2011', term: '2510' }),
+      mockDataGen.makeNewCourse({ code: 'COMP 2012', term: '2510' }),
     ]
     for (const course of coursesInDb) {
       await courseService.createCourse(course)
     }
     // register the students and instructors to the course
-    await userService.updateEnrollment({ email: 'student0@connect.ust.hk' }, [{
+    await userService.updateEnrollment('student0@connect.ust.hk', [{
       role: 'student', sections: ['L1'], code: 'COMP 1023', term: '2510',
     }])
-    await userService.updateEnrollment({ email: 'student1@connect.ust.hk' }, [{
+    await userService.updateEnrollment('student1@connect.ust.hk', [{
       role: 'student', sections: ['L2'], code: 'COMP 2011', term: '2510',
     }])
-    await userService.updateEnrollment({ email: 'student2@connect.ust.hk' }, [{
+    await userService.updateEnrollment('student2@connect.ust.hk', [{
       role: 'student', sections: ['L1'], code: 'COMP 2011', term: '2510',
     }])
     // initialize request data
     await requestService.createRequest({
       type: 'Swap Section',
-      from: { email: 'student0@connect.ust.hk' },
+      from: 'student0@connect.ust.hk',
       course: { code: 'COMP 1023', term: '2510' },
       details: {
         reason: 'Request 1',
@@ -81,7 +81,7 @@ describe('RequestQuery', () => {
     })
     await requestService.createRequest({
       type: 'Swap Section',
-      from: { email: 'student1@connect.ust.hk' },
+      from: 'student1@connect.ust.hk',
       course: { code: 'COMP 2011', term: '2510' },
       details: {
         reason: 'Request 2',
@@ -117,7 +117,7 @@ describe('RequestQuery', () => {
 
   describe('getUserRequests', () => {
     test('should return correct user requests', async () => {
-      const requests = await userService.getUserRequests({ email: 'student0@connect.ust.hk' })
+      const requests = await userService.getUserRequests('student0@connect.ust.hk')
       expect(requests).toHaveLength(1)
       const request = requests[0]
       expect(request).toBeDefined()
@@ -127,7 +127,7 @@ describe('RequestQuery', () => {
     })
 
     test('should return empty array when no requests exist', async () => {
-      const requests = await userService.getUserRequests({ email: 'student2@connect.ust.hk' })
+      const requests = await userService.getUserRequests('student2@connect.ust.hk')
       expect(requests).toHaveLength(0)
     })
   })
