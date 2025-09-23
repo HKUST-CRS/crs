@@ -1,11 +1,11 @@
 import * as mongoDB from 'mongodb'
 import * as dotenv from 'dotenv'
-import type { User, Course, Request } from '../models'
+import type { User, Course, Request, NoId } from '../models'
 
 export interface Collections {
   users: mongoDB.Collection<User>
   courses: mongoDB.Collection<Course>
-  requests: mongoDB.Collection<Request>
+  requests: mongoDB.Collection<NoId<Request>>
 }
 
 export class DbConn {
@@ -36,7 +36,7 @@ export class DbConn {
     return {
       users: this._db.collection<User>('users'),
       courses: this._db.collection<Course>('courses'),
-      requests: this._db.collection<Request>('requests'),
+      requests: this._db.collection<NoId<Request>>('requests'),
     }
   }
 

@@ -14,9 +14,9 @@ export function SectionNotFound(courseId: CourseId, section: string) {
 }
 
 export function RequestNotFound(requestId: ObjectId) {
-  return new Error(`Request ${requestId.toString()} not found`)
+  return new Error(`Request ${requestId.toHexString()} not found`)
 }
 
 export function RequestHasResponse(requestId: ObjectId) {
-  return new Error(`Request ${requestId.toString()} already has a response`)
+  return new Error(`Request ${requestId.toHexString()} already has a response`)
 }

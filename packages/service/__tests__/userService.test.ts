@@ -41,9 +41,7 @@ describe('UserService', () => {
 
   describe('createUser', () => {
     test('should create a student user successfully', async () => {
-      const result = await userService.createUser(user)
-      expect(result.acknowledged).toBe(true)
-      expect(result.insertedId).toBeDefined()
+      await userService.createUser(user)
     })
   })
 
@@ -51,7 +49,7 @@ describe('UserService', () => {
     test('should get user by email', async () => {
       await userService.createUser(user)
       const foundUser = await userService.getUser(userId)
-      expect(foundUser).toEqual({ _id: foundUser._id, ...user })
+      expect(foundUser).toEqual(user)
     })
 
     test('should throw error when user not found', async () => {
@@ -89,9 +87,7 @@ describe('UserService', () => {
           sections: ['L1', 'T1'],
         },
       ]
-      const result = await userService.updateEnrollment(userInDbId, enrollment)
-      expect(result.acknowledged).toBe(true)
-      expect(result.modifiedCount).toBe(1)
+      await userService.updateEnrollment(userInDbId, enrollment)
       const updatedUser = await userService.getUser(userInDbId)
       expect(updatedUser.enrollment).toEqual(enrollment)
     })

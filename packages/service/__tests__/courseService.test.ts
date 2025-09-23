@@ -39,9 +39,7 @@ describe('CourseService', () => {
 
   describe('createCourse', () => {
     test('should create a course successfully', async () => {
-      const result = await courseService.createCourse(course)
-      expect(result.acknowledged).toBe(true)
-      expect(result.insertedId).toBeDefined()
+      await courseService.createCourse(course)
     })
   })
 
@@ -49,7 +47,7 @@ describe('CourseService', () => {
     test('should get course by id', async () => {
       await courseService.createCourse(course)
       const foundCourse = await courseService.getCourse(courseId)
-      expect(foundCourse).toEqual({ _id: foundCourse._id, ...course })
+      expect(foundCourse).toEqual(course)
     })
 
     test('should throw error when course not found', async () => {
@@ -72,9 +70,7 @@ describe('CourseService', () => {
         { code: 'L1', schedule: [{ day: 1, from: '09:00', to: '10:30' }] },
         { code: 'LA1', schedule: [{ day: 4, from: '13:00', to: '15:00' }] },
       ]
-      const result = await courseService.updateSections(course, newSections)
-      expect(result.acknowledged).toBe(true)
-      expect(result.modifiedCount).toBe(1)
+      await courseService.updateSections(course, newSections)
       const updatedCourse = await courseService.getCourse(courseId)
       expect(updatedCourse.sections).toEqual(newSections)
     })
@@ -87,9 +83,7 @@ describe('CourseService', () => {
         'Swap Section': false,
         'Deadline Extension': true,
       }
-      const result = await courseService.setEffectiveRequestTypes(courseId, newRequestTypes)
-      expect(result.acknowledged).toBe(true)
-      expect(result.modifiedCount).toBe(1)
+      await courseService.setEffectiveRequestTypes(courseId, newRequestTypes)
       const updatedCourse = await courseService.getCourse(courseId)
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes)
     })

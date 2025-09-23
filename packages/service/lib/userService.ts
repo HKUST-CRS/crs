@@ -1,6 +1,5 @@
-import type { WithId, InsertOneResult, UpdateResult } from 'mongodb'
 import type { Collections } from '../db'
-import type { User, UserId, Request } from '../models'
+import { User, type UserId, Request } from '../models'
 import { CourseNotFound, UserNotFound, SectionNotFound } from './util'
 
 export class UserService {
@@ -9,17 +8,18 @@ export class UserService {
     this.collections = collection
   }
 
-  async createUser(data: User): Promise<InsertOneResult<User>> {
-    return await this.collections.users.insertOne(data)
+  async createUser(data: User): Promise<void> {
+    const result = await this.collections.users.insertOne(data)
+    if (!result.acknowledged) throw new Error('Failed to create user')
   }
 
-  async getUser(userId: UserId): Promise<WithId<User>> {
+  async getUser(userId: UserId): Promise<User> {
     const user = await this.collections.users.findOne({ email: userId })
     if (!user) throw UserNotFound(userId)
     return user
   }
 
-  async updateEnrollment(userId: UserId, enrollment: User['enrollment']): Promise<UpdateResult<User>> {
+  async updateEnrollment(userId: UserId, enrollment: User['enrollment']): Promise<void> {
     for (const inputCourse of enrollment) {
       const course = await this.collections.courses.findOne({
         code: inputCourse.code,
@@ -32,15 +32,17 @@ export class UserService {
         }
       }
     }
-    return await this.collections.users.updateOne(
+    const result = await this.collections.users.updateOne(
       { email: userId },
       { $set: { enrollment } },
     )
+    if (result.modifiedCount === 0) throw new Error('Failed to update enrollment')
   }
 
-  async getUserRequests(userId: UserId): Promise<WithId<Request>[]> {
-    return await this.collections.requests
+  async getUserRequests(userId: UserId): Promise<Request[]> {
+    const result = await this.collections.requests
       .find({ from: userId })
       .toArray()
+    return result.map(req => Request.parse({ ...req, id: req._id.toHexString() }))
   }
 }

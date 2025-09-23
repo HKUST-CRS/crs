@@ -10,7 +10,7 @@ import { ObjectId } from 'mongodb'
 import { MockDataGenerator } from './mockData'
 import { getTestConn, TestConn } from './testDb'
 
-import type { User, Course, Response, SwapSectionRequest } from '../models'
+import { type User, type Course, Request, type Response, type SwapSectionRequest, type NoId } from '../models'
 import {
   UserService,
   CourseService,
@@ -31,7 +31,7 @@ describe('RequestService', () => {
   let studentInDb: User
   let instructorInDb: User
   let courseInDb: Course
-  let request: SwapSectionRequest
+  let request: NoId<SwapSectionRequest>
 
   beforeAll(async () => {
     testConn = await getTestConn()
@@ -92,9 +92,7 @@ describe('RequestService', () => {
 
   describe('createRequest', () => {
     test('should create a swap section request successfully', async () => {
-      const result = await requestService.createRequest(request)
-      expect(result.acknowledged).toBe(true)
-      expect(result.insertedId).toBeDefined()
+      await requestService.createRequest(request)
     })
 
     test('should throw error when user not found', async () => {
@@ -127,16 +125,15 @@ describe('RequestService', () => {
 
   describe('getRequest', () => {
     test('should get request by id', async () => {
-      const createResult = await requestService.createRequest(request)
-      const requestId = createResult.insertedId
-      const foundRequest = await requestService.getRequest(requestId)
-      expect(foundRequest).toEqual({ _id: foundRequest._id, ...request })
+      const id = await requestService.createRequest(request)
+      const foundRequest = await requestService.getRequest(id)
+      expect(foundRequest).toEqual(Request.parse({ id, ...request }))
     })
 
     test('should throw error when request not found', async () => {
       const fakeId = new ObjectId()
       try {
-        await requestService.getRequest(fakeId)
+        await requestService.getRequest(fakeId.toHexString())
         expect.unreachable('Should have thrown an error')
       }
       catch (error) {
@@ -159,19 +156,15 @@ describe('RequestService', () => {
     })
 
     test('should add response to request successfully', async () => {
-      const createResult = await requestService.createRequest(request)
-      const requestId = createResult.insertedId
-      const result = await requestService.addResponse(requestId, response)
-      expect(result.acknowledged).toBe(true)
-      expect(result.modifiedCount).toBe(1)
+      const id = await requestService.createRequest(request)
+      await requestService.addResponse(id, response)
     })
 
     test('should throw error when responder not found', async () => {
-      const createResult = await requestService.createRequest(request)
-      const requestId = createResult.insertedId
+      const id = await requestService.createRequest(request)
       const invalidResponse = { ...response, from: 'dne@test.com' }
       try {
-        await requestService.addResponse(requestId, invalidResponse)
+        await requestService.addResponse(id, invalidResponse)
         expect.unreachable('Should have thrown an error')
       }
       catch (error) {
@@ -183,7 +176,7 @@ describe('RequestService', () => {
     test('should throw error when request not found', async () => {
       const fakeId = new ObjectId()
       try {
-        await requestService.addResponse(fakeId, response)
+        await requestService.addResponse(fakeId.toHexString(), response)
         expect.unreachable('Should have thrown an error')
       }
       catch (error) {
@@ -192,21 +185,20 @@ describe('RequestService', () => {
     })
 
     test('should throw error and preserve original response when request already has response', async () => {
-      const createResult = await requestService.createRequest(request)
-      const requestId = createResult.insertedId
-      await requestService.addResponse(requestId, response)
+      const id = await requestService.createRequest(request)
+      await requestService.addResponse(id, response)
       const secondResponse: Response = {
         ...response,
         decision: 'Reject',
       }
       try {
-        await requestService.addResponse(requestId, secondResponse)
+        await requestService.addResponse(id, secondResponse)
         expect.unreachable('Should have thrown an error')
       }
       catch (error) {
-        expect((error as Error).message).toBe(RequestHasResponse(requestId).message)
+        expect((error as Error).message).toBe(RequestHasResponse(new ObjectId(id)).message)
       }
-      const requestInDb = await requestService.getRequest(requestId)
+      const requestInDb = await requestService.getRequest(id)
       expect(requestInDb.response).toEqual(response)
     })
   })

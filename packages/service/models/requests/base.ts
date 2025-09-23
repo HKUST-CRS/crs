@@ -35,6 +35,7 @@ export const Response = z.object({
 export type Response = z.infer<typeof Response>
 
 export const BaseRequest = z.object({
+  id: z.string(),
   from: UserId,
   course: CourseId,
   details: RequestDetails,
