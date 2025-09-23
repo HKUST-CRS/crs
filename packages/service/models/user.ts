@@ -25,5 +25,5 @@ export const User = z.object({
 })
 export type User = z.infer<typeof User>
 
-export const UserId = User.pick({ email: true })
+export const UserId = User.shape.email
 export type UserId = z.infer<typeof UserId>
