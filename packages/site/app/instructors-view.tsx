@@ -9,7 +9,7 @@ import TextType from "@/components/TextType";
 export default function InstructorsView() {
   const router = useRouter();
   return (
-    <article className="max-w-4xl mx-auto lg:my-64 my-32 flex flex-col gap-8">
+    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -22,10 +22,10 @@ export default function InstructorsView() {
             max: 240,
           }}
         />
-        <div className="text-xs text-gray-500">(Instructors' View)</div>
+        <div className="text-gray-500 text-xs">(Instructors' View)</div>
       </header>
       <section>
-        <p className="text-sm leading-none font-medium pb-4">
+        <p className="pb-4 font-medium text-sm leading-none">
           Received Requests
         </p>
         <DataTable

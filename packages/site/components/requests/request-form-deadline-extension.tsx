@@ -154,7 +154,7 @@ export const DeadlineExtensionRequestForm: FC<
         {isMetaDone &&
           (() => {
             return (
-              <div className="col-span-full typo-muted">
+              <div className="typo-muted col-span-full">
                 You are requesting to extend the deadline of assignment{" "}
                 <strong>
                   {assignment.code} {assignment.name}

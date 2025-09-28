@@ -1,0 +1,25 @@
+{
+  "root": false,
+  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
+  },
+  "linter": {
+    "rules": {
+      "nursery": {
+        "useSortedClasses": "error"
+      },
+      "suspicious": {
+        // This is a workaround for Tailwind CSS.
+        // https://github.com/biomejs/biome/issues/7223
+        // TODO: Once Biome releases 2.3 and we update Biome, we can remove this.
+        "noUnknownAtRules": "off"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  }
+}

@@ -8,11 +8,8 @@
     "lint:fix": "bunx --bun eslint . --fix"
   },
   "devDependencies": {
-    "@eslint/js": "^9.34.0",
-    "@stylistic/eslint-plugin": "^5.3.1",
-    "@types/bun": "latest",
-    "eslint": "^9.34.0",
-    "typescript-eslint": "^8.42.0"
+    "@biomejs/biome": "2.2.4",
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"

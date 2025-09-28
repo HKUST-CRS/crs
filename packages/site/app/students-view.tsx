@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 export default function StudentsView() {
   const router = useRouter();
   return (
-    <article className="max-w-4xl mx-auto lg:my-64 my-32 flex flex-col gap-8">
+    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -25,7 +25,7 @@ export default function StudentsView() {
             max: 240,
           }}
         />
-        <div className="text-xs text-gray-500">(Students' View)</div>
+        <div className="text-gray-500 text-xs">(Students' View)</div>
       </header>
       <section className="mx-auto">
         <Link href="/request">
@@ -35,7 +35,7 @@ export default function StudentsView() {
         </Link>
       </section>
       <section>
-        <p className="text-sm leading-none font-medium pb-4">My Requests</p>
+        <p className="pb-4 font-medium text-sm leading-none">My Requests</p>
         <DataTable
           columns={columns}
           data={Requests}

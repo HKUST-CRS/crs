@@ -163,7 +163,7 @@ body {
   @apply mt-6 border-l-2 pl-6 italic;
 }
 
-  /* wrapper around table to allow horizontal scroll */
+/* wrapper around table to allow horizontal scroll */
 @utility typo-table-wrap {
   @apply my-6 w-full overflow-y-auto;
 }

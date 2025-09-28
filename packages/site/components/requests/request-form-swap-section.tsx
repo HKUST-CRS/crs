@@ -265,7 +265,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               )
               .join(", ");
             return (
-              <div className="col-span-full typo-muted">
+              <div className="typo-muted col-span-full">
                 You are requesting to swap from section{" "}
                 <strong>{fromSection.code} </strong>on{" "}
                 <strong>

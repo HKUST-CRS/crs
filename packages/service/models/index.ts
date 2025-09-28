@@ -1,3 +1,3 @@
-export * from './user'
-export * from './course'
-export * from './requests'
+export * from "./course";
+export * from "./requests";
+export * from "./user";

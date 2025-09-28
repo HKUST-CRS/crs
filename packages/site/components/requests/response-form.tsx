@@ -46,7 +46,7 @@ export default function ResponseForm(props: ResponseFormProps) {
     <Form {...form}>
       <form
         className={clsx(
-          "grid grid-cols-12 gap-x-8 gap-y-4 m-4",
+          "m-4 grid grid-cols-12 gap-x-8 gap-y-4",
           viewonly && "pointer-events-none",
         )}
       >
@@ -102,7 +102,7 @@ export default function ResponseForm(props: ResponseFormProps) {
           )}
         />
         {!viewonly && (
-          <div className="col-span-full flex justify-end mt-4">
+          <div className="col-span-full mt-4 flex justify-end">
             <Button type="submit">Submit</Button>
           </div>
         )}
