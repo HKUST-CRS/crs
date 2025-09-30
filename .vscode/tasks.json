@@ -1,0 +1,97 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Service: Lint (Fix)",
+      "type": "shell",
+      "command": "bun run lint:fix",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/service"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Service: Lint (Fix, Unsafe)",
+      "type": "shell",
+      "command": "bun run lint:fix --unsafe",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/service"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Server: Lint (Fix)",
+      "type": "shell",
+      "command": "bun run lint:fix",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/server"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Server: Lint (Fix, Unsafe)",
+      "type": "shell",
+      "command": "bun run lint:fix --unsafe",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/server"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Server: Dev",
+      "type": "shell",
+      "command": "bun run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/server"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Server: Start",
+      "type": "shell",
+      "command": "bun run start",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/server"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Site: Lint (Fix)",
+      "type": "shell",
+      "command": "bun run lint:fix",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/site"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Site: Lint (Fix, Unsafe)",
+      "type": "shell",
+      "command": "bun run lint:fix --unsafe",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/site"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Site: Typecheck",
+      "type": "shell",
+      "command": "bun run typecheck",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/site"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Site: Dev",
+      "type": "shell",
+      "command": "bun run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/packages/site"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

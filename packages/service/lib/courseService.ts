@@ -1,6 +1,6 @@
 import type { Collections } from "../db";
-import { type Course, type CourseId, Request } from "../models";
-import { CourseNotFound } from "./util";
+import { type Course, type CourseId, Request, type UserId } from "../models";
+import { CourseNotFound, UserNotFound } from "./util";
 
 export class CourseService {
   private collections: Collections;
@@ -17,10 +17,26 @@ export class CourseService {
     }
   }
 
+  async getCourses(): Promise<Course[]> {
+    return this.collections.courses.find().toArray();
+  }
+
   async getCourse(courseId: CourseId): Promise<Course> {
     const course = await this.collections.courses.findOne(courseId);
     if (!course) throw CourseNotFound(courseId);
     return course;
+  }
+
+  async getCoursesFromEnrollment(userId: UserId): Promise<Course[]> {
+    const user = await this.collections.users.findOne({ email: userId });
+    if (!user) throw UserNotFound(userId);
+
+    const enrollment = await this.collections.courses
+      .find({
+        $or: user.enrollment.map((e) => ({ term: e.term, code: e.code })),
+      })
+      .toArray();
+    return enrollment;
   }
 
   async updateSections(

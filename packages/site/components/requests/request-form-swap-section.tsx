@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
 import { DateTime } from "luxon";
-import type { FC } from "react";
+import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { SwapSectionMeta } from "service/models";
 import type z from "zod";
-import { findCourse, findSection } from "@/components/_test-data";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -28,17 +28,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
 import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
 
-export const SwapSectionFormSchema = FormSchema(SwapSectionMeta);
+export const SwapSectionFormSchema = FormSchema(
+  "Swap Section",
+  SwapSectionMeta,
+);
 export type SwapSectionFormSchema = z.infer<typeof SwapSectionFormSchema>;
 
 export type SwapSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
   default?: SwapSectionFormSchema;
+
+  onSubmit?: (data: SwapSectionFormSchema) => void;
 
   className?: string;
 };
@@ -48,23 +54,31 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
 ) => {
   const form = useForm<SwapSectionFormSchema>({
     resolver: zodResolver(SwapSectionFormSchema),
-    defaultValues: props.default,
+    defaultValues: {
+      type: "Swap Section",
+      ...props.default,
+    },
   });
 
-  const { viewonly = false, base } = props;
+  const { viewonly = false, base, onSubmit = () => {} } = props;
 
-  const course = findCourse(base.course);
-  const fromSection = course && findSection(course, form.watch("fromSection"));
-  const toSection = course && findSection(course, form.watch("toSection"));
+  const trpc = useTRPC();
+  const courseQuery = useQuery(trpc.course.get.queryOptions(base.course));
+  const course = courseQuery.data;
 
-  const fromDate = DateTime.fromISO(form.watch("fromDate"));
-  const toDate = DateTime.fromISO(form.watch("toDate"));
+  const fromSectionCode = form.watch("meta.fromSection");
+  const fromSection = course?.sections?.[fromSectionCode];
+  const toSectionCode = form.watch("meta.toSection");
+  const toSection = course?.sections?.[toSectionCode];
+
+  const fromDate = DateTime.fromISO(form.watch("meta.fromDate"));
+  const toDate = DateTime.fromISO(form.watch("meta.toDate"));
 
   console.log({
-    fromSectionRaw: form.watch("fromSection"),
-    toSectionRaw: form.watch("toSection"),
-    fromDateRaw: form.watch("fromDate"),
-    toDateRaw: form.watch("toDate"),
+    fromSectionRaw: form.watch("meta.fromSection"),
+    toSectionRaw: form.watch("meta.toSection"),
+    fromDateRaw: form.watch("meta.fromDate"),
+    toDateRaw: form.watch("meta.toDate"),
     fromSection,
     toSection,
     fromDate,
@@ -74,7 +88,27 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
   const isMetaDone =
     fromSection && toSection && fromDate.isValid && toDate.isValid;
 
-  const Wrapper = viewonly ? "div" : "form";
+  const Wrapper = useCallback(
+    (props: { className: string; children: ReactNode }) => {
+      if (viewonly) {
+        return <div className={props.className}>{props.children}</div>;
+      } else {
+        return (
+          <form
+            className={props.className}
+            onSubmit={(e) => {
+              form.handleSubmit(onSubmit, (err) => {
+                console.error("SwapSection form submission error", err);
+              })(e);
+            }}
+          >
+            {props.children}
+          </form>
+        );
+      }
+    },
+    [viewonly, form.handleSubmit, onSubmit],
+  );
 
   return (
     <Form {...form}>
@@ -86,7 +120,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
         )}
       >
         <FormField
-          name="fromSection"
+          name="meta.fromSection"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-2">
@@ -101,13 +135,15 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     <SelectValue placeholder="From Section" />
                   </SelectTrigger>
                   <SelectContent>
-                    {course?.sections.map((section) => {
-                      return (
-                        <SelectItem key={section.code} value={section.code}>
-                          {section.code}
-                        </SelectItem>
-                      );
-                    })}
+                    {Object.entries(course?.sections || {}).map(
+                      ([code, _section]) => {
+                        return (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        );
+                      },
+                    )}
                   </SelectContent>
                 </Select>
               </FormControl>
@@ -115,7 +151,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
           )}
         />
         <FormField
-          name="fromDate"
+          name="meta.fromDate"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-4">
@@ -165,7 +201,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
           )}
         />
         <FormField
-          name="toSection"
+          name="meta.toSection"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-2">
@@ -180,13 +216,15 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     <SelectValue placeholder="From Section" />
                   </SelectTrigger>
                   <SelectContent>
-                    {course?.sections.map((section) => {
-                      return (
-                        <SelectItem key={section.code} value={section.code}>
-                          {section.code}
-                        </SelectItem>
-                      );
-                    })}
+                    {Object.entries(course?.sections ?? {}).map(
+                      ([code, _section]) => {
+                        return (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        );
+                      },
+                    )}
                   </SelectContent>
                 </Select>
               </FormControl>
@@ -194,7 +232,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
           )}
         />
         <FormField
-          name="toDate"
+          name="meta.toDate"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-4">
@@ -267,11 +305,11 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
             return (
               <div className="typo-muted col-span-full">
                 You are requesting to swap from section{" "}
-                <strong>{fromSection.code} </strong>on{" "}
+                <strong>{fromSectionCode} </strong>on{" "}
                 <strong>
                   {fromDate.toLocaleString()} ({fromSchedule})
                 </strong>{" "}
-                to section <strong>{toSection.code}</strong> on{" "}
+                to section <strong>{toSectionCode}</strong> on{" "}
                 <strong>
                   {toDate.toLocaleString()} ({toSchedule})
                 </strong>

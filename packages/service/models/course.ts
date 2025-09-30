@@ -16,12 +16,12 @@ export const Course = z
       examples: ["2510"],
     }),
     title: z.string().meta({ description: "The title of the course." }),
-    sections: z.array(
+    sections: z.record(
+      z.string().meta({
+        description: "The section code.",
+        examples: ["L1", "L01", "T1", "LA1"],
+      }),
       z.object({
-        code: z.string().meta({
-          description: "The section code.",
-          examples: ["L1", "L01", "T1", "LA1"],
-        }),
         schedule: z.array(
           z.object({
             day: z.number().min(1).max(7),
@@ -31,13 +31,13 @@ export const Course = z
         ),
       }),
     ),
-    assignments: z.array(
+    assignments: z.record(
+      z.string().meta({
+        description:
+          "The assignment code, acting as the ID for the assignment.",
+        examples: ["Lab1", "PA1"],
+      }),
       z.object({
-        code: z.string().meta({
-          description:
-            "The assignment code, acting as the ID for the assignment.",
-          examples: ["Lab1", "PA1"],
-        }),
         name: z.string().meta({ description: "The name of the assignment." }),
         due: z.iso.datetime().meta({
           description: "The due date of the assignment.",
@@ -61,3 +61,20 @@ export const CourseId = Course.pick({ code: true, term: true });
 
 export type Course = z.infer<typeof Course>;
 export type CourseId = z.infer<typeof CourseId>;
+
+export namespace Courses {
+  export function id2str(courseId: CourseId): string {
+    return `${courseId.code} @ ${courseId.term}`;
+  }
+  export function str2id(courseIdStr: string): CourseId {
+    const [code, term] = courseIdStr.split(" @ ");
+    if (code && term) {
+      return {
+        code,
+        term,
+      };
+    } else {
+      throw new Error(`Illegal course ID string: ${courseIdStr}`);
+    }
+  }
+}

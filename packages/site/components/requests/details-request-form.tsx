@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "../ui/button";
 
 export type RequestFormDetailsProps<
   TFieldValues extends { details: RequestDetails } = never,
@@ -91,6 +92,11 @@ export function RequestFormDetails<
           </FormItem>
         )}
       />
+      {!viewonly && (
+        <div className="col-span-full flex justify-end">
+          <Button type="submit">Submit</Button>
+        </div>
+      )}
     </>
   );
 }

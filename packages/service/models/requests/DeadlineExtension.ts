@@ -7,7 +7,7 @@ export const DeadlineExtensionMeta = z.object({
       "The assignment code of the assignment to extend the deadline for. ",
   }),
   deadline: z.iso
-    .datetime()
+    .datetime({ offset: true })
     .meta({ description: "The new deadline for the assignment." }),
 });
 export type DeadlineExtensionMeta = z.infer<typeof DeadlineExtensionMeta>;

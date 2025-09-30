@@ -4,14 +4,26 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "bunx --bun eslint .",
-    "lint:fix": "bunx --bun eslint . --fix"
+    "lint": "bunx --bun biome check .",
+    "lint:fix": "bunx --bun biome check . --write",
+    "typecheck": "tsc --noEmit",
+    "dev": "cd .. && bun --watch --no-clear-screen --env-file=./server/.env.development ./server/server.ts",
+    "start": "bun server.ts --env-file .env"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/cors": "^2.8.19"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@trpc/client": "^11.6.0",
+    "@trpc/server": "^11.6.0",
+    "cors": "^2.8.5",
+    "luxon": "^3.7.2",
+    "service": "workspace:*",
+    "zod": "^4.1.11"
   }
 }

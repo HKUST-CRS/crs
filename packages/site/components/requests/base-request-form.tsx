@@ -1,16 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { type FC, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { CourseId, Requests, RequestType } from "service/models";
+import { CourseId, Courses, Requests, RequestType } from "service/models";
 import z from "zod";
-import {
-  currentUser,
-  findCourse,
-  findInstructors,
-} from "@/components/_test-data";
 import {
   Form,
   FormControl,
@@ -27,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTRPC } from "@/lib/trpc-client";
 
 export const BaseRequestFormSchema = z.object({
   type: RequestType,
@@ -57,16 +54,40 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
     defaultValues: props.default,
   });
 
-  const course = form.watch("course");
+  const trpc = useTRPC();
+
+  const enrollment = useQuery(
+    trpc.course.getEnrollment.queryOptions("yhliaf@connect.ust.hk"),
+  ).data;
+
+  const courseId = form.watch("course");
   const type = form.watch("type");
 
+  const courseQuery = useQuery(
+    trpc.course.get.queryOptions(courseId, { enabled: !!courseId }),
+  );
+  const course = courseQuery.data;
+
+  const instrucotrsQuery = useQuery(
+    trpc.user.instructorsOf.queryOptions(courseId, { enabled: !!courseId }),
+  );
+  const instructors = instrucotrsQuery.data;
+
   useEffect(() => {
-    if (course && type) {
+    if (courseId && type) {
       form.handleSubmit(onSubmit)();
     }
-  }, [form.handleSubmit, onSubmit, course, type]);
+  }, [form.handleSubmit, onSubmit, courseId, type]);
 
   const Wrapper = viewonly ? "div" : "form";
+
+  console.debug({
+    props,
+    courseId,
+    type,
+    course,
+    instructors,
+  });
 
   return (
     <Form {...form}>
@@ -82,25 +103,24 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
               <FormLabel>Course & Class Section</FormLabel>
               <FormControl>
                 <Select
-                  value={field.value?.code}
-                  onValueChange={(code) => field.onChange(findCourse({ code }))}
+                  value={Courses.id2str(field.value)}
+                  onValueChange={(idStr) => {
+                    if (idStr.length) {
+                      field.onChange(Courses.str2id(idStr));
+                    }
+                  }}
                   disabled={viewonly}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Course" />
                   </SelectTrigger>
                   <SelectContent>
-                    {currentUser.enrollment.map((enrollment) => {
-                      const course = findCourse(enrollment);
-                      if (!course)
-                        throw new Error(
-                          `Course not found: ${enrollment.code} ${enrollment.term}`,
-                        );
+                    {(enrollment ?? []).map((course) => {
                       return (
-                        // TODO: filter enrollment
-                        // - for role with "student" only
-                        // - for term with current term only
-                        <SelectItem value={course.code} key={course.code}>
+                        <SelectItem
+                          key={Courses.id2str(course)}
+                          value={Courses.id2str(course)}
+                        >
                           <span>
                             <b>{course.code}</b> - {course.title}
                           </span>
@@ -124,19 +144,15 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           <FormLabel>Instructor</FormLabel>
           <FormControl>
             <div>
-              {course &&
-                findInstructors(course).map((instructor) => (
-                  <div key={instructor.email}>
-                    {instructor.name}
-                    <br />
-                    <a
-                      href={`mailto:${instructor.email}`}
-                      className="underline"
-                    >
-                      {instructor.email}
-                    </a>
-                  </div>
-                ))}
+              {instructors?.map((instructor) => (
+                <div key={instructor.email}>
+                  {instructor.name}
+                  <br />
+                  <a href={`mailto:${instructor.email}`} className="underline">
+                    {instructor.email}
+                  </a>
+                </div>
+              ))}
             </div>
           </FormControl>
           <FormDescription>

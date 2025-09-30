@@ -1,66 +1,53 @@
 import * as dotenv from "dotenv";
 import * as mongoDB from "mongodb";
-import type { Course, NoId, Request, User } from "../models";
+import type { Course, Request, User } from "../models";
 
 export interface Collections {
   users: mongoDB.Collection<User>;
   courses: mongoDB.Collection<Course>;
-  requests: mongoDB.Collection<NoId<Request>>;
+  requests: mongoDB.Collection<Request>;
 }
 
 export class DbConn {
-  private _dbConnString: string;
-  private _dbName: string;
-  protected _client: mongoDB.MongoClient | null = null;
-  protected _db: mongoDB.Db | null = null;
-  protected _collections: Collections | null = null;
+  protected client: mongoDB.MongoClient;
+  protected db: mongoDB.Db;
 
-  constructor(dbConnString: string, dbName: string) {
-    this._dbConnString = dbConnString;
-    this._dbName = dbName;
-  }
+  collections: Collections;
 
-  private async _connect(): Promise<mongoDB.Db> {
-    if (this._client && this._db) {
-      return this._db;
-    } else {
-      this._client = new mongoDB.MongoClient(this._dbConnString);
-      await this._client.connect();
-      return this._client.db(this._dbName);
-    }
-  }
-
-  async getCollections(): Promise<Readonly<Collections>> {
-    this._db ??= await this._connect();
-    return {
-      users: this._db.collection<User>("users"),
-      courses: this._db.collection<Course>("courses"),
-      requests: this._db.collection<NoId<Request>>("requests"),
+  protected constructor(client: mongoDB.MongoClient) {
+    this.client = client;
+    this.db = client.db();
+    this.collections = {
+      users: this.db.collection<User>("users"),
+      courses: this.db.collection<Course>("courses"),
+      requests: this.db.collection<Request>("requests"),
     };
+
+    this.collections.users.createIndex({ email: 1 }, { unique: true });
+    this.collections.courses.createIndex(
+      { code: 1, term: 1 },
+      { unique: true },
+    );
+    this.collections.requests.createIndex({ createdAt: -1 });
   }
 
   async close(): Promise<void> {
-    this._collections = null;
-    this._db = null;
-    if (this._client) {
-      await this._client.close();
-      this._client = null;
-    }
+    await this.client.close();
   }
 
-  static fromEnv(envPath?: string): DbConn {
-    dotenv.config({ path: envPath });
+  static async fromEnv(envPath?: string): Promise<DbConn> {
+    if (envPath) {
+      dotenv.config({ path: envPath });
+    }
 
-    const dbConnString = Bun.env.DB_CONN_STRING;
+    const dbConnString = Bun.env.MONGO_URI;
     if (!dbConnString) {
-      throw new Error("Missing DB_CONN_STRING environment variable");
+      throw new Error("Missing MONGO_URI environment variable");
     }
 
-    const dbName = Bun.env.DB_NAME;
-    if (!dbName) {
-      throw new Error("Missing DB_NAME environment variable");
-    }
+    const client = new mongoDB.MongoClient(dbConnString);
+    await client.connect();
 
-    return new DbConn(dbConnString, dbName);
+    return new DbConn(client);
   }
 }

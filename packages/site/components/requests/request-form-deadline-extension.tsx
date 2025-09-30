@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
 import { DateTime, Duration } from "luxon";
-import type { FC } from "react";
+import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { DeadlineExtensionMeta } from "service/models";
 import type z from "zod";
-import { findAssignment, findCourse } from "@/components/_test-data";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -28,11 +28,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
 import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
 
-export const DeadlineExtensionFormSchema = FormSchema(DeadlineExtensionMeta);
+export const DeadlineExtensionFormSchema = FormSchema(
+  "Deadline Extension",
+  DeadlineExtensionMeta,
+);
 export type DeadlineExtensionFormSchema = z.infer<
   typeof DeadlineExtensionFormSchema
 >;
@@ -41,6 +45,7 @@ export type DeadlineExtensionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
   default?: DeadlineExtensionFormSchema;
+  onSubmit?: (data: DeadlineExtensionFormSchema) => void;
 
   className?: string;
 };
@@ -50,19 +55,44 @@ export const DeadlineExtensionRequestForm: FC<
 > = (props) => {
   const form = useForm<DeadlineExtensionFormSchema>({
     resolver: zodResolver(DeadlineExtensionFormSchema),
-    defaultValues: props.default,
+    defaultValues: {
+      type: "Deadline Extension",
+      ...props.default,
+    },
   });
 
-  const { viewonly = false, base } = props;
+  const { viewonly = false, base, onSubmit = () => {} } = props;
 
-  const course = findCourse(base.course);
+  const trpc = useTRPC();
+  const course = useQuery(trpc.course.get.queryOptions(base.course)).data;
 
-  const assignment = course && findAssignment(course, form.watch("assignment"));
-  const deadline = DateTime.fromISO(form.watch("deadline"));
+  const assignmentCode = form.watch("meta.assignment");
+  const assignment = course?.assignments?.[assignmentCode];
 
+  const deadline = DateTime.fromISO(form.watch("meta.deadline"));
   const isMetaDone = assignment && deadline.isValid;
 
-  const Wrapper = viewonly ? "div" : "form";
+  const Wrapper = useCallback(
+    (props: { className: string; children: ReactNode }) => {
+      if (viewonly) {
+        return <div className={props.className}>{props.children}</div>;
+      } else {
+        return (
+          <form
+            className={props.className}
+            onSubmit={(e) => {
+              form.handleSubmit(onSubmit, (err) => {
+                console.error("DeadlineExtension form submission error", err);
+              })(e);
+            }}
+          >
+            {props.children}
+          </form>
+        );
+      }
+    },
+    [form.handleSubmit, onSubmit, viewonly],
+  );
 
   return (
     <Form {...form}>
@@ -70,7 +100,7 @@ export const DeadlineExtensionRequestForm: FC<
         className={clsx("grid grid-cols-12 gap-x-8 gap-y-4", props.className)}
       >
         <FormField
-          name="assignment"
+          name="meta.assignment"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-8">
@@ -85,18 +115,16 @@ export const DeadlineExtensionRequestForm: FC<
                     <SelectValue placeholder="Select Assignment" />
                   </SelectTrigger>
                   <SelectContent>
-                    {course?.assignments.map((assignment) => {
-                      return (
-                        <SelectItem
-                          key={assignment.code}
-                          value={assignment.code}
-                        >
-                          <strong>{assignment.code}</strong> {assignment.name} -
-                          Due{" "}
-                          {DateTime.fromISO(assignment.due).toLocaleString()}
-                        </SelectItem>
-                      );
-                    })}
+                    {Object.entries(course?.assignments ?? {}).map(
+                      ([code, assignment]) => {
+                        return (
+                          <SelectItem key={code} value={code}>
+                            <strong>{code}</strong> {assignment.name} - Due{" "}
+                            {DateTime.fromISO(assignment.due).toLocaleString()}
+                          </SelectItem>
+                        );
+                      },
+                    )}
                   </SelectContent>
                 </Select>
               </FormControl>
@@ -104,7 +132,7 @@ export const DeadlineExtensionRequestForm: FC<
           )}
         />
         <FormField
-          name="deadline"
+          name="meta.deadline"
           control={form.control}
           render={({ field }) => (
             <FormItem className="col-span-4">
@@ -132,7 +160,7 @@ export const DeadlineExtensionRequestForm: FC<
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
-                              DateTime.fromJSDate(date).toISODate(),
+                              DateTime.fromJSDate(date).endOf("day").toISO(),
                             );
                           }
                         }}
@@ -157,7 +185,7 @@ export const DeadlineExtensionRequestForm: FC<
               <div className="typo-muted col-span-full">
                 You are requesting to extend the deadline of assignment{" "}
                 <strong>
-                  {assignment.code} {assignment.name}
+                  {assignmentCode} {assignment.name}
                 </strong>{" "}
                 (due{" "}
                 <strong>

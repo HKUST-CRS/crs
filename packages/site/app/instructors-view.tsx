@@ -1,13 +1,17 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Requests } from "@/components/_test-data";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
+import { useTRPC } from "@/lib/trpc-client";
 
 export default function InstructorsView() {
   const router = useRouter();
+  const trpc = useTRPC();
+  const requests = useQuery(trpc.request.getAll.queryOptions());
+
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
@@ -30,7 +34,7 @@ export default function InstructorsView() {
         </p>
         <DataTable
           columns={columns}
-          data={Requests}
+          data={requests.data ?? []}
           onClick={(request) => {
             router.push(`/response/${request.id}`);
           }}

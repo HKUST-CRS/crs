@@ -1,6 +1,7 @@
+import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
-import { type NoId, Request, type Response } from "../models";
+import { Request, type RequestInit, type Response } from "../models";
 import {
   CourseNotFound,
   RequestHasResponse,
@@ -14,7 +15,7 @@ export class RequestService {
     this.collections = collection;
   }
 
-  async createRequest(data: NoId<Request>): Promise<string> {
+  async createRequest(data: RequestInit): Promise<string> {
     const user = await this.collections.users.findOne({ email: data.from });
     if (!user) throw UserNotFound(data.from);
     const course = await this.collections.courses.findOne({
@@ -22,13 +23,19 @@ export class RequestService {
       term: data.course.term,
     });
     if (!course) throw CourseNotFound(data.course);
-    const result = await this.collections.requests.insertOne(data);
+    const id = new ObjectId().toHexString();
+    const result = await this.collections.requests.insertOne({
+      id,
+      timestamp: DateTime.now().toISO(),
+      response: null,
+      ...data,
+    });
     if (!result.acknowledged) {
       throw new Error(
         `Failed to create request with data: ${JSON.stringify(data)}`,
       );
     }
-    return result.insertedId.toHexString();
+    return id;
   }
 
   async getRequest(requestId: string): Promise<Request> {
@@ -36,6 +43,14 @@ export class RequestService {
     const request = await this.collections.requests.findOne({ _id });
     if (!request) throw RequestNotFound(_id);
     return Request.parse({ ...request, id: request._id.toHexString() });
+  }
+
+  async getRequests(): Promise<Request[]> {
+    // TODO: only show requests for the user
+    const requests = await this.collections.requests.find().toArray();
+    return requests.map((request) =>
+      Request.parse({ ...request, id: request._id.toHexString() }),
+    );
   }
 
   async addResponse(requestId: string, response: Response): Promise<void> {
