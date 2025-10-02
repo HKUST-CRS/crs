@@ -4,11 +4,18 @@ import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import type { AppRouter } from "server";
 import { makeQueryClient } from "./query";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
+
+let authorization: string = "";
+export function authorize(token: string) {
+  authorization = `Bearer ${token}`;
+}
 
 let browserQueryClient: QueryClient;
 function getQueryClient() {
@@ -23,6 +30,7 @@ function getQueryClient() {
   if (!browserQueryClient) browserQueryClient = makeQueryClient();
   return browserQueryClient;
 }
+
 function getUrl() {
   // const base = (() => {
   //   if (typeof window !== "undefined") return "";
@@ -32,11 +40,22 @@ function getUrl() {
   // return `${base}/api/trpc`;
   return "http://localhost:30000";
 }
+
 export function TRPCReactProvider(
   props: Readonly<{
     children: React.ReactNode;
   }>,
 ) {
+  const path = usePathname();
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    const token = session?.account?.id_token;
+    if (token) {
+      authorize(token);
+    }
+  }, [session]);
+
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
   //       suspend because React will throw away the client on the initial
@@ -48,15 +67,25 @@ export function TRPCReactProvider(
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
           url: getUrl(),
+          headers() {
+            return {
+              Authorization: authorization,
+            };
+          },
         }),
       ],
     }),
   );
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
-        {props.children}
-      </TRPCProvider>
-    </QueryClientProvider>
-  );
+
+  if (session || path === "/login") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+          {props.children}
+        </TRPCProvider>
+      </QueryClientProvider>
+    );
+  } else {
+    return null;
+  }
 }

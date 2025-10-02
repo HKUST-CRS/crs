@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import NextAuth from "next-auth";
+import NextAuth, { type Account } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 
 function validate(email: string): boolean {
@@ -14,10 +14,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return !!(profile?.email && validate(profile.email));
     },
     async jwt({ token, account }) {
-      return { ...token, account: account };
+      if (account?.provider === "microsoft-entra-id") {
+        return { ...token, account: account };
+      }
+      return token;
     },
-    async session({ session, token }) {
-      return { ...session, account: token.account };
+    async session(params) {
+      return {
+        ...params.session,
+        account: params.token.account,
+      };
     },
     async authorized({ request, auth }) {
       const url = request.nextUrl;
@@ -33,3 +39,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+declare module "next-auth" {
+  interface Session {
+    account: Account | null;
+  }
+}

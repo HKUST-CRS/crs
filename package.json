@@ -8,6 +8,7 @@
     "concurrently": "^9.2.1"
   },
   "scripts": {
-    "dev": "concurrently --names Server,Site 'cd packages/server && bun run dev' 'cd packages/site && bun run dev'"
+    "dev": "concurrently --names Server,Site 'cd packages/server && bun run dev' 'cd packages/site && bun run dev'",
+    "lint:fix": "bunx --bun biome check --write"
   }
 }

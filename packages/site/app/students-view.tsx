@@ -16,8 +16,6 @@ export default function StudentsView() {
   const trpc = useTRPC();
   const requests = useQuery(trpc.request.getAll.queryOptions());
 
-  console.log(requests);
-
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">

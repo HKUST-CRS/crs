@@ -90,9 +90,7 @@ export default function RequestForm(props: RequestFormProps) {
               default={def}
               viewonly={viewonly}
               onSubmit={(v) => {
-                console.log("request onSubmit");
                 onSubmit(v);
-                console.log("request onSubmit done");
               }}
             />
           );

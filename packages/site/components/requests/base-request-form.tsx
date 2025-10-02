@@ -103,7 +103,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
               <FormLabel>Course & Class Section</FormLabel>
               <FormControl>
                 <Select
-                  value={Courses.id2str(field.value)}
+                  value={field.value && Courses.id2str(field.value)}
                   onValueChange={(idStr) => {
                     if (idStr.length) {
                       field.onChange(Courses.str2id(idStr));
