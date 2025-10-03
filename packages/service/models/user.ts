@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { CourseId } from "./course";
+import { Class } from "./course";
 
-const Role = z.enum(["student", "instructor", "ta"]);
+export const Role = z.enum(["student", "instructor", "ta"]);
 export type Role = z.infer<typeof Role>;
 
 export const User = z.object({
@@ -11,14 +11,8 @@ export const User = z.object({
   name: z.string().meta({ description: "The full name of the user." }),
   enrollment: z.array(
     z.object({
-      ...CourseId.shape,
+      ...Class.shape,
       role: Role,
-      sections: z.array(
-        z.string().meta({
-          description: "The section code the user is enrolled in.",
-          examples: ["L1", "L01", "T1", "LA1"],
-        }),
-      ),
     }),
   ),
 });

@@ -10,7 +10,12 @@ export const procedure = t.procedure.use(async (opts) => {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 
-  const result = await opts.next();
+  const result = await opts.next({
+    ctx: {
+      ...ctx,
+      user: ctx.user,
+    },
+  });
 
   const meta = {
     path: opts.path,

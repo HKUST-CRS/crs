@@ -1,6 +1,5 @@
 import StudentsView from "./students-view";
 
-export default function Home() {
+export default function Student() {
   return <StudentsView />;
-  // return <InstructorsView />;
 }

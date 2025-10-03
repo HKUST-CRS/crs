@@ -43,7 +43,7 @@ export const columns: ColumnDef<Request>[] = [
   },
   {
     accessorKey: "course",
-    accessorFn: (row) => `${row.course.code} (${row.course.term})`,
+    accessorFn: (row) => `${row.class.course.code} (${row.class.course.term})`,
     header: ({ column }) => {
       return (
         <Button
@@ -60,11 +60,13 @@ export const columns: ColumnDef<Request>[] = [
       // Sort:
       // 1. by course code (lexicographically)
       // 2. by term (numerically, descending)
-      if (rowA.original.course.code !== rowB.original.course.code) {
-        return rowA.original.course.code > rowB.original.course.code ? 1 : -1;
+      if (rowA.original.class.course.code !== rowB.original.class.course.code) {
+        return rowA.original.class.course.code > rowB.original.class.course.code
+          ? 1
+          : -1;
       }
-      return parseInt(rowA.original.course.term, 10) <
-        parseInt(rowB.original.course.term, 10)
+      return parseInt(rowA.original.class.course.term, 10) <
+        parseInt(rowB.original.class.course.term, 10)
         ? 1
         : -1;
     },
@@ -95,7 +97,7 @@ export const columns: ColumnDef<Request>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className={cn(column.getIsSorted() && "underline")}
         >
-          Status
+          Decision
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
@@ -103,14 +105,19 @@ export const columns: ColumnDef<Request>[] = [
     cell: ({ row }) => {
       const response = row.original.response;
       return response ? (
-        response.decision ? (
+        response.decision === "Approve" ? (
           <span>
-            <span className="text-green-800">Approved</span>{" "}
+            <span className="text-green-800">Approve</span>{" "}
+            <span>({response.from})</span>
+          </span>
+        ) : response.decision === "Reject" ? (
+          <span>
+            <span className="text-red-800">Reject</span>{" "}
             <span>({response.from})</span>
           </span>
         ) : (
           <span>
-            <span className="text-red-800">Rejected</span>{" "}
+            <span className="text-yellow-800">Unknown</span>{" "}
             <span>({response.from})</span>
           </span>
         )

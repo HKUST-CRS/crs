@@ -164,14 +164,14 @@ describe("RequestService", () => {
 
     test("should add response to request successfully", async () => {
       const id = await requestService.createRequest(request);
-      await requestService.addResponse(id, response);
+      await requestService.createResponse(id, response);
     });
 
     test("should throw error when responder not found", async () => {
       const id = await requestService.createRequest(request);
       const invalidResponse = { ...response, from: "dne@test.com" };
       try {
-        await requestService.addResponse(id, invalidResponse);
+        await requestService.createResponse(id, invalidResponse);
         expect.unreachable("Should have thrown an error");
       } catch (error) {
         const errorMessage = UserNotFound(invalidResponse.from).message;
@@ -182,7 +182,7 @@ describe("RequestService", () => {
     test("should throw error when request not found", async () => {
       const fakeId = new ObjectId();
       try {
-        await requestService.addResponse(fakeId.toHexString(), response);
+        await requestService.createResponse(fakeId.toHexString(), response);
         expect.unreachable("Should have thrown an error");
       } catch (error) {
         expect((error as Error).message).toBe(RequestNotFound(fakeId).message);
@@ -191,13 +191,13 @@ describe("RequestService", () => {
 
     test("should throw error and preserve original response when request already has response", async () => {
       const id = await requestService.createRequest(request);
-      await requestService.addResponse(id, response);
+      await requestService.createResponse(id, response);
       const secondResponse: Response = {
         ...response,
         decision: "Reject",
       };
       try {
-        await requestService.addResponse(id, secondResponse);
+        await requestService.createResponse(id, secondResponse);
         expect.unreachable("Should have thrown an error");
       } catch (error) {
         expect((error as Error).message).toBe(

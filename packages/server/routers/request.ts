@@ -1,16 +1,25 @@
-import { RequestInit } from "service/models";
+import { Request, RequestId, RequestInit } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
 
 export const routerRequest = router({
-  getAll: procedure.query(() => {
-    return services.request.getRequests();
-  }),
-  get: procedure.input(z.string()).query(async ({ input }) => {
-    return await services.request.getRequest(input);
-  }),
-  create: procedure.input(RequestInit).mutation(async ({ input }) => {
-    return await services.request.createRequest(input);
-  }),
+  get: procedure
+    .input(RequestId)
+    .output(Request)
+    .query(async ({ input }) => {
+      return await services.request.getRequest(input);
+    }),
+  getAll: procedure
+    .input(z.void())
+    .output(z.array(Request))
+    .query(({ ctx }) => {
+      return services.request.getRequests(ctx.user.email);
+    }),
+  create: procedure
+    .input(RequestInit)
+    .output(RequestId)
+    .mutation(async ({ input, ctx }) => {
+      return await services.request.createRequest(ctx.user.email, input);
+    }),
 });

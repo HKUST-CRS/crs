@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import ResponseForm from "@/components/requests/response-form";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 
 export default function ResponseDisplay({ requestId }: { requestId: string }) {
@@ -16,8 +16,23 @@ export default function ResponseDisplay({ requestId }: { requestId: string }) {
     return null;
   }
   if (requestQuery.data) {
-    return <ResponseForm request={requestQuery.data} />;
+    if (requestQuery.data.response) {
+      return (
+        <ResponseForm
+          request={requestQuery.data}
+          onSubmit={requestQuery.refetch}
+          viewonly
+        />
+      );
+    } else {
+      return (
+        <ResponseForm
+          request={requestQuery.data}
+          onSubmit={requestQuery.refetch}
+        />
+      );
+    }
   } else {
-    return <Skeleton />;
+    return <Spinner variant="ellipsis" />;
   }
 }

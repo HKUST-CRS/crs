@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { CourseId } from "../course";
+import { Class } from "../course";
 import { UserId } from "../user";
-import type { RequestType } from "./type";
+import type { RequestType } from "./RequestType";
+import { Response } from "./Response";
 
 export const RequestDetails = z.object({
   reason: z
@@ -19,9 +20,6 @@ export const RequestDetails = z.object({
           description: "The base64-encoded content of the file. ",
         }),
       }),
-      // z.file()
-      //   .max(2 * 1024 * 1024)
-      //   .mime(["image/*", "application/pdf", "text/plain"]),
     )
     .min(0)
     .max(4)
@@ -38,21 +36,17 @@ export const RequestDetailsProofAccept = [
   "text/plain",
 ];
 
-export const ResponseDecision = z.literal(["Approve", "Reject"]);
-export type ResponseDecision = z.infer<typeof ResponseDecision>;
-
-export const Response = z.object({
-  from: UserId,
-  timestamp: z.iso.datetime({ offset: true }),
-  remarks: z.string(),
-  decision: ResponseDecision,
+export const RequestId = z.string().meta({
+  description:
+    "The unique identifier for the request. " +
+    "In the current implementation, this is the automatically generated MongoDB ObjectID.",
 });
-export type Response = z.infer<typeof Response>;
+export type RequestId = z.infer<typeof RequestId>;
 
 export const BaseRequest = z.object({
-  id: z.string(),
+  id: RequestId,
   from: UserId,
-  course: CourseId,
+  class: Class,
   details: RequestDetails,
   timestamp: z.iso.datetime({ offset: true }),
   response: z.union([Response, z.null()]),

@@ -1,16 +1,43 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect } from "react";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
+import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
+import { useWindowFocus } from "@/lib/useWindowFocus";
 
 export default function InstructorsView() {
   const router = useRouter();
+
   const trpc = useTRPC();
-  const requests = useQuery(trpc.request.getAll.queryOptions());
+
+  const userQuery = useQuery(trpc.user.get.queryOptions());
+  const requestsQuery = useQuery(trpc.request.getAll.queryOptions());
+  const requests = requestsQuery.data;
+
+  const hasStudentRole = userQuery.data?.enrollment?.some((e) => {
+    return e.role === "student";
+  });
+  const hasInstructorRole = userQuery.data?.enrollment?.some((e) => {
+    return e.role === "instructor";
+  });
+
+  useEffect(() => {
+    if (hasInstructorRole !== undefined && !hasInstructorRole) {
+      router.replace("/");
+    }
+  }, [router, hasInstructorRole]);
+
+  useWindowFocus(
+    useCallback(() => {
+      requestsQuery.refetch();
+    }, [requestsQuery]),
+  );
 
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
@@ -26,19 +53,34 @@ export default function InstructorsView() {
             max: 240,
           }}
         />
-        <div className="text-gray-500 text-xs">(Instructors' View)</div>
+        <div className="text-gray-500 text-xs">
+          (Instructors' View){" "}
+          {hasStudentRole && (
+            <>
+              <br />
+              Alternatively, click for{" "}
+              <u>
+                <Link href="/">Student's View</Link>
+              </u>
+            </>
+          )}
+        </div>
       </header>
       <section>
         <p className="pb-4 font-medium text-sm leading-none">
           Received Requests
         </p>
-        <DataTable
-          columns={columns}
-          data={requests.data ?? []}
-          onClick={(request) => {
-            router.push(`/response/${request.id}`);
-          }}
-        />
+        {requests ? (
+          <DataTable
+            columns={columns}
+            data={requests}
+            onClick={(request) => {
+              router.push(`/response/${request.id}`);
+            }}
+          />
+        ) : (
+          <Spinner variant="ellipsis" />
+        )}
       </section>
     </article>
   );

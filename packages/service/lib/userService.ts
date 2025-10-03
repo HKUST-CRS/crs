@@ -1,6 +1,12 @@
 import type { Collections } from "../db";
-import { type CourseId, Request, type User, type UserId } from "../models";
-import { UserNotFound } from "./util";
+import {
+  type Class,
+  Request,
+  type Role,
+  type User,
+  type UserId,
+} from "../models";
+import { UserNotFoundError } from "./error";
 
 export class UserService {
   private collections: Collections;
@@ -15,18 +21,25 @@ export class UserService {
 
   async getUser(userId: UserId): Promise<User> {
     const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw UserNotFound(userId);
+    if (!user) throw new UserNotFoundError(userId);
     return user;
   }
 
-  async getInstructorsOf(courseId: CourseId): Promise<User[]> {
+  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
+    console.log({
+      enrollment: {
+        $elemMatch: {
+          ...clazz,
+          role,
+        },
+      },
+    });
     const users = await this.collections.users
       .find({
         enrollment: {
           $elemMatch: {
-            code: courseId.code,
-            term: courseId.term,
-            role: "instructor",
+            ...clazz,
+            role,
           },
         },
       })

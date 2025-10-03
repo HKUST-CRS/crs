@@ -1,71 +1,139 @@
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
-import { Request, type RequestInit, type Response } from "../models";
 import {
-  CourseNotFound,
-  RequestHasResponse,
-  RequestNotFound,
-  UserNotFound,
-} from "./util";
+  Classes,
+  Request,
+  type RequestId,
+  type RequestInit,
+  type ResponseInit,
+  type UserId,
+} from "../models";
+import {
+  CourseNotFoundError,
+  RequestNotFoundError,
+  ResponseAlreadyExistsError,
+  UserClassEnrollmentError,
+  UserNotFoundError,
+} from "./error";
 
 export class RequestService {
   private collections: Collections;
+
   constructor(collection: Collections) {
     this.collections = collection;
   }
 
-  async createRequest(data: RequestInit): Promise<string> {
-    const user = await this.collections.users.findOne({ email: data.from });
-    if (!user) throw UserNotFound(data.from);
+  async createRequest(from: UserId, data: RequestInit): Promise<string> {
+    const user = await this.collections.users.findOne({ email: from });
+    if (!user) throw new UserNotFoundError(from);
+
     const course = await this.collections.courses.findOne({
-      code: data.course.code,
-      term: data.course.term,
+      code: data.class.course.code,
+      term: data.class.course.term,
     });
-    if (!course) throw CourseNotFound(data.course);
+    if (!course) throw new CourseNotFoundError(data.class.course);
+
+    const enrolled = user.enrollment.some(
+      (e) => Classes.id2str(e) === Classes.id2str(data.class),
+    );
+    if (!enrolled) throw new UserClassEnrollmentError(from, data.class);
+
     const id = new ObjectId().toHexString();
     const result = await this.collections.requests.insertOne({
       id,
+      from,
       timestamp: DateTime.now().toISO(),
       response: null,
       ...data,
     });
     if (!result.acknowledged) {
-      throw new Error(
-        `Failed to create request with data: ${JSON.stringify(data)}`,
-      );
+      console.error({
+        msg: "Failed to create request",
+        from,
+        data,
+        result,
+      });
+      throw new Error(`Failed to create request.`);
     }
+
     return id;
   }
 
-  async getRequest(requestId: string): Promise<Request> {
-    const _id = new ObjectId(requestId);
-    const request = await this.collections.requests.findOne({ _id });
-    if (!request) throw RequestNotFound(_id);
-    return Request.parse({ ...request, id: request._id.toHexString() });
+  async getRequest(id: RequestId): Promise<Request> {
+    const request = await this.collections.requests.findOne({ id });
+    if (!request) throw new RequestNotFoundError(id);
+    return Request.parse({ ...request });
   }
 
-  async getRequests(): Promise<Request[]> {
-    // TODO: only show requests for the user
-    const requests = await this.collections.requests.find().toArray();
-    return requests.map((request) =>
-      Request.parse({ ...request, id: request._id.toHexString() }),
-    );
+  /**
+   * Get all requests of a user.
+   *
+   * A request is _of_ a user, if and only if, the user is the requester, or the user is an
+   * instructor of the class that the request is for.
+   *
+   * @throws UserNotFoundError if the user does not exist
+   */
+  async getRequests(userId: UserId): Promise<Request[]> {
+    const user = await this.collections.users.findOne({ email: userId });
+    if (!user) throw new UserNotFoundError(userId);
+
+    console.log(user.enrollment);
+    const requests = await this.collections.requests
+      .find({
+        $or: [
+          // If the user is the requester
+          {
+            from: userId,
+          },
+          // If the user is an instructor of the class
+          ...user.enrollment
+            .filter((clazz) => clazz.role === "instructor")
+            .map((clazz) => ({
+              class: {
+                course: clazz.course,
+                section: clazz.section,
+              },
+            })),
+        ],
+      })
+      .toArray();
+    console.log(requests);
+    return requests.map((request) => Request.parse({ ...request }));
   }
 
-  async addResponse(requestId: string, response: Response): Promise<void> {
-    const _id = new ObjectId(requestId);
-    const user = await this.collections.users.findOne({ email: response.from });
-    if (!user) throw UserNotFound(response.from);
-    const request = await this.collections.requests.findOne({ _id });
-    if (!request) throw RequestNotFound(_id);
-    if (request.response) throw RequestHasResponse(_id);
+  async createResponse(
+    uid: UserId,
+    rid: RequestId,
+    response: ResponseInit,
+  ): Promise<void> {
+    const user = await this.collections.users.findOne({ email: uid });
+    if (!user) throw new UserNotFoundError(uid);
+
+    const request = await this.collections.requests.findOne({ id: rid });
+    if (!request) throw new RequestNotFoundError(rid);
+    if (request.response) throw new ResponseAlreadyExistsError(rid);
+
     const result = await this.collections.requests.updateOne(
-      { _id },
-      { $set: { response } },
+      { id: rid },
+      {
+        $set: {
+          response: {
+            from: uid,
+            timestamp: DateTime.now().toISO(),
+            ...response,
+          },
+        },
+      },
     );
-    if (result.modifiedCount === 0) {
-      throw new Error(`Failed to add response to request ${requestId}`);
+    if (!result.acknowledged) {
+      console.error({
+        msg: "Failed to create response",
+        rid,
+        response,
+        result,
+      });
+      throw new Error(`Failed to create response.`);
     }
   }
 }

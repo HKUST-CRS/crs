@@ -1,17 +1,20 @@
 import { z } from "zod";
-
-export * from "./base";
-export * from "./DeadlineExtension";
-
-export * from "./SwapSection";
-export * from "./type";
-
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
 import { SwapSectionRequest } from "./SwapSection";
 
 export const RequestInits = [
-  DeadlineExtensionRequest.omit({ id: true, timestamp: true, response: true }),
-  SwapSectionRequest.omit({ id: true, timestamp: true, response: true }),
+  DeadlineExtensionRequest.omit({
+    id: true,
+    from: true,
+    timestamp: true,
+    response: true,
+  }),
+  SwapSectionRequest.omit({
+    id: true,
+    from: true,
+    timestamp: true,
+    response: true,
+  }),
 ] as const;
 export const Requests = [SwapSectionRequest, DeadlineExtensionRequest] as const;
 

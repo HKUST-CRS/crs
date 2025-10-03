@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { RequestType } from "./requests/type";
+import { RequestType } from "./request/RequestType";
 
 export const Course = z
   .object({
@@ -39,7 +39,7 @@ export const Course = z
       }),
       z.object({
         name: z.string().meta({ description: "The name of the assignment." }),
-        due: z.iso.datetime().meta({
+        due: z.iso.datetime({ offset: true }).meta({
           description: "The due date of the assignment.",
         }),
         maxExtension: z.iso.duration().meta({
@@ -75,6 +75,40 @@ export namespace Courses {
       };
     } else {
       throw new Error(`Illegal course ID string: ${courseIdStr}`);
+    }
+  }
+}
+
+export const SectionId = z.string().meta({
+  description: "The section code.",
+  examples: ["L1", "L01", "T1", "LA1"],
+});
+
+export const Class = z
+  .object({
+    course: CourseId,
+    section: SectionId,
+  })
+  .meta({
+    description:
+      "A (so-called) class, representing a specific section of a course.",
+  });
+
+export type Class = z.infer<typeof Class>;
+
+export namespace Classes {
+  export function id2str(clazz: Class): string {
+    return `${Courses.id2str(clazz.course)} - ${clazz.section}`;
+  }
+  export function str2id(classStr: string): Class {
+    const [courseStr, section] = classStr.split(" - ");
+    if (courseStr && section) {
+      return {
+        course: Courses.str2id(courseStr),
+        section,
+      };
+    } else {
+      throw new Error(`Illegal class string: ${classStr}`);
     }
   }
 }

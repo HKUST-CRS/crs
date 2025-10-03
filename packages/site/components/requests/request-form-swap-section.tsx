@@ -63,7 +63,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
   const { viewonly = false, base, onSubmit = () => {} } = props;
 
   const trpc = useTRPC();
-  const courseQuery = useQuery(trpc.course.get.queryOptions(base.course));
+  const courseQuery = useQuery(trpc.course.get.queryOptions(base.class.course));
   const course = courseQuery.data;
 
   const fromSectionCode = form.watch("meta.fromSection");

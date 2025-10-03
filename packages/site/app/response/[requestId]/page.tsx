@@ -1,3 +1,6 @@
+import { ChevronLeft } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import ResponseDisplay from "./response-display";
 
 export default async function ({
@@ -9,7 +12,12 @@ export default async function ({
 
   return (
     <article className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4">
-      <h3 className="typo-h3">New Response</h3>
+      <Link href="/instructor" className="self-start">
+        <Button variant="ghost" size="icon">
+          <ChevronLeft className="size-6" />
+        </Button>
+      </Link>
+      <h3 className="typo-h3">Response</h3>
       <ResponseDisplay requestId={requestId} />
     </article>
   );

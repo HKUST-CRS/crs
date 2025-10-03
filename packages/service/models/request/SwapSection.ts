@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRequestType } from "./base";
+import { createRequestType } from "./BaseRequest";
 
 export const SwapSectionMeta = z.object({
   fromSection: z

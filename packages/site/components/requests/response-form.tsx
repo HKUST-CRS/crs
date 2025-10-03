@@ -1,9 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
+import { type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { type Request, Response, ResponseDecision } from "service/models";
+import { toast } from "sonner";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useTRPC } from "@/lib/trpc-client";
 import RequestForm from "./request-form";
 
 export const ResponseFormSchema = Response.omit({
@@ -33,25 +37,73 @@ export type ResponseFormSchema = z.infer<typeof ResponseFormSchema>;
 export type ResponseFormProps = {
   viewonly?: boolean;
   request: Request;
+
+  onSubmit?: () => void;
 };
 
 export default function ResponseForm(props: ResponseFormProps) {
-  const viewonly = props.viewonly ?? false;
+  const { viewonly = false, request, onSubmit = () => {} } = props;
 
   const form = useForm<ResponseFormSchema>({
     resolver: zodResolver(ResponseFormSchema),
+    defaultValues: request.response ?? undefined,
   });
+
+  const trpc = useTRPC();
+  const createResponse = useMutation(trpc.response.create.mutationOptions());
+
+  const handleSubmit = useCallback(
+    async (data: ResponseFormSchema) => {
+      console.log({ message: "Submit Response", id: request.id, data });
+      const promise = createResponse.mutateAsync({
+        id: request.id,
+        init: data,
+      });
+      toast.promise(promise, {
+        loading: "Submitting the response...",
+        success: () => {
+          console.log({
+            message: "Submitted Response",
+            id: request.id,
+            data,
+          });
+          onSubmit();
+          return "Response submitted successfully!";
+        },
+        error: (err) =>
+          `Failed to submit response: ${err?.message ?? String(err)}`,
+      });
+    },
+    [createResponse, request.id, onSubmit],
+  );
+
+  const Wrapper = useCallback(
+    (props: { className: string; children: ReactNode }) => {
+      if (viewonly) {
+        return <div className={props.className}>{props.children}</div>;
+      } else {
+        return (
+          <form
+            className={props.className}
+            onSubmit={(e) => {
+              form.handleSubmit(handleSubmit, (err) => {
+                console.error("Response form submission error", err);
+              })(e);
+            }}
+          >
+            {props.children}
+          </form>
+        );
+      }
+    },
+    [form.handleSubmit, handleSubmit, viewonly],
+  );
 
   return (
     <Form {...form}>
-      <form
-        className={clsx(
-          "m-4 grid grid-cols-12 gap-x-8 gap-y-4",
-          viewonly && "pointer-events-none",
-        )}
-      >
+      <Wrapper className={clsx("m-4 grid grid-cols-12 gap-x-8 gap-y-4")}>
         <RequestForm
-          default={props.request}
+          default={request}
           viewonly
           className="col-span-full mb-4"
         />
@@ -89,7 +141,15 @@ export default function ResponseForm(props: ResponseFormProps) {
                   <SelectContent>
                     {[...ResponseDecision.values.values()].map((v) => (
                       <SelectItem key={v} value={v}>
-                        {v}
+                        <b>
+                          {v === "Approve" ? (
+                            <span className="text-green-800">{v}</span>
+                          ) : v === "Reject" ? (
+                            <span className="text-red-800">{v}</span>
+                          ) : (
+                            v
+                          )}
+                        </b>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -106,7 +166,7 @@ export default function ResponseForm(props: ResponseFormProps) {
             <Button type="submit">Submit</Button>
           </div>
         )}
-      </form>
+      </Wrapper>
     </Form>
   );
 }

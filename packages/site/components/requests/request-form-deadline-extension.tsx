@@ -64,7 +64,7 @@ export const DeadlineExtensionRequestForm: FC<
   const { viewonly = false, base, onSubmit = () => {} } = props;
 
   const trpc = useTRPC();
-  const course = useQuery(trpc.course.get.queryOptions(base.course)).data;
+  const course = useQuery(trpc.course.get.queryOptions(base.class.course)).data;
 
   const assignmentCode = form.watch("meta.assignment");
   const assignment = course?.assignments?.[assignmentCode];
