@@ -20,6 +20,9 @@ export const routerRequest = router({
     .input(RequestInit)
     .output(RequestId)
     .mutation(async ({ input, ctx }) => {
-      return await services.request.createRequest(ctx.user.email, input);
+      const rid = await services.request.createRequest(ctx.user.email, input);
+      const r = await services.request.getRequest(rid);
+      await services.notification.notifyNewRequest(r);
+      return rid;
     }),
 });

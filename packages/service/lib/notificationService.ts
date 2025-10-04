@@ -24,11 +24,11 @@ export class NotificationService {
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-        auth: {
-          user: Bun.env.SMTP_USER,
-          pass: Bun.env.SMTP_PASS,
-        },
-      }),
+          auth: {
+            user: Bun.env.SMTP_USER,
+            pass: Bun.env.SMTP_PASS,
+          },
+        }),
       connectionTimeout: 5000,
     });
     this.templateDir =
@@ -50,15 +50,21 @@ export class NotificationService {
     );
     const student = await this.services.user.getUser(request.from);
 
-    const instructorEmails = instructors.map(i => i.email);
-    const instructorNames = instructors.map(i => i.name).join(", ");
+    const instructorEmails = instructors.map((i) => i.email);
+    const instructorNames = instructors.map((i) => i.name).join(", ");
 
     const studentEmail = student.email;
     const studentName = student.name;
 
     const link = new URL(request.id, this.requestBaseUrl).toString();
 
-    await this.sendEmail(instructorEmails, [studentEmail], subject, "new_request.html", { link, instructorNames, studentName });
+    await this.sendEmail(
+      instructorEmails,
+      [studentEmail],
+      subject,
+      "new_request.html",
+      { link, instructorNames, studentName },
+    );
   }
 
   /**
@@ -77,27 +83,30 @@ export class NotificationService {
       request.class,
       "instructor",
     );
-    const tas = await this.services.user.getUsersFromClass(
-      request.class,
-      "ta",
-    );
+    const tas = await this.services.user.getUsersFromClass(request.class, "ta");
 
     const studentEmail = student.email;
     const studentName = student.name;
     const instructorEmail = instructor.email;
     const instructorName = instructor.name;
 
-    const instructorEmails = instructors.map(i => i.email);
-    const taEmails = tas.map(i => i.email);
+    const instructorEmails = instructors.map((i) => i.email);
+    const taEmails = tas.map((i) => i.email);
 
     const link = new URL(request.id, this.requestBaseUrl).toString();
-    await this.sendEmail([studentEmail], [instructorEmail, ...instructorEmails, ...taEmails], subject, "new_response.html", {
-      link,
-      decision: request.response.decision,
-      remarks: request.response.remarks,
-      studentName,
-      instructorName,
-    });
+    await this.sendEmail(
+      [studentEmail],
+      [instructorEmail, ...instructorEmails, ...taEmails],
+      subject,
+      "new_response.html",
+      {
+        link,
+        decision: request.response.decision,
+        remarks: request.response.remarks,
+        studentName,
+        instructorName,
+      },
+    );
   }
 
   private async renderTemplate(
