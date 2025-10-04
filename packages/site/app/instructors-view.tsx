@@ -28,10 +28,15 @@ export default function InstructorsView() {
   });
 
   useEffect(() => {
-    if (hasInstructorRole !== undefined && !hasInstructorRole) {
+    if (
+      hasStudentRole !== undefined &&
+      hasStudentRole &&
+      hasInstructorRole !== undefined &&
+      !hasInstructorRole
+    ) {
       router.replace("/");
     }
-  }, [router, hasInstructorRole]);
+  }, [router, hasStudentRole, hasInstructorRole]);
 
   useWindowFocus(
     useCallback(() => {

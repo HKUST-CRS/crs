@@ -30,10 +30,15 @@ export default function StudentsView() {
   });
 
   useEffect(() => {
-    if (hasStudentRole !== undefined && !hasStudentRole) {
+    if (
+      hasStudentRole !== undefined &&
+      !hasStudentRole &&
+      hasInstructorRole !== undefined &&
+      hasInstructorRole
+    ) {
       router.replace("/instructor");
     }
-  }, [router, hasStudentRole]);
+  }, [router, hasStudentRole, hasInstructorRole]);
 
   useWindowFocus(
     useCallback(() => {
