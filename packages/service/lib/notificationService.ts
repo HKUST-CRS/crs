@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import handlebars, { Exception } from "handlebars";
 import nodemailer from "nodemailer";
@@ -65,7 +64,8 @@ export class NotificationService {
     context: Record<string, string>,
   ): Promise<string> {
     const templatePath = path.join(this.templateDir, templateName);
-    const source = await fs.readFile(templatePath, "utf-8");
+    const templateFile = Bun.file(templatePath);
+    const source = await templateFile.text();
     const template = handlebars.compile(source);
     return template(context);
   }
