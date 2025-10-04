@@ -31,11 +31,17 @@ export class CourseService {
     const user = await this.collections.users.findOne({ email: userId });
     if (!user) throw new UserNotFoundError(userId);
 
-    const enrollment = await this.collections.courses
-      .find({
-        $or: user.enrollment.map((e) => e.course),
-      })
-      .toArray();
+    const enrollment = (
+      await Promise.all(
+        user.enrollment.map(async (e) => {
+          const course = await this.collections.courses.findOne({
+            code: e.course.code,
+            term: e.course.term,
+          });
+          return course;
+        }),
+      )
+    ).filter((c) => c !== null);
     return enrollment;
   }
 
