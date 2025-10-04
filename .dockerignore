@@ -1,0 +1,19 @@
+# Docker
+Dockerfile
+*.Dockerfile
+.dockerignore
+
+# Git
+.git
+
+# NodeJS
+node_modules
+
+# Configurations
+.github
+.vscode
+
+# Text
+README.md
+CONTRIBUTING.md
+LICENSE
