@@ -46,3 +46,10 @@ export class ResponseAlreadyExistsError extends Error {
     this.name = "ResponseAlreadyExistsError";
   }
 }
+
+export class ResponseNotFoundError extends Error {
+  constructor(requestId: RequestId) {
+    super(`Request ${requestId} does not have a response yet`);
+    this.name = "ResponseNotFoundError";
+  }
+}

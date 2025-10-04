@@ -2,24 +2,33 @@ import path from "node:path";
 import handlebars, { Exception } from "handlebars";
 import nodemailer from "nodemailer";
 import type { Request } from "../models";
+import { ResponseNotFoundError } from "./error";
+import type { UserService } from "./userService";
+
+type NotificationServiceDependencies = {
+  user: UserService;
+};
 
 export class NotificationService {
+  private services: NotificationServiceDependencies;
+
   private transporter: nodemailer.Transporter;
   private templateDir: string;
   private requestBaseUrl: URL;
 
-  constructor() {
+  constructor(services: NotificationServiceDependencies) {
+    this.services = services;
     this.transporter = nodemailer.createTransport({
       host: Bun.env.SMTP_HOST,
       port: Number(Bun.env.SMTP_PORT),
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-          auth: {
-            user: Bun.env.SMTP_USER,
-            pass: Bun.env.SMTP_PASS,
-          },
-        }),
+        auth: {
+          user: Bun.env.SMTP_USER,
+          pass: Bun.env.SMTP_PASS,
+        },
+      }),
       connectionTimeout: 5000,
     });
     this.templateDir =
@@ -29,33 +38,65 @@ export class NotificationService {
   }
 
   /**
-   * Send an email notification for a new request.
-   * @param to The emails of responsible instructors (tentative).
-   * @param cc The email of the requester (tentative).
+   * Notify the responsible instructors, and the requester, for a new request.
    * @param request The request made.
    */
-  async sendNewRequestEmail(to: string[], cc: string[], request: Request) {
-    const subject = "New Request Received in CSE Request System";
+  async notifyNewRequest(request: Request) {
+    const subject = "[CSE Request System] New Request";
+
+    const instructors = await this.services.user.getUsersFromClass(
+      request.class,
+      "instructor",
+    );
+    const student = await this.services.user.getUser(request.from);
+
+    const instructorEmails = instructors.map(i => i.email);
+    const instructorNames = instructors.map(i => i.name).join(", ");
+
+    const studentEmail = student.email;
+    const studentName = student.name;
+
     const link = new URL(request.id, this.requestBaseUrl).toString();
-    await this.sendEmail(to, cc, subject, "new_request.html", { link });
+
+    await this.sendEmail(instructorEmails, [studentEmail], subject, "new_request.html", { link, instructorNames, studentName });
   }
 
   /**
-   * Send an email notification when a request is handled.
-   * @param to The email of the requester (tentative).
-   * @param cc The emails of the instructors and TAs (tentative).
-   * @param request The request.
+   * Notify the requester, and the responsible instructors and TAs, for a new response.
+   * @param request The request on which the response is made.
    */
-  async sendRequestHandledEmail(to: string[], cc: string[], request: Request) {
+  async notifyNewResponse(request: Request) {
     if (!request.response) {
-      throw new Exception("Request does not have a response yet");
+      throw new ResponseNotFoundError(request.id);
     }
-    const subject = "Request Handled in CSE Request System";
+    const subject = "[CSE Request System] New Response";
+
+    const student = await this.services.user.getUser(request.from);
+    const instructor = await this.services.user.getUser(request.response.from);
+    const instructors = await this.services.user.getUsersFromClass(
+      request.class,
+      "instructor",
+    );
+    const tas = await this.services.user.getUsersFromClass(
+      request.class,
+      "ta",
+    );
+
+    const studentEmail = student.email;
+    const studentName = student.name;
+    const instructorEmail = instructor.email;
+    const instructorName = instructor.name;
+
+    const instructorEmails = instructors.map(i => i.email);
+    const taEmails = tas.map(i => i.email);
+
     const link = new URL(request.id, this.requestBaseUrl).toString();
-    await this.sendEmail(to, cc, subject, "request_handled.html", {
+    await this.sendEmail([studentEmail], [instructorEmail, ...instructorEmails, ...taEmails], subject, "new_response.html", {
       link,
       decision: request.response.decision,
       remarks: request.response.remarks,
+      studentName,
+      instructorName,
     });
   }
 
