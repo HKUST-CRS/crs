@@ -14,10 +14,13 @@ export class NotificationService {
       host: Bun.env.SMTP_HOST,
       port: Number(Bun.env.SMTP_PORT),
       secure: Number(Bun.env.SMTP_PORT) === 465,
-      ...(Bun.env.SMTP_USER && Bun.env.SMTP_PASS && {auth: {
-        user: Bun.env.SMTP_USER,
-        pass: Bun.env.SMTP_PASS,
-      }}),
+      ...(Bun.env.SMTP_USER &&
+        Bun.env.SMTP_PASS && {
+          auth: {
+            user: Bun.env.SMTP_USER,
+            pass: Bun.env.SMTP_PASS,
+          },
+        }),
       connectionTimeout: 5000,
     });
     this.templateDir =
