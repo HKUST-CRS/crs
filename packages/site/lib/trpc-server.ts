@@ -11,9 +11,14 @@ import type { AppRouter } from "server";
 //            will return the same client during the same request.
 export const getQueryClient = cache(makeQueryClient);
 
+const SERVER_URL = Bun.env.SERVER_URL;
+if (!SERVER_URL) {
+  throw new Error("Missing SERVER_URL environment variable");
+}
+
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: createTRPCClient({
-    links: [httpLink({ url: "http://localhost:30000" })],
+    links: [httpLink({ url: SERVER_URL })],
   }),
   queryClient: getQueryClient,
 });

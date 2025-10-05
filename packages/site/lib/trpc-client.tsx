@@ -31,21 +31,16 @@ function getQueryClient() {
   return browserQueryClient;
 }
 
-function getUrl() {
-  // const base = (() => {
-  //   if (typeof window !== "undefined") return "";
-  //   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  //   return "http://localhost:3000";
-  // })();
-  // return `${base}/api/trpc`;
-  return "http://localhost:30000";
-}
-
 export function TRPCReactProvider(
   props: Readonly<{
     children: React.ReactNode;
   }>,
 ) {
+  const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+  if (!SERVER_URL) {
+    throw new Error("Missing NEXT_PUBLIC_SERVER_URL environment variable");
+  }
+
   const path = usePathname();
   const { data: session } = useSession();
 
@@ -66,7 +61,7 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
-          url: getUrl(),
+          url: SERVER_URL,
           headers() {
             return {
               Authorization: authorization,
