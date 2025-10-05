@@ -48,12 +48,6 @@ export class RequestService {
       ...data,
     });
     if (!result.acknowledged) {
-      console.error({
-        msg: "Failed to create request",
-        from,
-        data,
-        result,
-      });
       throw new Error(`Failed to create request.`);
     }
 
@@ -78,7 +72,6 @@ export class RequestService {
     const user = await this.collections.users.findOne({ email: userId });
     if (!user) throw new UserNotFoundError(userId);
 
-    console.log(user.enrollment);
     const requests = await this.collections.requests
       .find({
         $or: [
@@ -98,7 +91,6 @@ export class RequestService {
         ],
       })
       .toArray();
-    console.log(requests);
     return requests.map((request) => Request.parse({ ...request }));
   }
 
@@ -127,12 +119,6 @@ export class RequestService {
       },
     );
     if (!result.acknowledged) {
-      console.error({
-        msg: "Failed to create response",
-        rid,
-        response,
-        result,
-      });
       throw new Error(`Failed to create response.`);
     }
   }

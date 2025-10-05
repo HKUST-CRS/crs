@@ -17,13 +17,8 @@ function validate(email: string): boolean {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [MicrosoftEntraID],
   callbacks: {
-    async signIn(params) {
-      console.log("Sign-in attempt:", params);
-      const { profile } = params;
-      console.log({
-        profile,
-        validation: profile?.email && validate(profile.email),
-      });
+    async signIn({ profile }) {
+      console.log("Sign-in attempt:", profile);
       return !!(profile?.email && validate(profile.email));
     },
     async jwt({ token, account }) {

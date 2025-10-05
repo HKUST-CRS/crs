@@ -26,14 +26,6 @@ export class UserService {
   }
 
   async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
-    console.log({
-      enrollment: {
-        $elemMatch: {
-          ...clazz,
-          role,
-        },
-      },
-    });
     const users = await this.collections.users
       .find({
         enrollment: {

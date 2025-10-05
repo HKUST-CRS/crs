@@ -24,11 +24,11 @@ export class NotificationService {
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-          auth: {
-            user: Bun.env.SMTP_USER,
-            pass: Bun.env.SMTP_PASS,
-          },
-        }),
+        auth: {
+          user: Bun.env.SMTP_USER,
+          pass: Bun.env.SMTP_PASS,
+        },
+      }),
       connectionTimeout: 5000,
     });
     this.templateDir =
@@ -128,19 +128,13 @@ export class NotificationService {
     context: Record<string, string>,
   ): Promise<void> {
     const html = await this.renderTemplate(templateName, context);
-    try {
-      await this.transporter.sendMail({
-        from: Bun.env.EMAIL_FROM,
-        sender: "CSE Request System",
-        to,
-        cc,
-        subject,
-        html,
-      });
-      console.log(`Email sent to ${to}`);
-    } catch (error) {
-      console.error("Error sending email:", error);
-      throw error;
-    }
+    await this.transporter.sendMail({
+      from: Bun.env.EMAIL_FROM,
+      sender: "CSE Request System",
+      to,
+      cc,
+      subject,
+      html,
+    });
   }
 }
