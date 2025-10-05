@@ -8,8 +8,8 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { AppRouter } from "server";
-import { makeQueryClient } from "./query";
 import { useClientServerUrl } from "./client-server-url-provider";
+import { makeQueryClient } from "./query";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 

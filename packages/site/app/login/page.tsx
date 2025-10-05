@@ -30,7 +30,9 @@ function ClientLogin() {
 }
 
 export default function Login() {
-  return <Suspense>
-    <ClientLogin />
-  </Suspense>
+  return (
+    <Suspense>
+      <ClientLogin />
+    </Suspense>
+  );
 }

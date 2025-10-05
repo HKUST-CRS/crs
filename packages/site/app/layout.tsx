@@ -25,10 +25,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const CLIENT_SERVER_URL = process.env.CLIENT_SERVER_URL;
-  if (!CLIENT_SERVER_URL) {
-    throw new Error("CLIENT_SERVER_URL is not defined");
-  }
+  // Due to Next.js's prerendering, this is undefined at build time.
+  // So it is default to an empty string. But in run time it should be defined.
+  const CLIENT_SERVER_URL = process.env.CLIENT_SERVER_URL ?? "";
   return (
     <html lang="en">
       <body
