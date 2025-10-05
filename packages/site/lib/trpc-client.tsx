@@ -9,6 +9,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { AppRouter } from "server";
 import { makeQueryClient } from "./query";
+import { useClientServerUrl } from "./client-server-url-provider";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
@@ -36,10 +37,7 @@ export function TRPCReactProvider(
     children: React.ReactNode;
   }>,
 ) {
-  const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL;
-  if (!SERVER_URL) {
-    throw new Error("Missing NEXT_PUBLIC_SERVER_URL environment variable");
-  }
+  const url = useClientServerUrl();
 
   const path = usePathname();
   const { data: session } = useSession();
@@ -61,7 +59,7 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
-          url: SERVER_URL,
+          url,
           headers() {
             return {
               Authorization: authorization,

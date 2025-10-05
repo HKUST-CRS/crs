@@ -1,13 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { connection } from "next/server";
 import { useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { login } from "./login";
 
-export default async function Login() {
-  await connection();
+function ClientLogin() {
   const search = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
@@ -29,4 +27,10 @@ export default async function Login() {
   }, [router.replace, search.get, session?.user]);
 
   return null;
+}
+
+export default function Login() {
+  return <Suspense>
+    <ClientLogin />
+  </Suspense>
 }
