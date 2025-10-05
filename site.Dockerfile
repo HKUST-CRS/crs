@@ -34,6 +34,10 @@ WORKDIR /app
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# https://authjs.dev/getting-started/deployment#self-hosted
+# https://authjs.dev/reference/core/errors#untrustedhost
+ENV AUTH_TRUST_HOST=true
+
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME="0.0.0.0"
