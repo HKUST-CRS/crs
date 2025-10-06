@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import type { AppRouter } from "server";
-import { useClientServerUrl } from "./client-server-url-provider";
 import { makeQueryClient } from "./query";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
@@ -34,15 +33,14 @@ function getQueryClient() {
 
 export function TRPCReactProvider(
   props: Readonly<{
+    url: string;
     children: React.ReactNode;
   }>,
 ) {
-  const url = useClientServerUrl();
+  console.log(`TRPCReactProvider: URL ${props.url}.`);
 
   const path = usePathname();
   const { data: session } = useSession();
-
-  console.log(`Client Server URL: ${url}`);
 
   useEffect(() => {
     const token = session?.account?.id_token;
@@ -61,7 +59,7 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
-          url,
+          url: props.url,
           headers() {
             return {
               Authorization: authorization,

@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
-import { ClientServerUrlProvider } from "@/lib/client-server-url-provider";
 import { TRPCReactProvider } from "@/lib/trpc-client";
 
 const geistSans = Geist({
@@ -28,18 +27,17 @@ export default function RootLayout({
   // Due to Next.js's prerendering, this is undefined at build time.
   // So it is default to an empty string. But in run time it should be defined.
   const CLIENT_SERVER_URL = process.env.CLIENT_SERVER_URL ?? "";
+  console.log(`RootLayout: CLIENT_SERVER_URL=${CLIENT_SERVER_URL}`);
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionProvider>
-          <ClientServerUrlProvider url={CLIENT_SERVER_URL}>
-            <TRPCReactProvider>
-              {children}
-              <Toaster position="top-center" richColors />
-            </TRPCReactProvider>
-          </ClientServerUrlProvider>
+          <TRPCReactProvider url={CLIENT_SERVER_URL}>
+            {children}
+            <Toaster position="top-center" richColors />
+          </TRPCReactProvider>
         </SessionProvider>
       </body>
     </html>
