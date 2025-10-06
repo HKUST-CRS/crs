@@ -33,12 +33,9 @@ function getQueryClient() {
 
 export function TRPCReactProvider(
   props: Readonly<{
-    url: string;
     children: React.ReactNode;
   }>,
 ) {
-  console.log(`TRPCReactProvider: URL ${props.url}.`);
-
   const path = usePathname();
   const { data: session } = useSession();
 
@@ -48,6 +45,21 @@ export function TRPCReactProvider(
       authorize(token);
     }
   }, [session]);
+
+  const [url, setUrl] = useState<string>("");
+  useEffect(() => {
+    async function updateUrl() {
+      try {
+        console.log("Fetching Client Server URL...");
+        const url = await fetch("/api/url").then((r) => r.text());
+        setUrl(url);
+        console.log(`Fetch Client Server URL: ${url}`);
+      } catch (e) {
+        console.error("Failed to fetch Client Server URL.", e);
+      }
+    }
+    updateUrl();
+  });
 
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
@@ -59,7 +71,7 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
-          url: props.url,
+          url,
           headers() {
             return {
               Authorization: authorization,
