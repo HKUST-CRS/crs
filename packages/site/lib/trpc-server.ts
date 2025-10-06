@@ -16,6 +16,8 @@ if (!SERVER_URL) {
   throw new Error("Missing SERVER_SERVER_URL environment variable");
 }
 
+console.log(`Server Server URL: ${SERVER_URL}`);
+
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: createTRPCClient({
     links: [httpLink({ url: SERVER_URL })],

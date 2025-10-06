@@ -42,6 +42,8 @@ export function TRPCReactProvider(
   const path = usePathname();
   const { data: session } = useSession();
 
+  console.log(`Client Server URL: ${url}`);
+
   useEffect(() => {
     const token = session?.account?.id_token;
     if (token) {
