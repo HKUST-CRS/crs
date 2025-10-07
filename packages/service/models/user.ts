@@ -24,8 +24,7 @@ export type UserId = z.infer<typeof UserId>;
 export namespace Users {
   export function hasRole(user: User, clazz: Class, role: Role): boolean {
     return user.enrollment.some(
-      (e) =>
-        Classes.id2str(e) === Classes.id2str(clazz) && e.role === role,
+      (e) => Classes.id2str(e) === Classes.id2str(clazz) && e.role === role,
     );
   }
 }

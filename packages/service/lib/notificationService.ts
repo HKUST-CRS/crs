@@ -14,7 +14,7 @@ export class NotificationService {
 
   private transporter: nodemailer.Transporter;
   private templateDir: string;
-  
+
   private baseUrl: string;
 
   constructor(services: NotificationServiceDependencies) {
@@ -103,7 +103,7 @@ export class NotificationService {
     const taEmails = tas.map((i) => i.email);
 
     const link = this.urlToResponse(request.id);
-    
+
     await this.sendEmail(
       [studentEmail],
       [instructorEmail, ...instructorEmails, ...taEmails],

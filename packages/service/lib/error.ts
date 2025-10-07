@@ -19,7 +19,9 @@ export class UserClassEnrollmentError extends Error {
 
 export class UserPermissionError extends Error {
   constructor(userId: UserId, role: string, clazz: Class, operation: string) {
-    super(`User ${userId} does not have the role ${role} in class ${Classes.id2str(clazz)} for ${operation}.`);
+    super(
+      `User ${userId} does not have the role ${role} in class ${Classes.id2str(clazz)} for ${operation}.`,
+    );
     this.name = "UserPermissionError";
   }
 

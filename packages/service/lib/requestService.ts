@@ -2,16 +2,12 @@ import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
 import {
-  type Class,
   Classes,
   Request,
   type RequestId,
   type RequestInit,
   type ResponseInit,
-  type Role,
-  type User,
   type UserId,
-  Users,
 } from "../models";
 import {
   CourseNotFoundError,
@@ -141,5 +137,4 @@ export class RequestService {
       throw new Error(`Failed to create response.`);
     }
   }
-
 }
