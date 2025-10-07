@@ -26,10 +26,7 @@ export class UserService {
   }
 
   async updateUserName(uid: UserId, name: string): Promise<void> {
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $set: { name } },
-    );
+    await this.collections.users.updateOne({ email: uid }, { $set: { name } });
   }
 
   async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
