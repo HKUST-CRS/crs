@@ -2,12 +2,16 @@ import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
 import {
+  type Class,
   Classes,
   Request,
   type RequestId,
   type RequestInit,
   type ResponseInit,
+  type Role,
+  type User,
   type UserId,
+  Users,
 } from "../models";
 import {
   CourseNotFoundError,
@@ -15,6 +19,7 @@ import {
   ResponseAlreadyExistsError,
   UserClassEnrollmentError,
   UserNotFoundError,
+  UserPermissionError,
 } from "./error";
 
 export class RequestService {
@@ -27,6 +32,13 @@ export class RequestService {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const user = await this.collections.users.findOne({ email: from });
     if (!user) throw new UserNotFoundError(from);
+
+    UserPermissionError.assertRole(
+      user,
+      data.class,
+      "student",
+      `create request`,
+    );
 
     const course = await this.collections.courses.findOne({
       code: data.class.course.code,
@@ -106,6 +118,13 @@ export class RequestService {
     if (!request) throw new RequestNotFoundError(rid);
     if (request.response) throw new ResponseAlreadyExistsError(rid);
 
+    UserPermissionError.assertRole(
+      user,
+      request.class,
+      "instructor",
+      `create response for request ${rid}`,
+    );
+
     const result = await this.collections.requests.updateOne(
       { id: rid },
       {
@@ -122,4 +141,5 @@ export class RequestService {
       throw new Error(`Failed to create response.`);
     }
   }
+
 }

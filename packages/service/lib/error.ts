@@ -1,5 +1,5 @@
-import { type Class, Classes, type RequestId } from "service/models";
-import type { CourseId, UserId } from "../models";
+import { type Class, Classes, type RequestId, Users } from "service/models";
+import type { CourseId, Role, User, UserId } from "../models";
 
 export class UserNotFoundError extends Error {
   constructor(userId: UserId) {
@@ -14,6 +14,19 @@ export class UserClassEnrollmentError extends Error {
       `User ${userId} is not enrolled in the class ${Classes.id2str(clazz)}`,
     );
     this.name = "UserClassEnrollmentError";
+  }
+}
+
+export class UserPermissionError extends Error {
+  constructor(userId: UserId, role: string, clazz: Class, operation: string) {
+    super(`User ${userId} does not have the role ${role} in class ${Classes.id2str(clazz)} for ${operation}.`);
+    this.name = "UserPermissionError";
+  }
+
+  static assertRole(user: User, clazz: Class, role: Role, operation: string) {
+    if (!Users.hasRole(user, clazz, role)) {
+      throw new UserPermissionError(user.email, role, clazz, operation);
+    }
   }
 }
 
