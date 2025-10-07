@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 import * as jose from "jose";
 import { JWTClaimValidationFailed } from "jose/errors";
@@ -33,39 +34,49 @@ const DEBUG_JWKS = jose.createRemoteJWKSet(new URL(JWKS(DEBUG_TENANT_ID)));
 export async function createContext({ req }: CreateHTTPContextOptions) {
   async function auth() {
     const authHeader = req.headers.authorization;
-    if (authHeader?.startsWith("Bearer ")) {
-      const token = authHeader.replace(/^Bearer /, "");
-      try {
-        const { payload } = await jose.jwtVerify(token, HKUST_JWKS, {
-          audience: ID,
-          issuer: HKUST_ISSUER,
-        });
-        return {
-          email: String(payload.email),
-          name: String(payload.name),
-        };
-      } catch (outer) {
-        if (outer instanceof JWTClaimValidationFailed) {
-          // Try Debug Tenant
-          try {
-            const { payload } = await jose.jwtVerify(token, DEBUG_JWKS, {
-              audience: ID,
-              issuer: DEBUG_ISSUER,
-            });
-            return {
-              email: String(payload.email),
-              name: String(payload.name),
-            };
-          } catch (inner) {
-            console.info("Failed to verify token with Debug Tenant", inner);
-            throw outer;
-          }
-        } else {
-          throw outer;
+    if (!authHeader) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Missing Authorization Header",
+      });
+    }
+    if (!authHeader.startsWith("Bearer ")) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Malformed Authorization Header (missing Bearer prefix)",
+      });
+    }
+    const token = authHeader.replace(/^Bearer /, "");
+    try {
+      const { payload } = await jose.jwtVerify(token, HKUST_JWKS, {
+        audience: ID,
+        issuer: HKUST_ISSUER,
+      });
+      return {
+        email: String(payload.email),
+        name: String(payload.name),
+      };
+    } catch (outer) {
+      if (outer instanceof JWTClaimValidationFailed) {
+        // Try Debug Tenant
+        try {
+          const { payload } = await jose.jwtVerify(token, DEBUG_JWKS, {
+            audience: ID,
+            issuer: DEBUG_ISSUER,
+          });
+          return {
+            email: String(payload.email),
+            name: String(payload.name),
+          };
+        } catch (inner) {
+          console.info("Failed to verify token with Debug Tenant", inner);
+          // If Debug Ternant also fails, throw the original error
+          throw new TRPCError({ code: "UNAUTHORIZED", cause: outer });
         }
+      } else {
+        throw new TRPCError({ code: "UNAUTHORIZED", cause: outer });
       }
     }
-    return null;
   }
   const user = await auth();
   return {
