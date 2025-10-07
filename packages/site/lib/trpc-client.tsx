@@ -6,7 +6,7 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AppRouter } from "server";
 import { makeQueryClient } from "./query";
 
@@ -66,20 +66,22 @@ export function TRPCReactProvider(
   //       suspend because React will throw away the client on the initial
   //       render if it suspends and there is no boundary
   const queryClient = getQueryClient();
-  const [trpcClient] = useState(() =>
-    createTRPCClient<AppRouter>({
-      links: [
-        httpBatchLink({
-          // transformer: superjson, <-- if you use a data transformer
-          url,
-          headers() {
-            return {
-              Authorization: authorization,
-            };
-          },
-        }),
-      ],
-    }),
+  const trpcClient = useMemo(
+    () =>
+      createTRPCClient<AppRouter>({
+        links: [
+          httpBatchLink({
+            // transformer: superjson, <-- if you use a data transformer
+            url,
+            headers() {
+              return {
+                Authorization: authorization,
+              };
+            },
+          }),
+        ],
+      }),
+    [url],
   );
 
   if (session || path === "/login") {
