@@ -34,7 +34,8 @@ export function validateSession(session: Session | null | undefined): boolean {
     console.log(
       `[Session ${email}] ` +
         `Expires at ${expireAt.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}. ` +
-        `Current time is ${now.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}. `,
+        `Current time is ${now.toLocaleString(DateTime.DATETIME_MED_WITH_SECONDS)}. ` +
+        `Valid: ${now < expireAt}`,
     );
     return now < expireAt;
   } catch (e) {

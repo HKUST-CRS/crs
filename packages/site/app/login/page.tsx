@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense, useEffect } from "react";
 import { validateSession } from "@/lib/auth";
@@ -8,27 +8,22 @@ import { login } from "./login";
 
 function ClientLogin() {
   const search = useSearchParams();
-  const router = useRouter();
   const { data: session } = useSession();
 
   useEffect(() => {
     async function run() {
-      console.log("On login page.");
+      const r = search.get("r");
+      console.log(`On login page (r=${r}).`);
       if (validateSession(session)) {
-        const r = search.get("r");
-        console.log(`Already logged in, redirecting to ${r}...`);
-        if (r) {
-          router.replace(r);
-        } else {
-          router.replace("/");
-        }
+        console.log("Have already logged in. Redirectiong...");
       } else {
-        console.log("Haven't logged in, triggering login...");
-        await login();
+        console.log("Have not yet logged in. Logging in...");
+        await login(r ?? "/");
       }
     }
+
     void run();
-  }, [router, search, session]);
+  }, [search, session]);
 
   return null;
 }
