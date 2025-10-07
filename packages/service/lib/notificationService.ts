@@ -14,7 +14,8 @@ export class NotificationService {
 
   private transporter: nodemailer.Transporter;
   private templateDir: string;
-  private requestBaseUrl: URL;
+  
+  private baseUrl: string;
 
   constructor(services: NotificationServiceDependencies) {
     this.services = services;
@@ -34,7 +35,15 @@ export class NotificationService {
     this.templateDir =
       Bun.env.EMAIL_TEMPLATES_DIR || path.join(__dirname, "../templates");
     if (!Bun.env.BASE_URL) throw new Exception("BASE_URL not found");
-    this.requestBaseUrl = new URL("request", Bun.env.BASE_URL);
+    this.baseUrl = Bun.env.BASE_URL;
+  }
+
+  private urlToRequest(rid: string): string {
+    return new URL(`/request/${rid}`, this.baseUrl).toString();
+  }
+
+  private urlToResponse(rid: string): string {
+    return new URL(`/response/${rid}`, this.baseUrl).toString();
   }
 
   /**
@@ -56,7 +65,7 @@ export class NotificationService {
     const studentEmail = student.email;
     const studentName = student.name;
 
-    const link = new URL(request.id, this.requestBaseUrl).toString();
+    const link = this.urlToRequest(request.id);
 
     await this.sendEmail(
       instructorEmails,
@@ -93,7 +102,8 @@ export class NotificationService {
     const instructorEmails = instructors.map((i) => i.email);
     const taEmails = tas.map((i) => i.email);
 
-    const link = new URL(request.id, this.requestBaseUrl).toString();
+    const link = this.urlToResponse(request.id);
+    
     await this.sendEmail(
       [studentEmail],
       [instructorEmail, ...instructorEmails, ...taEmails],
