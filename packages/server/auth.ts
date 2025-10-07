@@ -60,6 +60,8 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
             console.info("Failed to verify token with Debug Tenant", inner);
             throw outer;
           }
+        } else {
+          throw outer;
         }
       }
     }
