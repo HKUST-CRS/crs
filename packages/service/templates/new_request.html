@@ -2,9 +2,12 @@
 <html>
     <body>
         <p>Dear {{instructorNames}},</p>
-        <p>You have received a new request in the CSE Request System. Please check the request at: <a href="{{link}}">{{link}}</a>.</p>
+        <p>You have received a new request in the CSE Request System.</p>
+        
+        <p>You may check the request at <a href="{{link}}">{{requestLink}}</a>.</p>
+        <p>You may create a response to the request at <a href="{{link}}">{{responseLink}}</a>.</p>
 
-        <p>This is a system generated email. Please do not reply.</p>
-        <p>Best regards,<br />HKUST CRS Team, on behalf of {{studentName}}</p>
+        <p><i>This is a system generated email. Please do not reply.</i></p>
+        <p>Best regards,<br />CRS, on behalf of {{studentName}}</p>
     </body>
 </html>

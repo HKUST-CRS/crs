@@ -25,11 +25,11 @@ export class NotificationService {
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-          auth: {
-            user: Bun.env.SMTP_USER,
-            pass: Bun.env.SMTP_PASS,
-          },
-        }),
+        auth: {
+          user: Bun.env.SMTP_USER,
+          pass: Bun.env.SMTP_PASS,
+        },
+      }),
       connectionTimeout: 5000,
     });
     this.templateDir =
@@ -51,7 +51,7 @@ export class NotificationService {
    * @param request The request made.
    */
   async notifyNewRequest(request: Request) {
-    const subject = "[CSE Request System] New Request";
+    const subject = "New Request";
 
     const instructors = await this.services.user.getUsersFromClass(
       request.class,
@@ -65,14 +65,15 @@ export class NotificationService {
     const studentEmail = student.email;
     const studentName = student.name;
 
-    const link = this.urlToRequest(request.id);
+    const requestLink = this.urlToRequest(request.id);
+    const responseLink = this.urlToResponse(request.id);
 
     await this.sendEmail(
       instructorEmails,
       [studentEmail],
       subject,
       "new_request.html",
-      { link, instructorNames, studentName },
+      { requestLink, responseLink, instructorNames, studentName },
     );
   }
 
@@ -84,7 +85,7 @@ export class NotificationService {
     if (!request.response) {
       throw new ResponseNotFoundError(request.id);
     }
-    const subject = "[CSE Request System] New Response";
+    const subject = "New Response";
 
     const student = await this.services.user.getUser(request.from);
     const instructor = await this.services.user.getUser(request.response.from);
@@ -102,7 +103,7 @@ export class NotificationService {
     const instructorEmails = instructors.map((i) => i.email);
     const taEmails = tas.map((i) => i.email);
 
-    const link = this.urlToResponse(request.id);
+    const responseLink = this.urlToResponse(request.id);
 
     await this.sendEmail(
       [studentEmail],
@@ -110,7 +111,7 @@ export class NotificationService {
       subject,
       "new_response.html",
       {
-        link,
+        responseLink,
         decision: request.response.decision,
         remarks: request.response.remarks,
         studentName,
