@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense, useEffect } from "react";
+import { validateSession } from "@/lib/auth";
 import { login } from "./login";
 
 function ClientLogin() {
@@ -12,19 +13,22 @@ function ClientLogin() {
 
   useEffect(() => {
     async function run() {
-      if (session?.user) {
+      console.log("On login page.");
+      if (validateSession(session)) {
         const r = search.get("r");
+        console.log(`Already logged in, redirecting to ${r}...`);
         if (r) {
           router.replace(r);
         } else {
           router.replace("/");
         }
       } else {
+        console.log("Haven't logged in, triggering login...");
         await login();
       }
     }
     void run();
-  }, [router.replace, search.get, session?.user]);
+  }, [router, search, session]);
 
   return null;
 }
