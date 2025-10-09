@@ -7,6 +7,7 @@ import {
   type RequestId,
   type RequestInit,
   type ResponseInit,
+  type Role,
   type UserId,
 } from "../models";
 import {
@@ -69,34 +70,43 @@ export class RequestService {
   }
 
   /**
-   * Get all requests of a user.
+   * Get all requests of a user, as a specific role.
    *
-   * A request is _of_ a user, if and only if, the user is the requester, or the user is an
-   * instructor of the class that the request is for.
+   * If the role is "student", this returns all requests made by the user.
+   *
+   * If the role is "instructor" or "ta", this returns all requests for classes that the user
+   * is an instructor or ta of.
    *
    * @throws UserNotFoundError if the user does not exist
    */
-  async getRequests(userId: UserId): Promise<Request[]> {
-    const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw new UserNotFoundError(userId);
+  async getRequestsAs(uid: UserId, role: Role): Promise<Request[]> {
+    const user = await this.collections.users.findOne({ email: uid });
+    if (!user) throw new UserNotFoundError(uid);
 
     const requests = await this.collections.requests
       .find({
-        $or: [
-          // If the user is the requester
-          {
-            from: userId,
-          },
-          // If the user is an instructor of the class
-          ...user.enrollment
-            .filter((clazz) => clazz.role === "instructor")
-            .map((clazz) => ({
-              class: {
-                course: clazz.course,
-                section: clazz.section,
-              },
-            })),
-        ],
+        ...(role === "student"
+          ? {
+              from: uid,
+            }
+          : {
+              $or: [
+                ...user.enrollment
+                  .filter((clazz) => clazz.role === role)
+                  .map((clazz) => ({
+                    class: {
+                      course: clazz.course,
+                      section: clazz.section,
+                    },
+                  })),
+                // This condition is to ensure that the $or array is non-empty.
+                {
+                  $expr: {
+                    $eq: [1, 0],
+                  },
+                },
+              ],
+            }),
       })
       .toArray();
     return requests.map((request) => Request.parse({ ...request }));

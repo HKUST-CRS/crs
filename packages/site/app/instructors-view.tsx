@@ -17,31 +17,39 @@ export default function InstructorsView() {
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.get.queryOptions());
-  const requestsQuery = useQuery(trpc.request.getAll.queryOptions());
-  const requests = requestsQuery.data;
+  const instructorRequestsQuery = useQuery(
+    trpc.request.getAll.queryOptions("instructor"),
+  );
+  const taRequestsQuery = useQuery(trpc.request.getAll.queryOptions("ta"));
+  const requests = instructorRequestsQuery.data &&
+    taRequestsQuery.data && [
+      ...instructorRequestsQuery.data,
+      ...taRequestsQuery.data,
+    ];
 
   const hasStudentRole = userQuery.data?.enrollment?.some((e) => {
     return e.role === "student";
   });
-  const hasInstructorRole = userQuery.data?.enrollment?.some((e) => {
-    return e.role === "instructor";
+  const hasTeachingRole = userQuery.data?.enrollment?.some((e) => {
+    return e.role === "instructor" || e.role === "ta";
   });
 
   useEffect(() => {
     if (
       hasStudentRole !== undefined &&
       hasStudentRole &&
-      hasInstructorRole !== undefined &&
-      !hasInstructorRole
+      hasTeachingRole !== undefined &&
+      !hasTeachingRole
     ) {
       router.replace("/");
     }
-  }, [router, hasStudentRole, hasInstructorRole]);
+  }, [router, hasStudentRole, hasTeachingRole]);
 
   useWindowFocus(
     useCallback(() => {
-      requestsQuery.refetch();
-    }, [requestsQuery]),
+      instructorRequestsQuery.refetch();
+      taRequestsQuery.refetch();
+    }, [instructorRequestsQuery, taRequestsQuery]),
   );
 
   return (

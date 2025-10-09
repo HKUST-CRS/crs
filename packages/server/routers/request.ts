@@ -1,4 +1,4 @@
-import { Request, RequestId, RequestInit } from "service/models";
+import { Request, RequestId, RequestInit, Role } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -11,10 +11,10 @@ export const routerRequest = router({
       return await services.request.getRequest(input);
     }),
   getAll: procedure
-    .input(z.void())
+    .input(Role)
     .output(z.array(Request))
-    .query(({ ctx }) => {
-      return services.request.getRequests(ctx.user.email);
+    .query(({ input: role, ctx }) => {
+      return services.request.getRequestsAs(ctx.user.email, role);
     }),
   create: procedure
     .input(RequestInit)
