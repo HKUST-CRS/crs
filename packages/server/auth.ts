@@ -1,7 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 import * as jose from "jose";
-import { JWTClaimValidationFailed } from "jose/errors";
 
 function EntraIDIssuer(tid: string) {
   return `https://login.microsoftonline.com/${tid}/v2.0`;
@@ -12,24 +11,41 @@ function JWKS(tid: string) {
 }
 
 // * Refer to .env.example for information on the environment variables.
-
 const ID = Bun.env.MICROSOFT_ENTRA_ID_CLIENT_ID;
-const HKUST_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_HKUST_TENANT_ID;
-const DEBUG_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_DEBUG_TENANT_ID;
 if (!ID) {
   throw new Error("Missing env MICROSOFT_ENTRA_ID_CLIENT_ID");
 }
-if (!HKUST_TENANT_ID) {
-  throw new Error("Missing env MICROSOFT_ENTRA_ID_HKUST_TENANT_ID");
+const UST_HK_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_UST_HK_TENANT_ID;
+if (!UST_HK_TENANT_ID) {
+  throw new Error("Missing env MICROSOFT_ENTRA_ID_UST_HK_TENANT_ID");
 }
+const CONNECT_UST_HK_TENANT_ID =
+  Bun.env.MICROSOFT_ENTRA_ID_CONNECT_UST_HK_TENANT_ID;
+if (!CONNECT_UST_HK_TENANT_ID) {
+  throw new Error("Missing env MICROSOFT_ENTRA_ID_CONNECT_UST_HK_TENANT_ID");
+}
+const DEBUG_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_DEBUG_TENANT_ID;
 if (!DEBUG_TENANT_ID) {
   throw new Error("Missing env MICROSOFT_ENTRA_ID_DEBUG_TENANT_ID");
 }
-const HKUST_ISSUER = EntraIDIssuer(HKUST_TENANT_ID);
-const DEBUG_ISSUER = EntraIDIssuer(DEBUG_TENANT_ID);
 
-const HKUST_JWKS = jose.createRemoteJWKSet(new URL(JWKS(HKUST_TENANT_ID)));
-const DEBUG_JWKS = jose.createRemoteJWKSet(new URL(JWKS(DEBUG_TENANT_ID)));
+const Verification = {
+  "ust.hk": {
+    tenant: UST_HK_TENANT_ID,
+    issuer: EntraIDIssuer(UST_HK_TENANT_ID),
+    jwks: jose.createRemoteJWKSet(new URL(JWKS(UST_HK_TENANT_ID))),
+  },
+  "connect.ust.hk": {
+    tenant: CONNECT_UST_HK_TENANT_ID,
+    issuer: EntraIDIssuer(CONNECT_UST_HK_TENANT_ID),
+    jwks: jose.createRemoteJWKSet(new URL(JWKS(CONNECT_UST_HK_TENANT_ID))),
+  },
+  "": {
+    tenant: DEBUG_TENANT_ID,
+    issuer: EntraIDIssuer(DEBUG_TENANT_ID),
+    jwks: jose.createRemoteJWKSet(new URL(JWKS(DEBUG_TENANT_ID))),
+  },
+};
 
 export async function createContext({ req }: CreateHTTPContextOptions) {
   async function auth() {
@@ -48,34 +64,47 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
     }
     const token = authHeader.replace(/^Bearer /, "");
     try {
-      const { payload } = await jose.jwtVerify(token, HKUST_JWKS, {
-        audience: ID,
-        issuer: HKUST_ISSUER,
-      });
-      return {
-        email: String(payload.email),
-        name: String(payload.name),
-      };
-    } catch (outer) {
-      if (outer instanceof JWTClaimValidationFailed) {
-        // Try Debug Tenant
-        try {
-          const { payload } = await jose.jwtVerify(token, DEBUG_JWKS, {
-            audience: ID,
-            issuer: DEBUG_ISSUER,
-          });
-          return {
-            email: String(payload.email),
-            name: String(payload.name),
-          };
-        } catch (inner) {
-          console.info("Failed to verify token with Debug Tenant", inner);
-          // If Debug Ternant also fails, throw the original error
-          throw new TRPCError({ code: "UNAUTHORIZED", cause: outer });
-        }
-      } else {
-        throw new TRPCError({ code: "UNAUTHORIZED", cause: outer });
+      const { email } = jose.decodeJwt(token);
+      if (!email || typeof email !== "string") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Malformed JWT (missing email claim)",
+        });
       }
+      const [, domain] = email.split("@");
+      if (!domain) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Malformed JWT (malformed email claim)",
+        });
+      }
+      try {
+        const verification =
+          Verification[domain as keyof typeof Verification] ?? Verification[""];
+        const { payload } = await jose.jwtVerify(token, verification.jwks, {
+          audience: ID,
+          issuer: verification.issuer,
+        });
+        return {
+          email: String(payload.email),
+          name: String(payload.name),
+        };
+      } catch (e) {
+        if (e instanceof jose.errors.JOSEError) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "JWT Verification Failed",
+            cause: e,
+          });
+        }
+        throw e;
+      }
+    } catch (e) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Malformed JWT",
+        cause: e,
+      });
     }
   }
   const user = await auth();
