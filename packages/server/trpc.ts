@@ -26,10 +26,9 @@ export const procedure = t.procedure.use(async (opts) => {
     user: ctx.user,
     ok: result.ok,
   };
-  console.log("TRPC", {
-    meta,
-    ...(result.ok ? {} : { error: result.error }),
-  });
+  console.info(
+    `[TRPC] ${meta.ok ? "OK" : "NG"} - ${meta.type} ${meta.path} (${meta.user.name} <${meta.user.email}>)`,
+  );
 
   return result;
 });
