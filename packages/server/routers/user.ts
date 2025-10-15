@@ -18,7 +18,7 @@ export const routerUser = router({
       }),
     )
     .output(z.array(User))
-    .query(async({ input: { class: clazz, role }, ctx }) => {
+    .query(async ({ input: { class: clazz, role }, ctx }) => {
       if (role === "student") {
         await services.user.assertClassRole(
           ctx.user.email,
