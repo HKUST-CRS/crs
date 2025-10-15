@@ -16,7 +16,6 @@ import {
   ResponseAlreadyExistsError,
   UserClassEnrollmentError,
   UserNotFoundError,
-  UserPermissionError,
 } from "./error";
 
 export class RequestService {
@@ -29,13 +28,6 @@ export class RequestService {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const user = await this.collections.users.findOne({ email: from });
     if (!user) throw new UserNotFoundError(from);
-
-    UserPermissionError.assertRole(
-      user,
-      data.class,
-      "student",
-      `create request`,
-    );
 
     const course = await this.collections.courses.findOne({
       code: data.class.course.code,
@@ -123,13 +115,6 @@ export class RequestService {
     const request = await this.collections.requests.findOne({ id: rid });
     if (!request) throw new RequestNotFoundError(rid);
     if (request.response) throw new ResponseAlreadyExistsError(rid);
-
-    UserPermissionError.assertRole(
-      user,
-      request.class,
-      "instructor",
-      `create response for request ${rid}`,
-    );
 
     const result = await this.collections.requests.updateOne(
       { id: rid },

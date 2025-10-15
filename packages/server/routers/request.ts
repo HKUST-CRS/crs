@@ -7,8 +7,17 @@ export const routerRequest = router({
   get: procedure
     .input(RequestId)
     .output(Request)
-    .query(async ({ input }) => {
-      return await services.request.getRequest(input);
+    .query(async ({ input, ctx }) => {
+      const request = await services.request.getRequest(input);
+      if (request.from !== ctx.user.email) {
+        await services.user.assertClassRole(
+          ctx.user.email,
+          request.class,
+          ["instructor", "ta"],
+          `viewing request ${input}`,
+        );
+      }
+      return request;
     }),
   getAll: procedure
     .input(Role)
@@ -20,6 +29,12 @@ export const routerRequest = router({
     .input(RequestInit)
     .output(RequestId)
     .mutation(async ({ input, ctx }) => {
+      await services.user.assertClassRole(
+        ctx.user.email,
+        input.class,
+        ["student"],
+        "creating request",
+      );
       const rid = await services.request.createRequest(ctx.user.email, input);
       const r = await services.request.getRequest(rid);
       await services.notification.notifyNewRequest(r);

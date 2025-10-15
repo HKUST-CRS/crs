@@ -7,7 +7,8 @@ export const routerCourse = router({
   get: procedure
     .input(CourseId)
     .output(Course)
-    .query(({ input }) => {
+    .query(async ({ input, ctx }) => {
+      await services.user.assertInCourse(ctx.user.email, input);
       return services.course.getCourse(input);
     }),
   getEnrollment: procedure

@@ -14,12 +14,18 @@ export const routerResponse = router({
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
+      const request = await services.request.getRequest(input.id);
+      await services.user.assertClassRole(
+        ctx.user.email,
+        request.class,
+        ["instructor"],
+        `creating response for request ${input.id}`,
+      );
       await services.request.createResponse(
         ctx.user.email,
         input.id,
         input.init,
       );
-      const r = await services.request.getRequest(input.id);
-      await services.notification.notifyNewResponse(r);
+      await services.notification.notifyNewResponse(request);
     }),
 });

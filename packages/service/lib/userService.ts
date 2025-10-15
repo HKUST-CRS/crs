@@ -1,12 +1,18 @@
 import type { Collections } from "../db";
 import {
   type Class,
+  type CourseId,
   Request,
   type Role,
   type User,
   type UserId,
+  Users,
 } from "../models";
-import { UserNotFoundError } from "./error";
+import {
+  ClassPermissionError,
+  CoursePermissionError,
+  UserNotFoundError,
+} from "./error";
 
 export class UserService {
   private collections: Collections;
@@ -43,32 +49,6 @@ export class UserService {
     return users;
   }
 
-  // async updateEnrollment(
-  //   userId: UserId,
-  //   enrollment: User["enrollment"],
-  // ): Promise<void> {
-  //   for (const inputCourse of enrollment) {
-  //     const course = await this.collections.courses.findOne({
-  //       code: inputCourse.code,
-  //       term: inputCourse.term,
-  //     });
-  //     if (!course) throw CourseNotFound(inputCourse);
-  //     for (const inputSection of inputCourse.sections) {
-  //       if (
-  //         !course.sections.map((course) => course.code).includes(inputSection)
-  //       ) {
-  //         throw SectionNotFound(inputCourse, inputSection);
-  //       }
-  //     }
-  //   }
-  //   const result = await this.collections.users.updateOne(
-  //     { email: userId },
-  //     { $set: { enrollment } },
-  //   );
-  //   if (result.modifiedCount === 0)
-  //     throw new Error("Failed to update enrollment");
-  // }
-
   async getUserRequests(userId: UserId): Promise<Request[]> {
     const result = await this.collections.requests
       .find({ from: userId })
@@ -76,5 +56,26 @@ export class UserService {
     return result.map((req) =>
       Request.parse({ ...req, id: req._id.toHexString() }),
     );
+  }
+
+  async assertInCourse(userId: UserId, courseId: CourseId): Promise<void> {
+    const user = await this.collections.users.findOne({ email: userId });
+    if (!user) throw new UserNotFoundError(userId);
+    if (!Users.inCourse(user, courseId)) {
+      throw new CoursePermissionError(userId, courseId, "accessing course");
+    }
+  }
+
+  async assertClassRole(
+    userId: UserId,
+    clazz: Class,
+    roles: Role[],
+    operation: string,
+  ): Promise<void> {
+    const user = await this.collections.users.findOne({ email: userId });
+    if (!user) throw new UserNotFoundError(userId);
+    if (!Users.hasRole(user, clazz, roles)) {
+      throw new ClassPermissionError(userId, roles, clazz, operation);
+    }
   }
 }
