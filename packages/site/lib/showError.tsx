@@ -13,7 +13,7 @@ ${JSON.stringify(error.meta, null, 2)}
       title,
       body,
     });
-    return `https://www.github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
+    return `https://github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
   }
   const title = `[Uncaught Server Error] ${error.message}`;
   const body = `##### Meta
@@ -25,7 +25,7 @@ ${error}
     title,
     body,
   });
-  return `https://www.github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
+  return `https://github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
 };
 
 export const showError = (error: Error) => {
