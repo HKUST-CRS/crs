@@ -15,6 +15,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import {
   Popover,
@@ -56,6 +57,10 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
     resolver: zodResolver(SwapSectionFormSchema),
     defaultValues: {
       type: "Swap Section",
+      details: {
+        reason: "",
+        proof: [],
+      },
       ...props.default,
     },
   });
@@ -147,6 +152,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   </SelectContent>
                 </Select>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -197,6 +203,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   </PopoverContent>
                 </Popover>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -228,6 +235,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   </SelectContent>
                 </Select>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -275,6 +283,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   </PopoverContent>
                 </Popover>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

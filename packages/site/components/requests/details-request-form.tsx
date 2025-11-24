@@ -7,6 +7,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,6 +52,7 @@ export function RequestFormDetails<
               Please provide a brief explanation/justification for your request
               in a few sentences.
             </FormDescription>
+            <FormMessage />
           </FormItem>
         )}
       />
@@ -108,6 +110,7 @@ export function RequestFormDetails<
                   </li>
                 ))}
             </ul>
+            <FormMessage />
           </FormItem>
         )}
       />

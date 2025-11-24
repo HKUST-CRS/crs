@@ -16,6 +16,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import {
   Select,
@@ -120,6 +121,7 @@ export default function ResponseForm(props: ResponseFormProps) {
               <FormDescription>
                 Remarks regarding the decision to the student.
               </FormDescription>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -158,6 +160,7 @@ export default function ResponseForm(props: ResponseFormProps) {
               <FormDescription>
                 Decision: Approve or Reject the request.
               </FormDescription>
+              <FormMessage />
             </FormItem>
           )}
         />
