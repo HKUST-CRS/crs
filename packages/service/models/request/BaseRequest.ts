@@ -16,7 +16,7 @@ export const RequestDetails = z.object({
         size: z
           .number()
           .meta({ description: "The size of the file in bytes." })
-          .max(2 * 1024 * 1024, "At most 2 MiB per file is allowed."), // 2 MiB
+          .max(2 * 1024 * 1024, "At most 2 MiB per file is allowed."),
         content: z.base64().meta({
           description: "The base64-encoded content of the file. ",
         }),
