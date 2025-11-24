@@ -97,7 +97,6 @@ export class NotificationService {
 
     const studentEmail = student.email;
     const studentName = student.name;
-    const instructorEmail = instructor.email;
     const instructorName = instructor.name;
 
     const instructorEmails = instructors.map((i) => i.email);
@@ -107,7 +106,7 @@ export class NotificationService {
 
     await this.sendEmail(
       [studentEmail],
-      [instructorEmail, ...instructorEmails, ...taEmails],
+      [...instructorEmails, ...taEmails],
       subject,
       "new_response.html",
       {
