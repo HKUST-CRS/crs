@@ -34,7 +34,7 @@ export const showError = (error: Error) => {
       <>
         <p>{error.message}</p>
         <p className="text-[0.875em]">
-          Something went wrong. Please{" "}
+          Oops... Something went wrong. Please{" "}
           <a
             className="underline"
             href={ghIssue(error)}
