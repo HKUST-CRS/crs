@@ -138,14 +138,14 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
 
 function flattenError(error: unknown): FieldError[] {
   if (!error) return [];
-  if (typeof error === "object" && "type" in error) {
-    return [error as FieldError];
-  }
-  if (typeof error === "object") {
-    return Object.values(error).flatMap(flattenError);
-  }
   if (Array.isArray(error)) {
     return error.flatMap(flattenError);
+  }
+  if (typeof error === "object") {
+    if ("type" in error) {
+      return [error as FieldError];
+    }
+    return Object.values(error).flatMap(flattenError);
   }
   return [];
 }
