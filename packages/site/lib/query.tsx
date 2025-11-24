@@ -1,7 +1,9 @@
 import {
   defaultShouldDehydrateQuery,
+  QueryCache,
   QueryClient,
 } from "@tanstack/react-query";
+import { showError } from "./showError";
 
 export function makeQueryClient() {
   return new QueryClient({
@@ -16,5 +18,10 @@ export function makeQueryClient() {
           query.state.status === "pending",
       },
     },
+    queryCache: new QueryCache({
+      onError: (error) => {
+        showError(error);
+      },
+    }),
   });
 }
