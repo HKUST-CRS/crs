@@ -53,7 +53,7 @@ export class NotificationService {
   async notifyNewRequest(request: Request) {
     const subject = "New Request";
 
-    const instructors = await this.services.user.getUsersFromClass(
+    const instructors = await this.services.user._getUsersFromClassInternal(
       request.class,
       "instructor",
     );
@@ -89,11 +89,14 @@ export class NotificationService {
 
     const student = await this.services.user.getUser(request.from);
     const instructor = await this.services.user.getUser(request.response.from);
-    const instructors = await this.services.user.getUsersFromClass(
+    const instructors = await this.services.user._getUsersFromClassInternal(
       request.class,
       "instructor",
     );
-    const tas = await this.services.user.getUsersFromClass(request.class, "ta");
+    const tas = await this.services.user._getUsersFromClassInternal(
+      request.class,
+      "ta",
+    );
 
     const studentEmail = student.email;
     const studentName = student.name;

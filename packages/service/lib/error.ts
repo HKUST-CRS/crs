@@ -8,15 +8,6 @@ export class UserNotFoundError extends Error {
   }
 }
 
-export class UserClassEnrollmentError extends Error {
-  constructor(userId: UserId, clazz: Class) {
-    super(
-      `User ${userId} is not enrolled in the class ${Classes.id2str(clazz)}`,
-    );
-    this.name = "UserClassEnrollmentError";
-  }
-}
-
 export class CoursePermissionError extends Error {
   constructor(userId: UserId, courseId: CourseId, operation: string) {
     super(

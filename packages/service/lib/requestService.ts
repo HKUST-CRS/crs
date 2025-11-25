@@ -1,7 +1,6 @@
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import {
-  Classes,
   Request,
   type RequestId,
   type RequestInit,
@@ -10,15 +9,13 @@ import {
   type UserId,
 } from "../models";
 import { assertAck, BaseService } from "./baseService";
-import { UserClassEnrollmentError } from "./error";
+import { assertClassRole } from "./permission";
 
 export class RequestService extends BaseService {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const user = await this.requireUser(from);
-    const enrolled = user.enrollment.some(
-      (e) => Classes.id2str(e) === Classes.id2str(data.class),
-    );
-    if (!enrolled) throw new UserClassEnrollmentError(from, data.class);
+    // only students in the class can create requests
+    assertClassRole(user, data.class, ["student"], "creating request");
 
     const id = new ObjectId().toHexString();
     const result = await this.collections.requests.insertOne({
@@ -32,8 +29,18 @@ export class RequestService extends BaseService {
     return id;
   }
 
-  async getRequest(id: RequestId): Promise<Request> {
+  async getRequest(uid: UserId, id: RequestId): Promise<Request> {
+    const user = await this.requireUser(uid);
     const request = await this.requireRequest(id);
+    if (uid !== request.from) {
+      // only the requester or instructors/TAs in the class can view the request
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor", "ta"],
+        `viewing request ${id}`,
+      );
+    }
     return Request.parse({ ...request });
   }
 
@@ -84,8 +91,15 @@ export class RequestService extends BaseService {
     rid: RequestId,
     response: ResponseInit,
   ): Promise<void> {
-    await this.requireUser(uid);
-    await this.requireRequest(rid);
+    const user = await this.requireUser(uid);
+    const request = await this.requireRequest(rid);
+    // only instructors of the class can create responses
+    assertClassRole(
+      user,
+      request.class,
+      ["instructor"],
+      `creating response for request ${rid}`,
+    );
 
     const result = await this.collections.requests.updateOne(
       { id: rid },

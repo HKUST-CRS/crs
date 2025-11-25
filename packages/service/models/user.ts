@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Class, Classes, type CourseId } from "./course";
+import { Class } from "./course";
 
 export const Role = z.enum(["student", "instructor", "ta"]);
 export type Role = z.infer<typeof Role>;
@@ -20,17 +20,3 @@ export type User = z.infer<typeof User>;
 
 export const UserId = User.shape.email;
 export type UserId = z.infer<typeof UserId>;
-
-export namespace Users {
-  export function inCourse(user: User, courseId: CourseId): boolean {
-    return user.enrollment.some(
-      (e) => e.course.code === courseId.code && e.course.term === courseId.term,
-    );
-  }
-  export function hasRole(user: User, clazz: Class, roles: Role[]): boolean {
-    return user.enrollment.some(
-      (e) =>
-        Classes.id2str(e) === Classes.id2str(clazz) && roles.includes(e.role),
-    );
-  }
-}

@@ -1,5 +1,6 @@
-import { type Course, type CourseId, Request, type UserId } from "../models";
+import type { Course, CourseId, UserId } from "../models";
 import { assertAck, BaseService } from "./baseService";
+import { assertCourseInstructor, assertInCourse } from "./permission";
 
 export class CourseService extends BaseService {
   async createCourse(data: Course): Promise<void> {
@@ -7,12 +8,14 @@ export class CourseService extends BaseService {
     assertAck(result, `create course with data: ${JSON.stringify(data)}`);
   }
 
-  async getCourse(courseId: CourseId): Promise<Course> {
+  async getCourse(uid: UserId, courseId: CourseId): Promise<Course> {
+    const user = await this.requireUser(uid);
+    assertInCourse(user, courseId, "accessing course information");
     return this.requrieCourse(courseId);
   }
 
-  async getCoursesFromEnrollment(userId: UserId): Promise<Course[]> {
-    const user = await this.requireUser(userId);
+  async getCoursesFromEnrollment(uid: UserId): Promise<Course[]> {
+    const user = await this.requireUser(uid);
     const courseIds = user.enrollment.map((e) => ({
       code: e.course.code,
       term: e.course.term,
@@ -25,10 +28,15 @@ export class CourseService extends BaseService {
   }
 
   async updateSections(
+    uid: UserId,
     courseId: CourseId,
     sections: Course["sections"],
   ): Promise<void> {
-    await this.requrieCourse(courseId);
+    assertCourseInstructor(
+      await this.requireUser(uid),
+      courseId,
+      "updating course sections",
+    );
     const result = await this.collections.courses.updateOne(courseId, {
       $set: { sections },
     });
@@ -36,9 +44,15 @@ export class CourseService extends BaseService {
   }
 
   async setEffectiveRequestTypes(
+    uid: UserId,
     courseId: CourseId,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
+    assertCourseInstructor(
+      await this.requireUser(uid),
+      courseId,
+      "updating effective request types",
+    );
     const result = await this.collections.courses.updateOne(courseId, {
       $set: { effectiveRequestTypes },
     });
@@ -47,17 +61,5 @@ export class CourseService extends BaseService {
         `Failed to update request types for course ${courseId.code} (${courseId.term})`,
       );
     }
-  }
-
-  async getCourseRequests(courseId: CourseId): Promise<Request[]> {
-    const result = await this.collections.requests
-      .find({
-        "course.code": courseId.code,
-        "course.term": courseId.term,
-      })
-      .toArray();
-    return result.map((req) =>
-      Request.parse({ ...req, id: req._id.toHexString() }),
-    );
   }
 }
