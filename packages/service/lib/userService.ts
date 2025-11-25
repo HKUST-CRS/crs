@@ -1,10 +1,4 @@
-import {
-  type Class,
-  Request,
-  type Role,
-  type User,
-  type UserId,
-} from "../models";
+import type { Class, Role, User, UserId } from "../models";
 import { BaseService } from "./baseService";
 import { assertClassRole } from "./permission";
 
@@ -56,14 +50,5 @@ export class UserService extends BaseService {
       );
     }
     return this._getUsersFromClassInternal(clazz, role);
-  }
-
-  async getUserRequests(uid: UserId): Promise<Request[]> {
-    const result = await this.collections.requests
-      .find({ from: uid })
-      .toArray();
-    return result.map((req) =>
-      Request.parse({ ...req, id: req._id.toHexString() }),
-    );
   }
 }

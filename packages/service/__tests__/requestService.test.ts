@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
 import {
   afterAll,
   beforeAll,
@@ -6,206 +7,162 @@ import {
   expect,
   test,
 } from "bun:test";
-import { ObjectId } from "mongodb";
-import {
-  CourseNotFound,
-  CourseService,
-  RequestHasResponse,
-  RequestNotFound,
-  RequestService,
-  UserNotFound,
-  UserService,
-} from "../lib";
-import {
-  type Course,
-  type NoId,
-  Request,
-  type Response,
-  type SwapSectionRequest,
-  type User,
-} from "../models";
-import { MockDataGenerator } from "./mockData";
-import { getTestConn, type TestConn } from "./testDb";
+import { ClassPermissionError, RequestService } from "../lib";
+import * as testData from "./testData";
+import { TestConn } from "./testDb";
 
 describe("RequestService", () => {
   let testConn: TestConn;
-  let mockDataGen: MockDataGenerator;
-  let userService: UserService;
-  let courseService: CourseService;
   let requestService: RequestService;
 
-  let studentInDb: User;
-  let instructorInDb: User;
-  let courseInDb: Course;
-  let request: NoId<SwapSectionRequest>;
-
   beforeAll(async () => {
-    testConn = await getTestConn();
-    mockDataGen = new MockDataGenerator();
-    const collections = await testConn.getCollections();
-    userService = new UserService(collections);
-    courseService = new CourseService(collections);
-    requestService = new RequestService(collections);
+    testConn = await TestConn.create();
+    requestService = new RequestService(testConn.collections);
   });
 
   afterAll(async () => {
     await testConn.close();
   });
 
-  beforeEach(async () => {
-    await testConn.clear();
-    // add a mock student to the db for request tests
-    studentInDb = mockDataGen.makeNewUser();
-    await userService.createUser(studentInDb);
-    // add a mock instructor to the db for request tests
-    instructorInDb = mockDataGen.makeNewUser();
-    await userService.createUser(instructorInDb);
-    // add a mock course to the db for request tests
-    courseInDb = mockDataGen.makeNewCourse();
-    await courseService.createCourse(courseInDb);
-    // register the student and instructor to the course
-    await userService.updateEnrollment(studentInDb.email, [
-      {
-        role: "student",
-        sections: ["L1", "T1"],
-        code: courseInDb.code,
-        term: courseInDb.term,
-      },
-    ]);
-    await userService.updateEnrollment(studentInDb.email, [
-      {
-        role: "instructor",
-        sections: ["L1", "T1"],
-        code: courseInDb.code,
-        term: courseInDb.term,
-      },
-    ]);
-    // initialize request data
-    request = {
-      type: "Swap Section",
-      from: studentInDb.email,
-      course: { code: courseInDb.code, term: courseInDb.term },
-      details: {
-        reason: "Schedule conflict with another course",
-        proof: [],
-      },
-      metadata: {
-        fromSection: "T1",
-        fromDate: "2025-09-20",
-        toSection: "T2",
-        toDate: "2025-09-20",
-      },
-      timestamp: new Date().toISOString(),
-      response: null,
-    };
-  });
-
   describe("createRequest", () => {
-    test("should create a swap section request successfully", async () => {
-      await requestService.createRequest(request);
+    test("should create and get a request successfully", async () => {
+      const student = testData.students[0]!;
+      const request = { ...testData.requestInit, from: student.email };
+      const id = await requestService.createRequest(student.email, request);
+      const requestInDb = await requestService.getRequest(student.email, id);
+      expect(requestInDb).toBeDefined();
     });
 
-    test("should throw error when user not found", async () => {
-      const invalidRequest = { ...request, from: "dne@test.com" };
+    test("should throw permission error when user is not in the class", async () => {
+      const student = testData.students[1]!;
+      const request = { ...testData.requestInit, from: student.email };
       try {
-        await requestService.createRequest(invalidRequest);
-        expect.unreachable("Should have thrown an error");
+        await requestService.createRequest(student.email, request);
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = UserNotFound(invalidRequest.from).message;
-        expect((error as Error).message).toBe(errorMessage);
-      }
-    });
-
-    test("should throw error when course not found", async () => {
-      const invalidRequest = {
-        ...request,
-        course: { code: "DNE1010", term: "2025-2026 Term 1" },
-      };
-      try {
-        await requestService.createRequest(invalidRequest);
-        expect.unreachable("Should have thrown an error");
-      } catch (error) {
-        const errorMessage = CourseNotFound(invalidRequest.course).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
   });
 
   describe("getRequest", () => {
-    test("should get request by id", async () => {
-      const id = await requestService.createRequest(request);
-      const foundRequest = await requestService.getRequest(id);
-      expect(foundRequest).toEqual(Request.parse({ id, ...request }));
+    let requestId: string;
+
+    beforeEach(async () => {
+      const student = testData.students[0]!;
+      const request = { ...testData.requestInit, from: student.email };
+      await testConn.collections.requests.drop();
+      requestId = await requestService.createRequest(student.email, request);
     });
 
-    test("should throw error when request not found", async () => {
-      const fakeId = new ObjectId();
+    test("should allow requester to get their own request", async () => {
+      const student = testData.students[0]!;
+      const request = await requestService.getRequest(student.email, requestId);
+      expect(request).toBeDefined();
+    });
+
+    test("should allow TAs to get requests in their class", async () => {
+      const ta = testData.tas[0]!;
+      const request = await requestService.getRequest(ta.email, requestId);
+      expect(request).toBeDefined();
+    });
+
+    test("should allow instructors to get requests in their class", async () => {
+      const instructor = testData.instructors[0]!;
+      const request = await requestService.getRequest(
+        instructor.email,
+        requestId,
+      );
+      expect(request).toBeDefined();
+    });
+
+    test("should throw permission error when user is neither requester nor instructor/TA", async () => {
+      const student = testData.students[1]!;
       try {
-        await requestService.getRequest(fakeId.toHexString());
-        expect.unreachable("Should have thrown an error");
+        await requestService.getRequest(student.email, requestId);
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = RequestNotFound(fakeId).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
   });
 
-  describe("addResponse", () => {
-    let response: Response;
+  describe("getRequestsAs", () => {
+    beforeEach(async () => {
+      const student = testData.students[0]!;
+      const request = { ...testData.requestInit, from: student.email };
+      await testConn.collections.requests.drop();
+      await requestService.createRequest(student.email, request);
+    });
 
-    beforeEach(() => {
-      response = {
-        from: instructorInDb.email,
-        timestamp: new Date().toISOString(),
-        decision: "Approve",
-        remarks: "Request approved",
-      };
+    test("should get requests as student", async () => {
+      const student = testData.students[0]!;
+      const requests = await requestService.getRequestsAs(
+        student.email,
+        "student",
+      );
+      expect(requests.length).toEqual(1);
+    });
+
+    test("should get requests as ta", async () => {
+      const ta = testData.tas[0]!;
+      const requests = await requestService.getRequestsAs(ta.email, "ta");
+      expect(requests.length).toEqual(1);
+    });
+
+    test("should get requests as instructor", async () => {
+      const instructor = testData.instructors[0]!;
+      const requests = await requestService.getRequestsAs(
+        instructor.email,
+        "instructor",
+      );
+      expect(requests.length).toEqual(1);
+    });
+
+    test("should not get uninvolved requests", async () => {
+      const student = testData.students[1]!;
+      const requests = await requestService.getRequestsAs(
+        student.email,
+        "student",
+      );
+      expect(requests.length).toEqual(0);
+    });
+  });
+
+  describe("createResponse", () => {
+    let requestId: string;
+
+    beforeEach(async () => {
+      const student = testData.students[0]!;
+      const request = { ...testData.requestInit, from: student.email };
+      await testConn.collections.requests.drop();
+      requestId = await requestService.createRequest(student.email, request);
     });
 
     test("should add response to request successfully", async () => {
-      const id = await requestService.createRequest(request);
-      await requestService.createResponse(id, response);
+      const instructor = testData.instructors[0]!;
+      const response = { ...testData.responseInit, from: instructor.email };
+      await requestService.createResponse(
+        instructor.email,
+        requestId,
+        response,
+      );
+      const requestInDb = await requestService.getRequest(
+        instructor.email,
+        requestId,
+      );
+      expect(requestInDb.response).toMatchObject(response);
     });
 
-    test("should throw error when responder not found", async () => {
-      const id = await requestService.createRequest(request);
-      const invalidResponse = { ...response, from: "dne@test.com" };
+    test("should throw permission error when responder is not instructor of the class", async () => {
+      const student = testData.students[0]!;
+      const response = { ...testData.responseInit, from: student.email };
       try {
-        await requestService.createResponse(id, invalidResponse);
-        expect.unreachable("Should have thrown an error");
+        await requestService.createResponse(student.email, requestId, response);
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = UserNotFound(invalidResponse.from).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(ClassPermissionError);
       }
-    });
-
-    test("should throw error when request not found", async () => {
-      const fakeId = new ObjectId();
-      try {
-        await requestService.createResponse(fakeId.toHexString(), response);
-        expect.unreachable("Should have thrown an error");
-      } catch (error) {
-        expect((error as Error).message).toBe(RequestNotFound(fakeId).message);
-      }
-    });
-
-    test("should throw error and preserve original response when request already has response", async () => {
-      const id = await requestService.createRequest(request);
-      await requestService.createResponse(id, response);
-      const secondResponse: Response = {
-        ...response,
-        decision: "Reject",
-      };
-      try {
-        await requestService.createResponse(id, secondResponse);
-        expect.unreachable("Should have thrown an error");
-      } catch (error) {
-        expect((error as Error).message).toBe(
-          RequestHasResponse(new ObjectId(id)).message,
-        );
-      }
-      const requestInDb = await requestService.getRequest(id);
-      expect(requestInDb.response).toEqual(response);
     });
   });
 });

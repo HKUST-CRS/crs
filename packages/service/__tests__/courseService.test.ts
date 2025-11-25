@@ -1,89 +1,163 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from "bun:test";
-import { CourseNotFound, CourseService } from "../lib";
-import type { Course } from "../models";
-import { MockDataGenerator } from "./mockData";
-import { getTestConn, type TestConn } from "./testDb";
+  CoursePermissionError,
+  CourseService,
+  UserNotFoundError,
+} from "../lib";
+import * as testData from "./testData";
+import { TestConn } from "./testDb";
 
 describe("CourseService", () => {
   let testConn: TestConn;
-  let mockDataGen: MockDataGenerator;
   let courseService: CourseService;
 
-  let course: Course;
-  let courseId: { code: Course["code"]; term: Course["term"] };
-
   beforeAll(async () => {
-    testConn = await getTestConn();
-    mockDataGen = new MockDataGenerator();
-    const collections = await testConn.getCollections();
-    courseService = new CourseService(collections);
+    testConn = await TestConn.create();
+    courseService = new CourseService(testConn.collections);
   });
 
   afterAll(async () => {
     await testConn.close();
   });
 
-  beforeEach(async () => {
-    await testConn.clear();
-    course = mockDataGen.makeNewCourse();
-    courseId = { code: course.code, term: course.term };
-  });
-
-  describe("createCourse", () => {
-    test("should create a course successfully", async () => {
-      await courseService.createCourse(course);
-    });
-  });
-
   describe("getCourse", () => {
     test("should get course by id", async () => {
-      await courseService.createCourse(course);
-      const foundCourse = await courseService.getCourse(courseId);
-      expect(foundCourse).toEqual(course);
+      const student = testData.students[0]!;
+      const course = await courseService.getCourse(
+        student.email,
+        student.enrollment[0]!.course,
+      );
+      expect(course.code).toEqual(student.enrollment[0]!.course.code);
     });
 
-    test("should throw error when course not found", async () => {
-      // course not created in the database
+    test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.getCourse(courseId);
-        expect.unreachable("Should have thrown an error");
+        await courseService.getCourse("dne@dne.com", {
+          code: "COMP1023",
+          term: "2510",
+        });
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = CourseNotFound(course).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(UserNotFoundError);
+      }
+    });
+
+    test("should throw permission error when user is not in the course", async () => {
+      const student = testData.students[0]!;
+      try {
+        await courseService.getCourse(student.email, {
+          code: "COMP 1023",
+          term: "2530",
+        });
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("should throw error when course does not exist", async () => {
+      const student = testData.students[0]!;
+      try {
+        await courseService.getCourse(student.email, {
+          code: "NONEXIST",
+          term: "2510",
+        });
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+  });
+
+  describe("getCoursesFromEnrollment", () => {
+    test("should get all courses from user's enrollment", async () => {
+      const student = testData.students[0]!;
+      const courses = await courseService.getCoursesFromEnrollment(
+        student.email,
+      );
+      expect(courses.length).toBe(1);
+      const courseCodes = courses.map((course) => course.code);
+      const enrollmentCourseCodes = student.enrollment.map(
+        (enroll) => enroll.course.code,
+      );
+      expect(courseCodes).toEqual(
+        expect.arrayContaining(enrollmentCourseCodes),
+      );
+    });
+
+    test("should throw user not found error when user does not exist", async () => {
+      try {
+        await courseService.getCoursesFromEnrollment("dne@dne.com");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(UserNotFoundError);
       }
     });
   });
 
   describe("updateSections", () => {
     test("should update course sections successfully", async () => {
-      await courseService.createCourse(course);
-      const newSections = [
-        { code: "L1", schedule: [{ day: 1, from: "09:00", to: "10:30" }] },
-        { code: "LA1", schedule: [{ day: 4, from: "13:00", to: "15:00" }] },
-      ];
-      await courseService.updateSections(course, newSections);
-      const updatedCourse = await courseService.getCourse(courseId);
-      expect(updatedCourse.sections).toEqual(newSections);
+      const user = testData.instructors[0]!;
+      const course = testData.courses[0]!;
+      const courseId = { code: course.code, term: course.term };
+      const newSections = { ...course.sections, L3: { schedule: [] } };
+      await courseService.updateSections(user.email, courseId, newSections);
+      const updatedCourse = await courseService.getCourse(user.email, courseId);
+      expect(Object.keys(updatedCourse.sections).length).toBe(
+        Object.keys(course.sections).length + 1,
+      );
+    });
+
+    test("should throw permission error when user is not instructor", async () => {
+      const user = testData.students[0]!;
+      const course = testData.courses[0]!;
+      const courseId = { code: course.code, term: course.term };
+      const newSections = { ...course.sections, L3: { schedule: [] } };
+      try {
+        await courseService.updateSections(user.email, courseId, newSections);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
     });
   });
 
   describe("setEffectiveRequestTypes", () => {
     test("should update effective request types successfully", async () => {
-      await courseService.createCourse(course);
+      const user = testData.instructors[0]!;
+      const course = testData.courses[0]!;
+      const courseId = { code: course.code, term: course.term };
       const newRequestTypes = {
         "Swap Section": false,
         "Deadline Extension": true,
       };
-      await courseService.setEffectiveRequestTypes(courseId, newRequestTypes);
-      const updatedCourse = await courseService.getCourse(courseId);
+      await courseService.setEffectiveRequestTypes(
+        user.email,
+        courseId,
+        newRequestTypes,
+      );
+      const updatedCourse = await courseService.getCourse(user.email, courseId);
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
+    });
+
+    test("should throw permission error when user is not instructor", async () => {
+      const user = testData.students[0]!;
+      const course = testData.courses[0]!;
+      const newRequestTypes = {
+        "Swap Section": false,
+        "Deadline Extension": true,
+      };
+      try {
+        await courseService.setEffectiveRequestTypes(
+          user.email,
+          course,
+          newRequestTypes,
+        );
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
     });
   });
 });
