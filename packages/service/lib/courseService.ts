@@ -32,9 +32,13 @@ export class CourseService extends BaseService {
       courseId,
       "updating course sections",
     );
-    const result = await this.collections.courses.updateOne(courseId, {
-      $set: { sections },
-    });
+    const result = await this.collections.courses.updateOne(
+      // cannot use courseId directly, in case of extra fields
+      { code: courseId.code, term: courseId.term },
+      {
+        $set: { sections },
+      },
+    );
     assertAck(result, `update course ${courseId}`);
   }
 
@@ -48,10 +52,14 @@ export class CourseService extends BaseService {
       courseId,
       "updating effective request types",
     );
-    const result = await this.collections.courses.updateOne(courseId, {
-      $set: { effectiveRequestTypes },
-    });
-    if (result.modifiedCount === 0) {
+    const result = await this.collections.courses.updateOne(
+      // cannot use courseId directly, in case of extra fields
+      { code: courseId.code, term: courseId.term },
+      {
+        $set: { effectiveRequestTypes },
+      },
+    );
+    if (!result.acknowledged) {
       throw new Error(
         `Failed to update request types for course ${courseId.code} (${courseId.term})`,
       );

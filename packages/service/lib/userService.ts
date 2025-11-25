@@ -17,7 +17,9 @@ export class UserService extends BaseService {
       .find({
         enrollment: {
           $elemMatch: {
-            ...clazz,
+            "course.code": clazz.course.code,
+            "course.term": clazz.course.term,
+            section: clazz.section,
             role,
           },
         },

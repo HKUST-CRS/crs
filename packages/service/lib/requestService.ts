@@ -19,11 +19,11 @@ export class RequestService extends BaseService {
 
     const id = new ObjectId().toHexString();
     const result = await this.collections.requests.insertOne({
+      ...data,
       id,
       from,
       timestamp: DateTime.now().toISO(),
       response: null,
-      ...data,
     });
     assertAck(result, `create request ${JSON.stringify(data)}`);
     return id;
@@ -106,9 +106,9 @@ export class RequestService extends BaseService {
       {
         $set: {
           response: {
+            ...response,
             from: uid,
             timestamp: DateTime.now().toISO(),
-            ...response,
           },
         },
       },
