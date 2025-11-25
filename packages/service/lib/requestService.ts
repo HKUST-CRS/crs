@@ -1,6 +1,5 @@
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
-import type { Collections } from "../db";
 import {
   Classes,
   Request,
@@ -10,31 +9,12 @@ import {
   type Role,
   type UserId,
 } from "../models";
-import {
-  CourseNotFoundError,
-  RequestNotFoundError,
-  ResponseAlreadyExistsError,
-  UserClassEnrollmentError,
-  UserNotFoundError,
-} from "./error";
+import { assertAck, BaseService } from "./baseService";
+import { UserClassEnrollmentError } from "./error";
 
-export class RequestService {
-  private collections: Collections;
-
-  constructor(collection: Collections) {
-    this.collections = collection;
-  }
-
+export class RequestService extends BaseService {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
-    const user = await this.collections.users.findOne({ email: from });
-    if (!user) throw new UserNotFoundError(from);
-
-    const course = await this.collections.courses.findOne({
-      code: data.class.course.code,
-      term: data.class.course.term,
-    });
-    if (!course) throw new CourseNotFoundError(data.class.course);
-
+    const user = await this.requireUser(from);
     const enrolled = user.enrollment.some(
       (e) => Classes.id2str(e) === Classes.id2str(data.class),
     );
@@ -48,16 +28,12 @@ export class RequestService {
       response: null,
       ...data,
     });
-    if (!result.acknowledged) {
-      throw new Error(`Failed to create request.`);
-    }
-
+    assertAck(result, `create request ${JSON.stringify(data)}`);
     return id;
   }
 
   async getRequest(id: RequestId): Promise<Request> {
-    const request = await this.collections.requests.findOne({ id });
-    if (!request) throw new RequestNotFoundError(id);
+    const request = await this.requireRequest(id);
     return Request.parse({ ...request });
   }
 
@@ -72,8 +48,7 @@ export class RequestService {
    * @throws UserNotFoundError if the user does not exist
    */
   async getRequestsAs(uid: UserId, role: Role): Promise<Request[]> {
-    const user = await this.collections.users.findOne({ email: uid });
-    if (!user) throw new UserNotFoundError(uid);
+    const user = await this.requireUser(uid);
 
     const requests = await this.collections.requests
       .find({
@@ -109,12 +84,8 @@ export class RequestService {
     rid: RequestId,
     response: ResponseInit,
   ): Promise<void> {
-    const user = await this.collections.users.findOne({ email: uid });
-    if (!user) throw new UserNotFoundError(uid);
-
-    const request = await this.collections.requests.findOne({ id: rid });
-    if (!request) throw new RequestNotFoundError(rid);
-    if (request.response) throw new ResponseAlreadyExistsError(rid);
+    await this.requireUser(uid);
+    await this.requireRequest(rid);
 
     const result = await this.collections.requests.updateOne(
       { id: rid },
@@ -128,8 +99,6 @@ export class RequestService {
         },
       },
     );
-    if (!result.acknowledged) {
-      throw new Error(`Failed to create response.`);
-    }
+    assertAck(result, `create response to ${rid}`);
   }
 }

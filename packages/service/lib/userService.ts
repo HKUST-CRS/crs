@@ -1,4 +1,3 @@
-import type { Collections } from "../db";
 import {
   type Class,
   type CourseId,
@@ -8,27 +7,17 @@ import {
   type UserId,
   Users,
 } from "../models";
-import {
-  ClassPermissionError,
-  CoursePermissionError,
-  UserNotFoundError,
-} from "./error";
+import { assertAck, BaseService } from "./baseService";
+import { ClassPermissionError, CoursePermissionError } from "./error";
 
-export class UserService {
-  private collections: Collections;
-  constructor(collection: Collections) {
-    this.collections = collection;
-  }
-
+export class UserService extends BaseService {
   async createUser(data: User): Promise<void> {
     const result = await this.collections.users.insertOne(data);
-    if (!result.acknowledged) throw new Error("Failed to create user");
+    assertAck(result, `create user ${JSON.stringify(data)}`);
   }
 
   async getUser(userId: UserId): Promise<User> {
-    const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw new UserNotFoundError(userId);
-    return user;
+    return this.requireUser(userId);
   }
 
   async updateUserName(uid: UserId, name: string): Promise<void> {
@@ -59,8 +48,7 @@ export class UserService {
   }
 
   async assertInCourse(userId: UserId, courseId: CourseId): Promise<void> {
-    const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw new UserNotFoundError(userId);
+    const user = await this.requireUser(userId);
     if (!Users.inCourse(user, courseId)) {
       throw new CoursePermissionError(userId, courseId, "accessing course");
     }
@@ -72,8 +60,7 @@ export class UserService {
     roles: Role[],
     operation: string,
   ): Promise<void> {
-    const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw new UserNotFoundError(userId);
+    const user = await this.requireUser(userId);
     if (!Users.hasRole(user, clazz, roles)) {
       throw new ClassPermissionError(userId, roles, clazz, operation);
     }
