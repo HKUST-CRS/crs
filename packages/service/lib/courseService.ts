@@ -3,11 +3,6 @@ import { assertAck, BaseService } from "./baseService";
 import { assertCourseInstructor, assertInCourse } from "./permission";
 
 export class CourseService extends BaseService {
-  async createCourse(data: Course): Promise<void> {
-    const result = await this.collections.courses.insertOne(data);
-    assertAck(result, `create course with data: ${JSON.stringify(data)}`);
-  }
-
   async getCourse(uid: UserId, courseId: CourseId): Promise<Course> {
     const user = await this.requireUser(uid);
     assertInCourse(user, courseId, "accessing course information");

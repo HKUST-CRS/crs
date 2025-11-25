@@ -5,15 +5,10 @@ import {
   type User,
   type UserId,
 } from "../models";
-import { assertAck, BaseService } from "./baseService";
+import { BaseService } from "./baseService";
 import { assertClassRole } from "./permission";
 
 export class UserService extends BaseService {
-  async createUser(data: User): Promise<void> {
-    const result = await this.collections.users.insertOne(data);
-    assertAck(result, `create user ${JSON.stringify(data)}`);
-  }
-
   async getUser(uid: UserId): Promise<User> {
     return this.requireUser(uid);
   }
@@ -63,9 +58,9 @@ export class UserService extends BaseService {
     return this._getUsersFromClassInternal(clazz, role);
   }
 
-  async getUserRequests(userId: UserId): Promise<Request[]> {
+  async getUserRequests(uid: UserId): Promise<Request[]> {
     const result = await this.collections.requests
-      .find({ from: userId })
+      .find({ from: uid })
       .toArray();
     return result.map((req) =>
       Request.parse({ ...req, id: req._id.toHexString() }),
