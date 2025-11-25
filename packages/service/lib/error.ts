@@ -31,7 +31,7 @@ export class ClassPermissionError extends Error {
     super(
       `User ${userId} does not have the role ${roles.join("/")} in class ${Classes.id2str(clazz)} for ${operation}.`,
     );
-    this.name = "UserPermissionError";
+    this.name = "ClassPermissionError";
   }
 }
 
