@@ -2,23 +2,11 @@ import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 
 const ghIssue = (error: Error) => {
-  if (error instanceof TRPCClientError) {
-    const title = `[Uncaught Server TRPCError] ${error.message}`;
-    const body = `##### Meta
-\`\`\`
-${JSON.stringify(error.meta, null, 2)}
-\`\`\`
-`;
-    const params = new URLSearchParams({
-      title,
-      body,
-    });
-    return `https://github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
-  }
-  const title = `[Uncaught Server Error] ${error.message}`;
+  const isTRPCError = error instanceof TRPCClientError;
+  const title = `[Uncaught Server ${isTRPCError ? "TRPCError" : "Error"}] ${error.message}`;
   const body = `##### Meta
 \`\`\`
-${error}
+${isTRPCError ? JSON.stringify(error.meta, null, 2) : error}
 \`\`\`
 `;
   const params = new URLSearchParams({
