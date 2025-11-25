@@ -11,10 +11,6 @@ export class CourseService extends BaseService {
     return this.requrieCourse(courseId);
   }
 
-  async getCourses(): Promise<Course[]> {
-    return this.collections.courses.find().toArray();
-  }
-
   async getCoursesFromEnrollment(userId: UserId): Promise<Course[]> {
     const user = await this.requireUser(userId);
     const courseIds = user.enrollment.map((e) => ({
