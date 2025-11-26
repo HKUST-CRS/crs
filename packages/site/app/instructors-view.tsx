@@ -8,7 +8,7 @@ import { Courses } from "service/models";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";

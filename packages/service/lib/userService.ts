@@ -69,7 +69,7 @@ export class UserService {
         email: uid,
         name: "",
         enrollment: [],
-      })
+      });
     }
 
     await this.collections.users.updateOne(
