@@ -62,6 +62,20 @@ export const CourseId = Course.pick({ code: true, term: true });
 export type Course = z.infer<typeof Course>;
 export type CourseId = z.infer<typeof CourseId>;
 
+export namespace Terms {
+  export function formatTerm(term: string) {
+    const y1 = term.substring(0, 2);
+    const y2 = (parseInt(y1, 10) + 1).toString().padStart(2, "0");
+    const semester = {
+      "10": "Fall",
+      "20": "Winter",
+      "30": "Spring",
+      "40": "Summer",
+    }[term.substring(2, 4)];
+    return `${y1}-${y2} ${semester}`;
+  }
+}
+
 export namespace Courses {
   export function id2str(courseId: CourseId): string {
     return `${courseId.code} @ ${courseId.term}`;
@@ -76,6 +90,14 @@ export namespace Courses {
     } else {
       throw new Error(`Illegal course ID string: ${courseIdStr}`);
     }
+  }
+
+  export function formatID(cid: CourseId): string {
+    return `${cid.code} (${Terms.formatTerm(cid.term)})`;
+  }
+
+  export function formatCourse(course: Course): string {
+    return `${course.code} (${Terms.formatTerm(course.term)})`;
   }
 }
 
