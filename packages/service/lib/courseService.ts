@@ -17,7 +17,7 @@ export class CourseService extends BaseService {
     }));
     return await this.collections.courses
       .find({
-        $or: courseIds,
+        $or: courseIds.map(id => ({ code: id.code, term: id.term })),
       })
       .toArray();
   }
