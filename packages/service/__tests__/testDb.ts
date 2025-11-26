@@ -12,6 +12,8 @@ export class TestConn extends DbConn {
   }
 
   override async close() {
+    // wait for pending operations
+    await this.db.admin().ping();
     await this.db.dropDatabase();
     await this.memoryServer.stop();
     await super.close();
