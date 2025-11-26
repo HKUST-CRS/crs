@@ -17,7 +17,7 @@ export class CourseService extends BaseService {
     }));
     return await this.collections.courses
       .find({
-        $or: courseIds.map(id => ({ code: id.code, term: id.term })),
+        $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
       })
       .toArray();
   }
@@ -59,6 +59,9 @@ export class CourseService extends BaseService {
         $set: { effectiveRequestTypes },
       },
     );
-    assertAck(result, `update request types for course ${courseId.code} (${courseId.term})`);
+    assertAck(
+      result,
+      `update request types for course ${courseId.code} (${courseId.term})`,
+    );
   }
 }
