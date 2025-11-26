@@ -11,7 +11,7 @@ export class UserNotFoundError extends Error {
 export class CoursePermissionError extends Error {
   constructor(userId: UserId, courseId: CourseId, operation: string) {
     super(
-      `User ${userId} does not have permission for course ${Courses.id2str(courseId)} for ${operation}.`,
+      `User ${userId} does not have permission for ${operation} on course ${Courses.id2str(courseId)}.`,
     );
     this.name = "CoursePermissionError";
   }
