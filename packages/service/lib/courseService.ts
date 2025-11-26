@@ -59,10 +59,6 @@ export class CourseService extends BaseService {
         $set: { effectiveRequestTypes },
       },
     );
-    if (!result.acknowledged) {
-      throw new Error(
-        `Failed to update request types for course ${courseId.code} (${courseId.term})`,
-      );
-    }
+    assertAck(result, `update request types for course ${courseId.code} (${courseId.term})`);
   }
 }
