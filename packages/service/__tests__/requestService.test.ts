@@ -158,7 +158,7 @@ describe("RequestService", () => {
       expect(requestInDb.response).toMatchObject(response);
     });
 
-    test("should throw error when response already exists", async () => {
+    test("should throw error and preserve original response if there is one", async () => {
       const instructor = testData.instructors[0]!;
       const response = { ...testData.responseInit, from: instructor.email };
       await requestService.createResponse(
@@ -167,15 +167,19 @@ describe("RequestService", () => {
         response,
       );
       try {
-        await requestService.createResponse(
-          instructor.email,
-          requestId,
-          response,
-        );
+        await requestService.createResponse(instructor.email, requestId, {
+          ...response,
+          decision: "Reject",
+        });
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ResponseAlreadyExistsError);
       }
+      const request = await requestService.getRequest(
+        instructor.email,
+        requestId,
+      );
+      expect(request.response).toMatchObject(response);
     });
 
     test("should throw permission error when responder is not instructor of the class", async () => {
