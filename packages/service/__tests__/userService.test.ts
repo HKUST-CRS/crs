@@ -60,7 +60,7 @@ describe("UserService", () => {
       );
       expect(tas.length).toBeGreaterThan(0);
       const instructors = await userService.getUsersFromClass(
-        testData.students[0]!.email,
+        instructor.email,
         { course, section: "L1" },
         "instructor",
       );
