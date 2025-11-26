@@ -20,7 +20,7 @@ export abstract class BaseService {
     this.collections = collection;
   }
 
-  async requrieCourse(courseId: CourseId): Promise<Course> {
+  async requireCourse(courseId: CourseId): Promise<Course> {
     const course = await this.collections.courses.findOne(courseId);
     if (!course) throw new CourseNotFoundError(courseId);
     return course;

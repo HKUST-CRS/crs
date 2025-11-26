@@ -6,7 +6,7 @@ export class CourseService extends BaseService {
   async getCourse(uid: UserId, courseId: CourseId): Promise<Course> {
     const user = await this.requireUser(uid);
     assertInCourse(user, courseId, "accessing course information");
-    return this.requrieCourse(courseId);
+    return this.requireCourse(courseId);
   }
 
   async getCoursesFromEnrollment(uid: UserId): Promise<Course[]> {
