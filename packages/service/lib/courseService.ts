@@ -15,6 +15,10 @@ export class CourseService extends BaseService {
       code: e.course.code,
       term: e.course.term,
     }));
+    // MongoDB throws an error when $or receives an empty array
+    if (courseIds.length === 0) {
+      return [];
+    }
     return await this.collections.courses
       .find({
         $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
