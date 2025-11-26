@@ -8,7 +8,7 @@ Utilizing [Bun](https://bun.sh/) as the package manager and JS runtime, this rep
 
 - `packages/service` defines the Model.
 - `packages/site` defines the View.
-- `packages/controller` defines the Controller.
+- `packages/server` defines the Controller.
 
 [^1]: [Configuring a monorepo using workspaces with Bun](https://bun.com/guides/install/workspaces)
 [^2]: [Bun - Workspaces](https://bun.com/docs/install/workspaces)
@@ -23,7 +23,7 @@ bun install
 
 The current plan is to preserve type-safety throughout the application by leveraging TypeScript and its powerful type system. In particular,
 
-- The Model utilizes the typesystem in TypeScript, and [Zod](https://github.com/colinhacks/zod) or [TypeBox](https://github.com/sinclairzx81/typebox), for preserving type safety, building JSON schema, and validating JSON information.
+- The Model utilizes the typesystem in TypeScript, and [Zod](https://github.com/colinhacks/zod), for preserving type safety, building JSON schema, and validating JSON information.
 - The Controller, based on the Model, uses [tRPC](https://trpc.io/) for creating type-safe APIs, and [MongoDB](https://www.mongodb.com/) for (type-safe and efficient) persistent data storage.
 - The View, based on the Controller, mainly makes use of [React](https://reactjs.org/), [Next.js](https://nextjs.org/), [shadcn/ui](https://ui.shadcn.com/), and [Tailwind CSS](https://tailwindcss.com/) for building the beautiful server-side rendering site.
 
