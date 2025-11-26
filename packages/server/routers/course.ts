@@ -16,4 +16,27 @@ export const routerCourse = router({
     .query(({ ctx }) => {
       return services.course.getCoursesFromEnrollment(ctx.user.email);
     }),
+  updateSections: procedure
+    .input(
+      z.object({
+        courseId: CourseId,
+        sections: Course.shape.sections,
+      }),
+    )
+    .mutation(({ input }) => {
+      return services.course.updateSections(input.courseId, input.sections);
+    }),
+  updateAssignments: procedure
+    .input(
+      z.object({
+        courseId: CourseId,
+        assignments: Course.shape.assignments,
+      }),
+    )
+    .mutation(({ input }) => {
+      return services.course.updateAssignments(
+        input.courseId,
+        input.assignments,
+      );
+    }),
 });

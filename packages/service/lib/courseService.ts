@@ -52,9 +52,23 @@ export class CourseService {
     const result = await this.collections.courses.updateOne(courseId, {
       $set: { sections },
     });
-    if (result.modifiedCount === 0) {
+    if (result.modifiedCount === 0 && result.matchedCount === 0) {
       throw new Error(
         `Failed to update sections for course ${courseId.code} (${courseId.term})`,
+      );
+    }
+  }
+
+  async updateAssignments(
+    courseId: CourseId,
+    assignments: Course["assignments"],
+  ): Promise<void> {
+    const result = await this.collections.courses.updateOne(courseId, {
+      $set: { assignments },
+    });
+    if (result.modifiedCount === 0 && result.matchedCount === 0) {
+      throw new Error(
+        `Failed to update assignments for course ${courseId.code} (${courseId.term})`,
       );
     }
   }

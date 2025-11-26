@@ -4,17 +4,18 @@ import { Class, Classes } from "./course";
 export const Role = z.enum(["student", "instructor", "ta"]);
 export type Role = z.infer<typeof Role>;
 
+export const Enrollment = z.object({
+  ...Class.shape,
+  role: Role,
+});
+export type Enrollment = z.infer<typeof Enrollment>;
+
 export const User = z.object({
   email: z.email().meta({
     description: "The user's email address, used as the unique identifier.",
   }),
   name: z.string().meta({ description: "The full name of the user." }),
-  enrollment: z.array(
-    z.object({
-      ...Class.shape,
-      role: Role,
-    }),
-  ),
+  enrollment: z.array(Enrollment),
 });
 export type User = z.infer<typeof User>;
 

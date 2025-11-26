@@ -1,12 +1,14 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
+import { Courses } from "service/models";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
@@ -33,6 +35,16 @@ export default function InstructorsView() {
   const hasTeachingRole = userQuery.data?.enrollment?.some((e) => {
     return e.role === "instructor" || e.role === "ta";
   });
+
+  // Instructor Courses
+  const iCourseIDs = (userQuery.data?.enrollment ?? [])
+    .filter((e) => e.role === "instructor")
+    .map((e) => e.course);
+  const iCourses = useQueries({
+    queries: iCourseIDs.map((id) => trpc.course.get.queryOptions(id)),
+  })
+    .map((r) => r.data)
+    .filter((c): c is NonNullable<typeof c> => !!c);
 
   useEffect(() => {
     if (
@@ -94,6 +106,28 @@ export default function InstructorsView() {
         ) : (
           <Spinner variant="ellipsis" />
         )}
+      </section>
+      <section>
+        <p className="pb-4 font-medium text-sm leading-none">
+          Course Management
+        </p>
+        <div className="grid grid-cols-3">
+          {iCourses.map((course) => {
+            return (
+              <Link
+                key={Courses.id2str(course)}
+                href={`/instructor/admin/${Courses.id2str(course)}`}
+              >
+                <Card>
+                  <CardContent>
+                    <p className="font-medium">{Courses.formatID(course)}</p>
+                    <p className="text-sm">{course.title}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </section>
     </article>
   );

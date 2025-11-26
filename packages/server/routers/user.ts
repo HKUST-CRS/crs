@@ -1,4 +1,11 @@
-import { Class, Role, User } from "service/models";
+import {
+  Class,
+  CourseId,
+  Enrollment,
+  Role,
+  User,
+  UserId,
+} from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -20,5 +27,31 @@ export const routerUser = router({
     .output(z.array(User))
     .query(({ input: { class: clazz, role } }) => {
       return services.user.getUsersFromClass(clazz, role);
+    }),
+  getAllFromCourse: procedure
+    .input(CourseId)
+    .output(z.array(User))
+    .query(({ input }) => {
+      return services.user.getUsersFromCourse(input);
+    }),
+  createEnrollment: procedure
+    .input(
+      z.object({
+        uid: UserId,
+        enrollment: Enrollment,
+      }),
+    )
+    .mutation(({ input: { uid, enrollment } }) => {
+      return services.user.createEnrollment(uid, enrollment);
+    }),
+  deleteEnrollment: procedure
+    .input(
+      z.object({
+        uid: UserId,
+        enrollment: Enrollment,
+      }),
+    )
+    .mutation(({ input: { uid, enrollment } }) => {
+      return services.user.deleteEnrollment(uid, enrollment);
     }),
 });

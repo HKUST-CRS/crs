@@ -1,6 +1,8 @@
 import type { Collections } from "../db";
 import {
   type Class,
+  type CourseId,
+  type Enrollment,
   Request,
   type Role,
   type User,
@@ -43,31 +45,48 @@ export class UserService {
     return users;
   }
 
-  // async updateEnrollment(
-  //   userId: UserId,
-  //   enrollment: User["enrollment"],
-  // ): Promise<void> {
-  //   for (const inputCourse of enrollment) {
-  //     const course = await this.collections.courses.findOne({
-  //       code: inputCourse.code,
-  //       term: inputCourse.term,
-  //     });
-  //     if (!course) throw CourseNotFound(inputCourse);
-  //     for (const inputSection of inputCourse.sections) {
-  //       if (
-  //         !course.sections.map((course) => course.code).includes(inputSection)
-  //       ) {
-  //         throw SectionNotFound(inputCourse, inputSection);
-  //       }
-  //     }
-  //   }
-  //   const result = await this.collections.users.updateOne(
-  //     { email: userId },
-  //     { $set: { enrollment } },
-  //   );
-  //   if (result.modifiedCount === 0)
-  //     throw new Error("Failed to update enrollment");
-  // }
+  async getUsersFromCourse(courseId: CourseId): Promise<User[]> {
+    return this.collections.users
+      .find({
+        enrollment: {
+          $elemMatch: {
+            "course.code": courseId.code,
+            "course.term": courseId.term,
+          },
+        },
+      })
+      .toArray();
+  }
+
+  /**
+   * Create a role for the user in a section of a course.
+   */
+  async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+    // If the user does not exist, this implicitly creates the user.
+    const user = await this.collections.users.findOne({ email: uid });
+    if (!user) {
+      await this.collections.users.insertOne({
+        email: uid,
+        name: "",
+        enrollment: [],
+      })
+    }
+
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $push: { enrollment } },
+    );
+  }
+
+  /**
+   * Delete a role for the user in a section of a course.
+   */
+  async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $pull: { enrollment } },
+    );
+  }
 
   async getUserRequests(userId: UserId): Promise<Request[]> {
     const result = await this.collections.requests
