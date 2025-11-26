@@ -43,7 +43,7 @@ export class CourseService extends BaseService {
         $set: { sections },
       },
     );
-    assertAck(result, `update course ${courseId}`);
+    assertAck(result, `update course ${courseId.code} (${courseId.term})`);
   }
 
   async setEffectiveRequestTypes(
