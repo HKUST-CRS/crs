@@ -67,6 +67,17 @@ describe("UserService", () => {
       expect(instructors.length).toBeGreaterThan(0);
     });
 
+    test("TAs should be able to view students in their class", async () => {
+      const ta = testData.tas[0]!;
+      const course = testData.courses[0]!;
+      const students = await userService.getUsersFromClass(
+        ta.email,
+        { course, section: "L1" },
+        "student",
+      );
+      expect(students.length).toBeGreaterThan(0);
+    });
+
     test("students should only see instructors and TAs", async () => {
       const student = testData.students[0]!;
       const course = testData.courses[0]!;
