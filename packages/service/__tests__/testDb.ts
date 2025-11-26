@@ -4,8 +4,16 @@ import { DbConn } from "../db";
 import { courses, instructors, students, tas } from "./testData";
 
 export class TestConn extends DbConn {
+  private memoryServer: MongoMemoryServer;
+
+  constructor(client: MongoClient, mserver: MongoMemoryServer) {
+    super(client);
+    this.memoryServer = mserver;
+  }
+
   override async close() {
     await this.db.dropDatabase();
+    await this.memoryServer.stop();
     await super.close();
   }
 
@@ -13,7 +21,7 @@ export class TestConn extends DbConn {
     const memoryServer = await MongoMemoryServer.create();
     const client = new MongoClient(memoryServer.getUri());
     await client.connect();
-    const conn = new TestConn(client);
+    const conn = new TestConn(client, memoryServer);
     await conn.collections.users.insertMany([
       ...students,
       ...tas,
