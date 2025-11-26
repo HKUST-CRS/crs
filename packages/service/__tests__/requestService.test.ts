@@ -7,7 +7,11 @@ import {
   expect,
   test,
 } from "bun:test";
-import { ClassPermissionError, RequestService } from "../lib";
+import {
+  ClassPermissionError,
+  RequestService,
+  ResponseAlreadyExistsError,
+} from "../lib";
 import * as testData from "./testData";
 import { TestConn } from "./testDb";
 
@@ -152,6 +156,26 @@ describe("RequestService", () => {
         requestId,
       );
       expect(requestInDb.response).toMatchObject(response);
+    });
+
+    test("should throw error when response already exists", async () => {
+      const instructor = testData.instructors[0]!;
+      const response = { ...testData.responseInit, from: instructor.email };
+      await requestService.createResponse(
+        instructor.email,
+        requestId,
+        response,
+      );
+      try {
+        await requestService.createResponse(
+          instructor.email,
+          requestId,
+          response,
+        );
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ResponseAlreadyExistsError);
+      }
     });
 
     test("should throw permission error when responder is not instructor of the class", async () => {

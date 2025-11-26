@@ -9,6 +9,7 @@ import {
   type UserId,
 } from "../models";
 import { assertAck, BaseService } from "./baseService";
+import { ResponseAlreadyExistsError } from "./error";
 import { assertClassRole } from "./permission";
 
 export class RequestService extends BaseService {
@@ -100,6 +101,9 @@ export class RequestService extends BaseService {
       ["instructor"],
       `creating response for request ${rid}`,
     );
+    if (request.response) {
+      throw new ResponseAlreadyExistsError(rid);
+    }
 
     const result = await this.collections.requests.updateOne(
       { id: rid },
