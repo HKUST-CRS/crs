@@ -164,7 +164,7 @@ export const requestInit: RequestInit = {
   type: "Swap Section",
   class: { course: { code: "COMP 1023", term: "2510" }, section: "L1" },
   details: {
-    reason: "",
+    reason: ">.<",
     proof: [],
   },
   metadata: {

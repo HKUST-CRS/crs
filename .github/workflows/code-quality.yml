@@ -6,10 +6,6 @@ on:
 
 jobs:
   quality:
-    # Don't trigger the action on PRs from the same repo unless it's from dependabot.
-    # This prevents the same action from triggering twice, by push and pull_request events.
-    # https://github.com/orgs/community/discussions/26940#discussioncomment-6656489
-    if: (github.event_name != 'pull_request' && ! github.event.pull_request.head.repo.fork) || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
