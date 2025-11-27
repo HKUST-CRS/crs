@@ -3,7 +3,7 @@
 
 import type { Course, RequestInit, ResponseInit, User } from "../models";
 
-export const students: User[] = [
+export const students: [User, User, User] = [
   {
     email: "student1@connect.ust.hk",
     name: "student1",
@@ -49,7 +49,7 @@ export const students: User[] = [
   },
 ];
 
-export const tas: User[] = [
+export const tas: [User] = [
   {
     email: "ta1@connect.ust.hk",
     name: "ta1",
@@ -73,7 +73,7 @@ export const tas: User[] = [
   },
 ];
 
-export const instructors: User[] = [
+export const instructors: [User, User] = [
   {
     email: "instructor1@ust.hk",
     name: "instructor1",
@@ -103,7 +103,7 @@ export const instructors: User[] = [
   },
 ];
 
-export const courses: Course[] = [
+export const courses: [Course, Course, Course] = [
   {
     code: "COMP 1023",
     term: "2510",

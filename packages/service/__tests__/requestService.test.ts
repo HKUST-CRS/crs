@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
 import {
   afterAll,
   beforeAll,
@@ -30,7 +29,7 @@ describe("RequestService", () => {
 
   describe("createRequest", () => {
     test("should create and get a request successfully", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const request = { ...testData.requestInit, from: student.email };
       const id = await requestService.createRequest(student.email, request);
       const requestInDb = await requestService.getRequest(student.email, id);
@@ -38,7 +37,7 @@ describe("RequestService", () => {
     });
 
     test("should throw permission error when user is not in the class", async () => {
-      const student = testData.students[1]!;
+      const student = testData.students[1];
       const request = { ...testData.requestInit, from: student.email };
       try {
         await requestService.createRequest(student.email, request);
@@ -53,26 +52,26 @@ describe("RequestService", () => {
     let requestId: string;
 
     beforeEach(async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const request = { ...testData.requestInit, from: student.email };
       await testConn.collections.requests.drop();
       requestId = await requestService.createRequest(student.email, request);
     });
 
     test("should allow requester to get their own request", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const request = await requestService.getRequest(student.email, requestId);
       expect(request).toBeDefined();
     });
 
     test("should allow TAs to get requests in their class", async () => {
-      const ta = testData.tas[0]!;
+      const ta = testData.tas[0];
       const request = await requestService.getRequest(ta.email, requestId);
       expect(request).toBeDefined();
     });
 
     test("should allow instructors to get requests in their class", async () => {
-      const instructor = testData.instructors[0]!;
+      const instructor = testData.instructors[0];
       const request = await requestService.getRequest(
         instructor.email,
         requestId,
@@ -81,7 +80,7 @@ describe("RequestService", () => {
     });
 
     test("should throw permission error when user is neither requester nor instructor/TA", async () => {
-      const student = testData.students[1]!;
+      const student = testData.students[1];
       try {
         await requestService.getRequest(student.email, requestId);
         expect.unreachable("should have thrown an error");
@@ -93,14 +92,14 @@ describe("RequestService", () => {
 
   describe("getRequestsAs", () => {
     beforeEach(async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const request = { ...testData.requestInit, from: student.email };
       await testConn.collections.requests.drop();
       await requestService.createRequest(student.email, request);
     });
 
     test("should get requests as student", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const requests = await requestService.getRequestsAs(
         student.email,
         "student",
@@ -109,13 +108,13 @@ describe("RequestService", () => {
     });
 
     test("should get requests as ta", async () => {
-      const ta = testData.tas[0]!;
+      const ta = testData.tas[0];
       const requests = await requestService.getRequestsAs(ta.email, "ta");
       expect(requests.length).toEqual(1);
     });
 
     test("should get requests as instructor", async () => {
-      const instructor = testData.instructors[0]!;
+      const instructor = testData.instructors[0];
       const requests = await requestService.getRequestsAs(
         instructor.email,
         "instructor",
@@ -124,7 +123,7 @@ describe("RequestService", () => {
     });
 
     test("should not get uninvolved requests", async () => {
-      const student = testData.students[1]!;
+      const student = testData.students[1];
       const requests = await requestService.getRequestsAs(
         student.email,
         "student",
@@ -137,14 +136,14 @@ describe("RequestService", () => {
     let requestId: string;
 
     beforeEach(async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const request = { ...testData.requestInit, from: student.email };
       await testConn.collections.requests.drop();
       requestId = await requestService.createRequest(student.email, request);
     });
 
     test("should add response to request successfully", async () => {
-      const instructor = testData.instructors[0]!;
+      const instructor = testData.instructors[0];
       const response = { ...testData.responseInit, from: instructor.email };
       await requestService.createResponse(
         instructor.email,
@@ -159,7 +158,7 @@ describe("RequestService", () => {
     });
 
     test("should throw error and preserve original response if there is one", async () => {
-      const instructor = testData.instructors[0]!;
+      const instructor = testData.instructors[0];
       const response = { ...testData.responseInit, from: instructor.email };
       await requestService.createResponse(
         instructor.email,
@@ -183,7 +182,7 @@ describe("RequestService", () => {
     });
 
     test("should throw permission error when responder is not instructor of the class", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const response = { ...testData.responseInit, from: student.email };
       try {
         await requestService.createResponse(student.email, requestId, response);

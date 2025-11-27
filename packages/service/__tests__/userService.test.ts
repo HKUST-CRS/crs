@@ -19,7 +19,7 @@ describe("UserService", () => {
 
   describe("getUser", () => {
     test("should get user by email", async () => {
-      const user = testData.students[0]!;
+      const user = testData.students[0];
       const fetchedUser = await userService.getUser(user.email);
       expect(fetchedUser.email).toBe(user.email);
     });
@@ -36,7 +36,7 @@ describe("UserService", () => {
 
   describe("updateUserName", () => {
     test("should update user name successfully", async () => {
-      const user = testData.students[0]!;
+      const user = testData.students[0];
       await userService.updateUserName(user.email, "New Name");
       const updatedUser = await userService.getUser(user.email);
       expect(updatedUser.name).toBe("New Name");
@@ -45,8 +45,8 @@ describe("UserService", () => {
 
   describe("getUsersFromClass", () => {
     test("instructors should have full access", async () => {
-      const instructor = testData.instructors[0]!;
-      const course = testData.courses[0]!;
+      const instructor = testData.instructors[0];
+      const course = testData.courses[0];
       const students = await userService.getUsersFromClass(
         instructor.email,
         { course, section: "L1" },
@@ -68,8 +68,8 @@ describe("UserService", () => {
     });
 
     test("TAs should be able to view students in their class", async () => {
-      const ta = testData.tas[0]!;
-      const course = testData.courses[0]!;
+      const ta = testData.tas[0];
+      const course = testData.courses[0];
       const students = await userService.getUsersFromClass(
         ta.email,
         { course, section: "L1" },
@@ -79,8 +79,8 @@ describe("UserService", () => {
     });
 
     test("students should only see instructors and TAs", async () => {
-      const student = testData.students[0]!;
-      const course = testData.courses[0]!;
+      const student = testData.students[0];
+      const course = testData.courses[0];
       const tas = await userService.getUsersFromClass(
         student.email,
         { course, section: "L1" },
@@ -96,8 +96,8 @@ describe("UserService", () => {
     });
 
     test("students should not see other students", async () => {
-      const student = testData.students[0]!;
-      const course = testData.courses[0]!;
+      const student = testData.students[0];
+      const course = testData.courses[0];
       try {
         await userService.getUsersFromClass(
           student.email,
@@ -111,8 +111,8 @@ describe("UserService", () => {
     });
 
     test("users not in class should not have access", async () => {
-      const user = testData.students[1]!;
-      const course = testData.courses[0]!;
+      const user = testData.students[1];
+      const course = testData.courses[0];
       try {
         await userService.getUsersFromClass(
           user.email,

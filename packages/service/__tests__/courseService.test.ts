@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   CoursePermissionError,
@@ -23,12 +22,10 @@ describe("CourseService", () => {
 
   describe("getCourse", () => {
     test("should get course by id", async () => {
-      const student = testData.students[0]!;
-      const course = await courseService.getCourse(
-        student.email,
-        student.enrollment[0]!.course,
-      );
-      expect(course.code).toEqual(student.enrollment[0]!.course.code);
+      const student = testData.students[0];
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const course = await courseService.getCourse(student.email, courseId);
+      expect(course.code).toEqual(courseId.code);
     });
 
     test("should throw user not found error when user does not exist", async () => {
@@ -44,7 +41,7 @@ describe("CourseService", () => {
     });
 
     test("should throw permission error when user is not in the course", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       try {
         await courseService.getCourse(student.email, {
           code: "COMP 1023",
@@ -57,7 +54,7 @@ describe("CourseService", () => {
     });
 
     test("should throw error when course does not exist", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       try {
         await courseService.getCourse(student.email, {
           code: "NONEXIST",
@@ -72,7 +69,7 @@ describe("CourseService", () => {
 
   describe("getCoursesFromEnrollment", () => {
     test("should get all courses from user's enrollment", async () => {
-      const student = testData.students[0]!;
+      const student = testData.students[0];
       const courses = await courseService.getCoursesFromEnrollment(
         student.email,
       );
@@ -98,8 +95,8 @@ describe("CourseService", () => {
 
   describe("updateSections", () => {
     test("should update course sections successfully", async () => {
-      const user = testData.instructors[0]!;
-      const course = testData.courses[0]!;
+      const user = testData.instructors[0];
+      const course = testData.courses[0];
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       await courseService.updateSections(user.email, courseId, newSections);
@@ -110,8 +107,8 @@ describe("CourseService", () => {
     });
 
     test("should throw permission error when user is not instructor", async () => {
-      const user = testData.students[0]!;
-      const course = testData.courses[0]!;
+      const user = testData.students[0];
+      const course = testData.courses[0];
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       try {
@@ -125,8 +122,8 @@ describe("CourseService", () => {
 
   describe("setEffectiveRequestTypes", () => {
     test("should update effective request types successfully", async () => {
-      const user = testData.instructors[0]!;
-      const course = testData.courses[0]!;
+      const user = testData.instructors[0];
+      const course = testData.courses[0];
       const courseId = { code: course.code, term: course.term };
       const newRequestTypes = {
         "Swap Section": false,
@@ -142,8 +139,8 @@ describe("CourseService", () => {
     });
 
     test("should throw permission error when user is not instructor", async () => {
-      const user = testData.students[0]!;
-      const course = testData.courses[0]!;
+      const user = testData.students[0];
+      const course = testData.courses[0];
       const newRequestTypes = {
         "Swap Section": false,
         "Deadline Extension": true,
