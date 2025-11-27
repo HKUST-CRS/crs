@@ -8,17 +8,14 @@ import {
 } from "../models";
 import { ClassPermissionError, CoursePermissionError } from "./error";
 
-export function assertInCourse(
-  user: User,
-  course: CourseId,
-  op?: string,
-) {
+export function assertInCourse(user: User, course: CourseId, op?: string) {
   const isInCourse = user.enrollment.some(
     (e) => e.course.code === course.code && e.course.term === course.term,
   );
   if (!isInCourse) {
     throw new CoursePermissionError(
       user.email,
+      [],
       course,
       op || "accessing course",
     );
@@ -39,6 +36,7 @@ export function assertCourseInstructor(
   if (!isInstructor) {
     throw new CoursePermissionError(
       user.email,
+      ["instructor"],
       course,
       op || "accessing course as instructor",
     );

@@ -9,9 +9,16 @@ export class UserNotFoundError extends Error {
 }
 
 export class CoursePermissionError extends Error {
-  constructor(userId: UserId, courseId: CourseId, operation: string) {
+  constructor(
+    userId: UserId,
+    roles: Role[],
+    courseId: CourseId,
+    operation: string,
+  ) {
+    const roleStr =
+      roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
     super(
-      `User ${userId} does not have permission for ${operation} on course ${Courses.id2str(courseId)}.`,
+      `User ${userId} does not have ${roleStr} in course ${Courses.id2str(courseId)} for ${operation}.`,
     );
     this.name = "CoursePermissionError";
   }
@@ -19,8 +26,10 @@ export class CoursePermissionError extends Error {
 
 export class ClassPermissionError extends Error {
   constructor(userId: UserId, roles: Role[], clazz: Class, operation: string) {
+    const roleStr =
+      roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
     super(
-      `User ${userId} does not have the role ${roles.join("/")} in class ${Classes.id2str(clazz)} for ${operation}.`,
+      `User ${userId} does not have ${roleStr} in class ${Classes.id2str(clazz)} for ${operation}.`,
     );
     this.name = "ClassPermissionError";
   }
