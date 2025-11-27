@@ -10,7 +10,7 @@ import { ClassPermissionError, CoursePermissionError } from "./error";
 
 export function assertInCourse(
   user: User,
-  course: Course | CourseId,
+  course: CourseId,
   op?: string,
 ) {
   const isInCourse = user.enrollment.some(
