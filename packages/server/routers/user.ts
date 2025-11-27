@@ -18,7 +18,7 @@ export const routerUser = router({
       }),
     )
     .output(z.array(User))
-    .query(async ({ input: { class: clazz, role }, ctx }) => {
+    .query(({ input: { class: clazz, role }, ctx }) => {
       return services.user.getUsersFromClass(ctx.user.email, clazz, role);
     }),
 });
