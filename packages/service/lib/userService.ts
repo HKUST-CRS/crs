@@ -1,41 +1,26 @@
 import type { Class, Role, User, UserId } from "../models";
-import { BaseService } from "./baseService";
+import { AuthableService, ServiceWithAuth } from "./baseService";
 import { assertClassRole } from "./permission";
 
-export class UserService extends BaseService {
-  async getUser(uid: UserId): Promise<User> {
-    return this.requireUser(uid);
+export class UserService extends AuthableService {
+  withAuth(userId: UserId): UserServiceWithAuth {
+    return new UserServiceWithAuth(this.functions, userId);
+  }
+}
+
+class UserServiceWithAuth extends ServiceWithAuth {
+  async getCurrentUser(): Promise<User> {
+    return this.functions.user.requireUser(this.userId);
   }
 
-  async updateUserName(uid: UserId, name: string): Promise<void> {
-    await this.collections.users.updateOne({ email: uid }, { $set: { name } });
+  async updateUserName(name: string): Promise<void> {
+    await this.functions.user.updateUserName(this.userId, name);
   }
 
-  /** For internal use of the service package only */
-  async _getUsersFromClassInternal(clazz: Class, role: Role): Promise<User[]> {
-    const users = await this.collections.users
-      .find({
-        enrollment: {
-          $elemMatch: {
-            "course.code": clazz.course.code,
-            "course.term": clazz.course.term,
-            section: clazz.section,
-            role,
-          },
-        },
-      })
-      .toArray();
-    return users;
-  }
-
-  async getUsersFromClass(
-    uid: UserId,
-    clazz: Class,
-    role: Role,
-  ): Promise<User[]> {
-    const user = await this.requireUser(uid);
+  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
+    const user = await this.functions.user.requireUser(this.userId);
     if (role === "student") {
-      // only instructors/TAs in the class can view the students
+      // only instructors and TAs in the class can view the students
       assertClassRole(
         user,
         clazz,
@@ -51,6 +36,6 @@ export class UserService extends BaseService {
         `viewing instructors/TAs in class ${clazz.course.code} (${clazz.course.term})`,
       );
     }
-    return this._getUsersFromClassInternal(clazz, role);
+    return this.functions.user.getUsersFromClass(clazz, role);
   }
 }

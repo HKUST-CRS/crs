@@ -1,24 +1,19 @@
 import path from "node:path";
 import handlebars, { Exception } from "handlebars";
 import nodemailer from "nodemailer";
+import type { Collections } from "../db";
 import type { Request } from "../models";
+import { BaseService } from "./baseService";
 import { ResponseNotFoundError } from "./error";
-import type { UserService } from "./userService";
 
-type NotificationServiceDependencies = {
-  user: UserService;
-};
-
-export class NotificationService {
-  private services: NotificationServiceDependencies;
-
+export class NotificationService extends BaseService {
   private transporter: nodemailer.Transporter;
   private templateDir: string;
 
   private baseUrl: string;
 
-  constructor(services: NotificationServiceDependencies) {
-    this.services = services;
+  constructor(collections: Collections) {
+    super(collections);
     this.transporter = nodemailer.createTransport({
       host: Bun.env.SMTP_HOST,
       port: Number(Bun.env.SMTP_PORT),
@@ -53,11 +48,11 @@ export class NotificationService {
   async notifyNewRequest(request: Request) {
     const subject = "New Request";
 
-    const instructors = await this.services.user._getUsersFromClassInternal(
+    const instructors = await this.functions.user.getUsersFromClass(
       request.class,
       "instructor",
     );
-    const student = await this.services.user.getUser(request.from);
+    const student = await this.functions.user.requireUser(request.from);
 
     const instructorEmails = instructors.map((i) => i.email);
     const instructorNames = instructors.map((i) => i.name).join(", ");
@@ -87,13 +82,15 @@ export class NotificationService {
     }
     const subject = "New Response";
 
-    const student = await this.services.user.getUser(request.from);
-    const instructor = await this.services.user.getUser(request.response.from);
-    const instructors = await this.services.user._getUsersFromClassInternal(
+    const student = await this.functions.user.requireUser(request.from);
+    const instructor = await this.functions.user.requireUser(
+      request.response.from,
+    );
+    const instructors = await this.functions.user.getUsersFromClass(
       request.class,
       "instructor",
     );
-    const tas = await this.services.user._getUsersFromClassInternal(
+    const tas = await this.functions.user.getUsersFromClass(
       request.class,
       "ta",
     );

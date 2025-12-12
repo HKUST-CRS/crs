@@ -1,5 +1,4 @@
-export * from "./courseService";
-export * from "./error";
-export * from "./notificationService";
-export * from "./requestService";
-export * from "./userService";
+export { CourseService } from "./courseService";
+export { NotificationService } from "./notificationService";
+export { RequestService } from "./requestService";
+export { UserService } from "./userService";
