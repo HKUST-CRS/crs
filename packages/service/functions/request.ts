@@ -25,15 +25,6 @@ export class RequestFunctions extends BaseFunctions {
     return id;
   }
 
-  async getRequestsByUser(userId: UserId): Promise<Request[]> {
-    const requests = await this.collections.requests
-      .find({
-        from: userId,
-      })
-      .toArray();
-    return requests.map((request) => Request.parse({ ...request }));
-  }
-
   async getRequestsByEnrollments(
     enrollments: Array<Enrollment>,
   ): Promise<Request[]> {
