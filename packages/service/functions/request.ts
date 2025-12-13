@@ -1,12 +1,12 @@
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
-import {
-  type Enrollment,
+import type {
+  Class,
   Request,
-  type RequestId,
-  type RequestInit,
-  type ResponseInit,
-  type UserId,
+  RequestId,
+  RequestInit,
+  ResponseInit,
+  UserId,
 } from "../models";
 import { BaseFunctions } from "./base";
 import { assertAck, ResponseAlreadyExistsError } from "./error";
@@ -25,13 +25,19 @@ export class RequestFunctions extends BaseFunctions {
     return id;
   }
 
-  async getRequestsByEnrollments(
-    enrollments: Array<Enrollment>,
-  ): Promise<Request[]> {
+  async getRequestsMadeByUser(userId: UserId): Promise<Request[]> {
+    const requests = await this.collections.requests
+      .find({ from: userId })
+      .toArray();
+    return requests;
+  }
+
+  /** Get ALL requests in the specified classes */
+  async getRequestsInClasses(classes: Array<Class>): Promise<Request[]> {
     const requests = await this.collections.requests
       .find({
         $or: [
-          ...enrollments.map((clazz) => ({
+          ...classes.map((clazz) => ({
             class: {
               course: clazz.course,
               section: clazz.section,
@@ -46,7 +52,7 @@ export class RequestFunctions extends BaseFunctions {
         ],
       })
       .toArray();
-    return requests.map((request) => Request.parse({ ...request }));
+    return requests;
   }
 
   async createResponse(

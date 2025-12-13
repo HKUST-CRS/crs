@@ -1,5 +1,4 @@
-import type { RequestId } from "service/models";
-import type { CourseId, UserId } from "../models";
+import type { CourseId, RequestId, UserId } from "../models";
 
 export class UserNotFoundError extends Error {
   constructor(userId: UserId) {

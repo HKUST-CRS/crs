@@ -1,5 +1,12 @@
-import { type Class, Classes, Courses, type RequestId } from "service/models";
-import type { CourseId, Role, UserId } from "../models";
+import {
+  type Class,
+  Classes,
+  type CourseId,
+  Courses,
+  type RequestId,
+  type Role,
+  type UserId,
+} from "../models";
 
 export class CoursePermissionError extends Error {
   constructor(

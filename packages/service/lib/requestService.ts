@@ -48,11 +48,13 @@ class RequestServiceWithAuth extends ServiceWithAuth {
    */
   async getRequestsAs(role: Role): Promise<Request[]> {
     const user = await this.functions.user.requireUser(this.userId);
+    // students can only get their own requests
     if (role === "student") {
-      return this.functions.request.getRequestsByUserId(this.userId);
+      return this.functions.request.getRequestsMadeByUser(this.userId);
     }
+    // instructors and TAs can get requests for their classes
     const enrollments = user.enrollment.filter((clazz) => clazz.role === role);
-    return this.functions.request.getRequestsByEnrollments(enrollments);
+    return this.functions.request.getRequestsInClasses(enrollments);
   }
 
   async createResponse(
