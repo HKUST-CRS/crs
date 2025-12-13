@@ -31,7 +31,7 @@ async function createIndexes(collections: Collections): Promise<void> {
   await Promise.all([
     collections.users.createIndex({ email: 1 }, { unique: true }),
     collections.courses.createIndex({ code: 1, term: 1 }, { unique: true }),
-    collections.requests.createIndex({ createdAt: -1 }),
+    collections.requests.createIndex({ timestamp: -1 }),
   ]);
 }
 
