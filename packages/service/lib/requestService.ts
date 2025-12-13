@@ -35,7 +35,7 @@ class RequestServiceWithAuth extends ServiceWithAuth {
         `viewing request ${requestId}`,
       );
     }
-    return this.functions.request.requireRequest(requestId);
+    return request;
   }
 
   /**
