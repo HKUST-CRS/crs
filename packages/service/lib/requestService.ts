@@ -48,6 +48,9 @@ class RequestServiceWithAuth extends ServiceWithAuth {
    */
   async getRequestsAs(role: Role): Promise<Request[]> {
     const user = await this.functions.user.requireUser(this.userId);
+    if (role === "student") {
+      return this.functions.request.getRequestsByUserId(this.userId);
+    }
     const enrollments = user.enrollment.filter((clazz) => clazz.role === role);
     return this.functions.request.getRequestsByEnrollments(enrollments);
   }
