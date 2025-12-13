@@ -130,11 +130,27 @@ describe("RequestService", () => {
       expect(requests.length).toEqual(1);
     });
 
-    test("should not get uninvolved requests", async () => {
-      const student = testData.students[1];
+    test("students should not get other students' requests", async () => {
+      const student = testData.students[2];
       const requests = await requestService
         .withAuth(student.email)
         .getRequestsAs("student");
+      expect(requests.length).toEqual(0);
+    });
+
+    test("TAs should not get other classes' requests", async () => {
+      const ta = testData.tas[1];
+      const requests = await requestService
+        .withAuth(ta.email)
+        .getRequestsAs("ta");
+      expect(requests.length).toEqual(0);
+    });
+
+    test("instructors should not get other classes' requests", async () => {
+      const instructor = testData.instructors[1];
+      const requests = await requestService
+        .withAuth(instructor.email)
+        .getRequestsAs("instructor");
       expect(requests.length).toEqual(0);
     });
   });
