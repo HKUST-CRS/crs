@@ -1,46 +1,35 @@
 import type { Collections } from "../db";
-import type {
-  Course,
-  CourseId,
-  Request,
-  RequestId,
-  User,
-  UserId,
-} from "../models";
-import {
-  CourseNotFoundError,
-  RequestNotFoundError,
-  UserNotFoundError,
-} from "./error";
+import { CourseFunctions, RequestFunctions, UserFunctions } from "../functions";
+import type { UserId } from "../models";
+
+export interface Functions {
+  user: UserFunctions;
+  course: CourseFunctions;
+  request: RequestFunctions;
+}
 
 export abstract class BaseService {
-  protected collections: Collections;
+  protected functions: Functions;
 
-  constructor(collection: Collections) {
-    this.collections = collection;
-  }
-
-  async requireCourse(courseId: CourseId): Promise<Course> {
-    const course = await this.collections.courses.findOne(courseId);
-    if (!course) throw new CourseNotFoundError(courseId);
-    return course;
-  }
-
-  async requireUser(userId: UserId): Promise<User> {
-    const user = await this.collections.users.findOne({ email: userId });
-    if (!user) throw new UserNotFoundError(userId);
-    return user;
-  }
-
-  async requireRequest(requestId: RequestId): Promise<Request> {
-    const request = await this.collections.requests.findOne({ id: requestId });
-    if (!request) throw new RequestNotFoundError(requestId);
-    return request;
+  constructor(collections: Collections) {
+    this.functions = {
+      user: new UserFunctions(collections),
+      course: new CourseFunctions(collections),
+      request: new RequestFunctions(collections),
+    };
   }
 }
 
-export function assertAck(result: { acknowledged: boolean }, op: string): void {
-  if (!result.acknowledged) {
-    throw new Error(`Operation ${op} not acknowledged`);
+export abstract class AuthableService extends BaseService {
+  abstract withAuth(userId: UserId): ServiceWithAuth;
+}
+
+export abstract class ServiceWithAuth {
+  protected functions: Functions;
+  protected userId: UserId;
+
+  constructor(functions: Functions, userId: UserId) {
+    this.functions = functions;
+    this.userId = userId;
   }
 }

@@ -1,35 +1,34 @@
-import { MongoClient } from "mongodb";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { DbConn } from "../db";
+import { createDbConn, type DbConn } from "../db";
 import { courses, instructors, students, tas } from "./testData";
 
-export class TestConn extends DbConn {
+class TestDb implements DbConn {
   private memoryServer: MongoMemoryServer;
+  private conn: DbConn;
 
-  constructor(client: MongoClient, mserver: MongoMemoryServer) {
-    super(client);
-    this.memoryServer = mserver;
+  constructor(memoryServer: MongoMemoryServer, conn: DbConn) {
+    this.memoryServer = memoryServer;
+    this.conn = conn;
   }
 
-  override async close() {
-    // wait for pending operations
-    await this.db.admin().ping();
-    await this.db.dropDatabase();
+  async close() {
+    await this.conn.close();
     await this.memoryServer.stop();
-    await super.close();
   }
 
-  static async create(): Promise<TestConn> {
-    const memoryServer = await MongoMemoryServer.create();
-    const client = new MongoClient(memoryServer.getUri());
-    await client.connect();
-    const conn = new TestConn(client, memoryServer);
-    await conn.collections.users.insertMany([
-      ...students,
-      ...tas,
-      ...instructors,
-    ]);
-    await conn.collections.courses.insertMany(courses);
-    return conn;
+  get collections() {
+    return this.conn.collections;
   }
+}
+
+export async function createTestConn(): Promise<DbConn> {
+  const memoryServer = await MongoMemoryServer.create();
+  const conn = await createDbConn(memoryServer.getUri());
+  await conn.collections.users.insertMany([
+    ...students,
+    ...tas,
+    ...instructors,
+  ]);
+  await conn.collections.courses.insertMany(courses);
+  return new TestDb(memoryServer, conn);
 }

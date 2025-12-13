@@ -8,20 +8,22 @@ export const routerRequest = router({
     .input(RequestId)
     .output(Request)
     .query(({ input, ctx }) => {
-      return services.request.getRequest(ctx.user.email, input);
+      return services.request.withAuth(ctx.user.email).getRequest(input);
     }),
   getAll: procedure
     .input(Role)
     .output(z.array(Request))
     .query(({ input: role, ctx }) => {
-      return services.request.getRequestsAs(ctx.user.email, role);
+      return services.request.withAuth(ctx.user.email).getRequestsAs(role);
     }),
   create: procedure
     .input(RequestInit)
     .output(RequestId)
     .mutation(async ({ input, ctx }) => {
-      const rid = await services.request.createRequest(ctx.user.email, input);
-      const r = await services.request.getRequest(ctx.user.email, rid);
+      const rid = await services.request
+        .withAuth(ctx.user.email)
+        .createRequest(input);
+      const r = await services.request.withAuth(ctx.user.email).getRequest(rid);
       await services.notification.notifyNewRequest(r);
       return rid;
     }),

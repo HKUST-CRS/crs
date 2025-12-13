@@ -1,15 +1,18 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { ClassPermissionError, UserNotFoundError, UserService } from "../lib";
+import type { DbConn } from "../db";
+import { UserNotFoundError } from "../functions/error";
+import { UserService } from "../lib";
+import { ClassPermissionError } from "../lib/error";
 import * as testData from "./testData";
-import { TestConn } from "./testDb";
+import { createTestConn } from "./testDb";
 
 describe("UserService", () => {
-  let testConn: TestConn;
+  let testConn: DbConn;
   let userService: UserService;
 
   beforeAll(async () => {
-    testConn = await TestConn.create();
+    testConn = await createTestConn();
     userService = new UserService(testConn.collections);
   });
 
@@ -20,13 +23,15 @@ describe("UserService", () => {
   describe("getUser", () => {
     test("should get user by email", async () => {
       const user = testData.students[0];
-      const fetchedUser = await userService.getUser(user.email);
+      const fetchedUser = await userService
+        .withAuth(user.email)
+        .getCurrentUser();
       expect(fetchedUser.email).toBe(user.email);
     });
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await userService.getUser("dne@dne.com");
+        await userService.withAuth("dne@dne.com").getCurrentUser();
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
@@ -37,8 +42,10 @@ describe("UserService", () => {
   describe("updateUserName", () => {
     test("should update user name successfully", async () => {
       const user = testData.students[0];
-      await userService.updateUserName(user.email, "New Name");
-      const updatedUser = await userService.getUser(user.email);
+      await userService.withAuth(user.email).updateUserName("New Name");
+      const updatedUser = await userService
+        .withAuth(user.email)
+        .getCurrentUser();
       expect(updatedUser.name).toBe("New Name");
     });
   });
@@ -47,51 +54,39 @@ describe("UserService", () => {
     test("instructors should have full access", async () => {
       const instructor = testData.instructors[0];
       const course = testData.courses[0];
-      const students = await userService.getUsersFromClass(
-        instructor.email,
-        { course, section: "L1" },
-        "student",
-      );
+      const students = await userService
+        .withAuth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "student");
       expect(students.length).toBeGreaterThan(0);
-      const tas = await userService.getUsersFromClass(
-        instructor.email,
-        { course, section: "L1" },
-        "ta",
-      );
+      const tas = await userService
+        .withAuth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "ta");
       expect(tas.length).toBeGreaterThan(0);
-      const instructors = await userService.getUsersFromClass(
-        instructor.email,
-        { course, section: "L1" },
-        "instructor",
-      );
+      const instructors = await userService
+        .withAuth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
 
     test("TAs should be able to view students in their class", async () => {
       const ta = testData.tas[0];
       const course = testData.courses[0];
-      const students = await userService.getUsersFromClass(
-        ta.email,
-        { course, section: "L1" },
-        "student",
-      );
+      const students = await userService
+        .withAuth(ta.email)
+        .getUsersFromClass({ course, section: "L1" }, "student");
       expect(students.length).toBeGreaterThan(0);
     });
 
     test("students should only see instructors and TAs", async () => {
       const student = testData.students[0];
       const course = testData.courses[0];
-      const tas = await userService.getUsersFromClass(
-        student.email,
-        { course, section: "L1" },
-        "ta",
-      );
+      const tas = await userService
+        .withAuth(student.email)
+        .getUsersFromClass({ course, section: "L1" }, "ta");
       expect(tas.length).toBeGreaterThan(0);
-      const instructors = await userService.getUsersFromClass(
-        student.email,
-        { course, section: "L1" },
-        "instructor",
-      );
+      const instructors = await userService
+        .withAuth(student.email)
+        .getUsersFromClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
 
@@ -99,11 +94,9 @@ describe("UserService", () => {
       const student = testData.students[0];
       const course = testData.courses[0];
       try {
-        await userService.getUsersFromClass(
-          student.email,
-          { course, section: "L1" },
-          "student",
-        );
+        await userService
+          .withAuth(student.email)
+          .getUsersFromClass({ course, section: "L1" }, "student");
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -114,11 +107,9 @@ describe("UserService", () => {
       const user = testData.students[1];
       const course = testData.courses[0];
       try {
-        await userService.getUsersFromClass(
-          user.email,
-          { course, section: "L1" },
-          "instructor",
-        );
+        await userService
+          .withAuth(user.email)
+          .getUsersFromClass({ course, section: "L1" }, "instructor");
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
