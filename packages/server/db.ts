@@ -1,3 +1,3 @@
-import { createDbConnFromEnv } from "service/db";
+import { DbConn } from "service/db";
 
-export const db = await createDbConnFromEnv();
+export const db = await DbConn.createFromEnv();

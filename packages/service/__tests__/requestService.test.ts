@@ -1,29 +1,41 @@
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
   expect,
   test,
 } from "bun:test";
-import type { DbConn } from "../db";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
 import { ResponseAlreadyExistsError } from "../functions/error";
 import { RequestService } from "../lib";
 import { ClassPermissionError } from "../lib/error";
 import * as testData from "./testData";
-import { createTestConn } from "./testDb";
+import { clearData, insertTestData } from "./testUtils";
 
 describe("RequestService", () => {
   let testConn: DbConn;
+  let memoryServer: MongoMemoryServer;
   let requestService: RequestService;
 
   beforeAll(async () => {
-    testConn = await createTestConn();
+    memoryServer = await MongoMemoryServer.create();
+    testConn = await DbConn.create(memoryServer.getUri());
     requestService = new RequestService(testConn.collections);
   });
 
   afterAll(async () => {
     await testConn.close();
+  });
+
+  beforeEach(async () => {
+    await insertTestData(testConn);
+  });
+
+  afterEach(async () => {
+    await clearData(testConn);
   });
 
   describe("createRequest", () => {

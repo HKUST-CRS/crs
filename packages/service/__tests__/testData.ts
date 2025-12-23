@@ -1,5 +1,5 @@
-/** Note: modifying test data may affect multiple tests */
-/** Users and courses are created by testDb automatically, while requests are not */
+/* Note: modifying test data may affect multiple tests */
+/* See: https://github.com/HKUST-CRS/crs/issues/35 */
 
 import type { Course, RequestInit, ResponseInit, User } from "../models";
 

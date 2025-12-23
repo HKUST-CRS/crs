@@ -1,23 +1,41 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: test data is fixed and safe */
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConn } from "../db";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
 import { UserNotFoundError } from "../functions/error";
 import { UserService } from "../lib";
 import { ClassPermissionError } from "../lib/error";
 import * as testData from "./testData";
-import { createTestConn } from "./testDb";
+import { clearData, insertTestData } from "./testUtils";
 
 describe("UserService", () => {
-  let testConn: DbConn;
+  let conn: DbConn;
+  let memoryServer: MongoMemoryServer;
   let userService: UserService;
 
   beforeAll(async () => {
-    testConn = await createTestConn();
-    userService = new UserService(testConn.collections);
+    memoryServer = await MongoMemoryServer.create();
+    conn = await DbConn.create(memoryServer.getUri());
+    userService = new UserService(conn.collections);
   });
 
   afterAll(async () => {
-    await testConn.close();
+    await conn.close();
+  });
+
+  beforeEach(async () => {
+    await insertTestData(conn);
+  });
+
+  afterEach(async () => {
+    await clearData(conn);
   });
 
   describe("getUser", () => {

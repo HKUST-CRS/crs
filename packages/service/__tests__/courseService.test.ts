@@ -1,22 +1,41 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConn } from "../db";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
 import { UserNotFoundError } from "../functions/error";
 import { CourseService } from "../lib";
 import { CoursePermissionError } from "../lib/error";
 import * as testData from "./testData";
-import { createTestConn } from "./testDb";
+import { clearData, insertTestData } from "./testUtils";
 
 describe("CourseService", () => {
-  let testConn: DbConn;
+  let conn: DbConn;
+  let memoryServer: MongoMemoryServer;
   let courseService: CourseService;
 
   beforeAll(async () => {
-    testConn = await createTestConn();
-    courseService = new CourseService(testConn.collections);
+    memoryServer = await MongoMemoryServer.create();
+    conn = await DbConn.create(memoryServer.getUri());
+    courseService = new CourseService(conn.collections);
   });
 
   afterAll(async () => {
-    await testConn.close();
+    await conn.close();
+  });
+
+  beforeEach(async () => {
+    await insertTestData(conn);
+  });
+
+  afterEach(async () => {
+    await clearData(conn);
   });
 
   describe("getCourse", () => {
