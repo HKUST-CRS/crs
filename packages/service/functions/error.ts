@@ -27,9 +27,3 @@ export class ResponseAlreadyExistsError extends Error {
     this.name = "ResponseAlreadyExistsError";
   }
 }
-
-export function assertAck(result: { acknowledged: boolean }, op: string): void {
-  if (!result.acknowledged) {
-    throw new Error(`Operation ${op} not acknowledged`);
-  }
-}

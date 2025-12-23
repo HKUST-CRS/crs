@@ -9,19 +9,18 @@ import type {
   UserId,
 } from "../models";
 import { BaseFunctions } from "./base";
-import { assertAck, ResponseAlreadyExistsError } from "./error";
+import { ResponseAlreadyExistsError } from "./error";
 
 export class RequestFunctions extends BaseFunctions {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const id = new ObjectId().toHexString();
-    const result = await this.collections.requests.insertOne({
+    await this.collections.requests.insertOne({
       ...data,
       id,
       from,
       timestamp: DateTime.now().toISO(),
       response: null,
     });
-    assertAck(result, `create request ${JSON.stringify(data)}`);
     return id;
   }
 
@@ -62,8 +61,7 @@ export class RequestFunctions extends BaseFunctions {
     if (request.response) {
       throw new ResponseAlreadyExistsError(requestId);
     }
-
-    const result = await this.collections.requests.updateOne(
+    await this.collections.requests.updateOne(
       { id: requestId },
       {
         $set: {
@@ -75,6 +73,5 @@ export class RequestFunctions extends BaseFunctions {
         },
       },
     );
-    assertAck(result, `create response to request ${requestId}`);
   }
 }
