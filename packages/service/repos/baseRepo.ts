@@ -14,9 +14,7 @@ import {
 } from "./error";
 
 export abstract class BaseRepo {
-  protected collections: Collections;
-
-  constructor(collections: Collections) {
+  constructor(protected collections: Collections) {
     this.collections = collections;
   }
 

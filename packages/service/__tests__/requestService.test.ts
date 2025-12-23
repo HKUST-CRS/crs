@@ -11,6 +11,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { RequestService } from "../lib";
 import { ClassPermissionError } from "../lib/error";
+import { createRepos } from "../repos";
 import { ResponseAlreadyExistsError } from "../repos/error";
 import * as testData from "./testData";
 import { clearData, insertTestData } from "./testUtils";
@@ -23,7 +24,7 @@ describe("RequestService", () => {
   beforeAll(async () => {
     memoryServer = await MongoMemoryServer.create();
     testConn = await DbConn.create(memoryServer.getUri());
-    requestService = new RequestService(testConn.collections);
+    requestService = new RequestService(createRepos(testConn.collections));
   });
 
   afterAll(async () => {

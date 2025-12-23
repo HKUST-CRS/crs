@@ -11,6 +11,7 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { UserService } from "../lib";
 import { ClassPermissionError } from "../lib/error";
+import { createRepos } from "../repos";
 import { UserNotFoundError } from "../repos/error";
 import * as testData from "./testData";
 import { clearData, insertTestData } from "./testUtils";
@@ -23,7 +24,7 @@ describe("UserService", () => {
   beforeAll(async () => {
     memoryServer = await MongoMemoryServer.create();
     conn = await DbConn.create(memoryServer.getUri());
-    userService = new UserService(conn.collections);
+    userService = new UserService(createRepos(conn.collections));
   });
 
   afterAll(async () => {
