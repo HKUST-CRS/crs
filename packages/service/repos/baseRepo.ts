@@ -13,7 +13,7 @@ import {
   UserNotFoundError,
 } from "./error";
 
-export abstract class BaseFunctions {
+export abstract class BaseRepo {
   protected collections: Collections;
 
   constructor(collections: Collections) {

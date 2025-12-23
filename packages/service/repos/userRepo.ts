@@ -1,7 +1,7 @@
 import type { Class, Role, User, UserId } from "../models";
-import { BaseFunctions } from "./base";
+import { BaseRepo } from "./baseRepo";
 
-export class UserFunctions extends BaseFunctions {
+export class UserRepo extends BaseRepo {
   async updateUserName(userId: UserId, name: string): Promise<void> {
     await this.collections.users.updateOne(
       { email: userId },

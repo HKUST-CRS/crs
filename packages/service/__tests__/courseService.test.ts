@@ -9,9 +9,9 @@ import {
 } from "bun:test";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import { UserNotFoundError } from "../functions/error";
 import { CourseService } from "../lib";
 import { CoursePermissionError } from "../lib/error";
+import { UserNotFoundError } from "../repos/error";
 import * as testData from "./testData";
 import { clearData, insertTestData } from "./testUtils";
 

@@ -48,11 +48,11 @@ export class NotificationService extends BaseService {
   async notifyNewRequest(request: Request) {
     const subject = "New Request";
 
-    const instructors = await this.functions.user.getUsersFromClass(
+    const instructors = await this.repos.user.getUsersFromClass(
       request.class,
       "instructor",
     );
-    const student = await this.functions.user.requireUser(request.from);
+    const student = await this.repos.user.requireUser(request.from);
 
     const instructorEmails = instructors.map((i) => i.email);
     const instructorNames = instructors.map((i) => i.name).join(", ");
@@ -82,18 +82,13 @@ export class NotificationService extends BaseService {
     }
     const subject = "New Response";
 
-    const student = await this.functions.user.requireUser(request.from);
-    const instructor = await this.functions.user.requireUser(
-      request.response.from,
-    );
-    const instructors = await this.functions.user.getUsersFromClass(
+    const student = await this.repos.user.requireUser(request.from);
+    const instructor = await this.repos.user.requireUser(request.response.from);
+    const instructors = await this.repos.user.getUsersFromClass(
       request.class,
       "instructor",
     );
-    const tas = await this.functions.user.getUsersFromClass(
-      request.class,
-      "ta",
-    );
+    const tas = await this.repos.user.getUsersFromClass(request.class, "ta");
 
     const studentEmail = student.email;
     const studentName = student.name;

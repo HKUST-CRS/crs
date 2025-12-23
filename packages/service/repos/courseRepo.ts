@@ -1,7 +1,7 @@
 import type { Course, CourseId, User } from "../models";
-import { BaseFunctions } from "./base";
+import { BaseRepo } from "./baseRepo";
 
-export class CourseFunctions extends BaseFunctions {
+export class CourseRepo extends BaseRepo {
   async getCoursesFromEnrollment(user: User): Promise<Course[]> {
     const courseIds = user.enrollment.map((e) => ({
       code: e.course.code,

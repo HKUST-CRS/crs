@@ -4,48 +4,48 @@ import { assertCourseRole } from "./permission";
 
 export class CourseService extends AuthableService {
   withAuth(userId: UserId): CourseServiceWithAuth {
-    return new CourseServiceWithAuth(this.functions, userId);
+    return new CourseServiceWithAuth(this.repos, userId);
   }
 }
 
 class CourseServiceWithAuth extends ServiceWithAuth {
   async getCourse(courseId: CourseId): Promise<Course> {
-    const user = await this.functions.user.requireUser(this.userId);
+    const user = await this.repos.user.requireUser(this.userId);
     assertCourseRole(user, courseId, ALL_ROLES, "accessing course information");
-    return this.functions.course.requireCourse(courseId);
+    return this.repos.course.requireCourse(courseId);
   }
 
   async getCoursesFromEnrollment(): Promise<Course[]> {
-    const user = await this.functions.user.requireUser(this.userId);
-    return this.functions.course.getCoursesFromEnrollment(user);
+    const user = await this.repos.user.requireUser(this.userId);
+    return this.repos.course.getCoursesFromEnrollment(user);
   }
 
   async updateSections(
     courseId: CourseId,
     sections: Course["sections"],
   ): Promise<void> {
-    const user = await this.functions.user.requireUser(this.userId);
+    const user = await this.repos.user.requireUser(this.userId);
     assertCourseRole(
       user,
       courseId,
       ["instructor"],
       "updating course sections",
     );
-    await this.functions.course.updateSections(courseId, sections);
+    await this.repos.course.updateSections(courseId, sections);
   }
 
   async setEffectiveRequestTypes(
     courseId: CourseId,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
-    const user = await this.functions.user.requireUser(this.userId);
+    const user = await this.repos.user.requireUser(this.userId);
     assertCourseRole(
       user,
       courseId,
       ["instructor"],
       "updating effective request types",
     );
-    await this.functions.course.setEffectiveRequestTypes(
+    await this.repos.course.setEffectiveRequestTypes(
       courseId,
       effectiveRequestTypes,
     );

@@ -8,10 +8,10 @@ import type {
   ResponseInit,
   UserId,
 } from "../models";
-import { BaseFunctions } from "./base";
+import { BaseRepo } from "./baseRepo";
 import { ResponseAlreadyExistsError } from "./error";
 
-export class RequestFunctions extends BaseFunctions {
+export class RequestRepo extends BaseRepo {
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const id = new ObjectId().toHexString();
     await this.collections.requests.insertOne({

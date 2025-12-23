@@ -4,21 +4,21 @@ import { assertClassRole } from "./permission";
 
 export class UserService extends AuthableService {
   withAuth(userId: UserId): UserServiceWithAuth {
-    return new UserServiceWithAuth(this.functions, userId);
+    return new UserServiceWithAuth(this.repos, userId);
   }
 }
 
 class UserServiceWithAuth extends ServiceWithAuth {
   async getCurrentUser(): Promise<User> {
-    return this.functions.user.requireUser(this.userId);
+    return this.repos.user.requireUser(this.userId);
   }
 
   async updateUserName(name: string): Promise<void> {
-    await this.functions.user.updateUserName(this.userId, name);
+    await this.repos.user.updateUserName(this.userId, name);
   }
 
   async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
-    const user = await this.functions.user.requireUser(this.userId);
+    const user = await this.repos.user.requireUser(this.userId);
     if (role === "student") {
       // only instructors and TAs in the class can view the students
       assertClassRole(
@@ -36,6 +36,6 @@ class UserServiceWithAuth extends ServiceWithAuth {
         `viewing instructors/TAs in class ${clazz.course.code} (${clazz.course.term})`,
       );
     }
-    return this.functions.user.getUsersFromClass(clazz, role);
+    return this.repos.user.getUsersFromClass(clazz, role);
   }
 }

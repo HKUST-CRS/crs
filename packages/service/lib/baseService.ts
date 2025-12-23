@@ -1,21 +1,21 @@
 import type { Collections } from "../db";
-import { CourseFunctions, RequestFunctions, UserFunctions } from "../functions";
 import type { UserId } from "../models";
+import { CourseRepo, RequestRepo, UserRepo } from "../repos";
 
-export interface Functions {
-  user: UserFunctions;
-  course: CourseFunctions;
-  request: RequestFunctions;
+export interface Repos {
+  user: UserRepo;
+  course: CourseRepo;
+  request: RequestRepo;
 }
 
 export abstract class BaseService {
-  protected functions: Functions;
+  protected repos: Repos;
 
   constructor(collections: Collections) {
-    this.functions = {
-      user: new UserFunctions(collections),
-      course: new CourseFunctions(collections),
-      request: new RequestFunctions(collections),
+    this.repos = {
+      user: new UserRepo(collections),
+      course: new CourseRepo(collections),
+      request: new RequestRepo(collections),
     };
   }
 }
@@ -25,11 +25,11 @@ export abstract class AuthableService extends BaseService {
 }
 
 export abstract class ServiceWithAuth {
-  protected functions: Functions;
+  protected repos: Repos;
   protected userId: UserId;
 
-  constructor(functions: Functions, userId: UserId) {
-    this.functions = functions;
+  constructor(repos: Repos, userId: UserId) {
+    this.repos = repos;
     this.userId = userId;
   }
 }
