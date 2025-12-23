@@ -1,71 +1,69 @@
-import type { Course, CourseId, UserId } from "../models";
-import { assertAck, BaseService } from "./baseService";
-import { assertCourseInstructor, assertInCourse } from "./permission";
+import { ALL_ROLES, type Course, type CourseId, type UserId } from "../models";
+import type { Repos } from "../repos";
+import { assertCourseRole } from "./permission";
 
-export class CourseService extends BaseService {
-  async getCourse(uid: UserId, courseId: CourseId): Promise<Course> {
-    const user = await this.requireUser(uid);
-    assertInCourse(user, courseId, "accessing course information");
-    return this.requireCourse(courseId);
+export class CourseService<TUser extends UserId | null = null> {
+  public user: TUser;
+
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
   }
 
-  async getCoursesFromEnrollment(uid: UserId): Promise<Course[]> {
-    const user = await this.requireUser(uid);
-    const courseIds = user.enrollment.map((e) => ({
-      code: e.course.code,
-      term: e.course.term,
-    }));
-    // MongoDB throws an error when $or receives an empty array
-    if (courseIds.length === 0) {
-      return [];
-    }
-    return await this.collections.courses
-      .find({
-        $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
-      })
-      .toArray();
+  auth(this: CourseService<null>, user: string): CourseService<string> {
+    return new CourseService(this.repos, user);
+  }
+
+  async getCourse(
+    this: CourseService<UserId>,
+    courseId: CourseId,
+  ): Promise<Course> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(user, courseId, ALL_ROLES, "accessing course information");
+    return this.repos.course.requireCourse(courseId);
+  }
+
+  async getCoursesFromEnrollment(
+    this: CourseService<UserId>,
+  ): Promise<Course[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    return this.repos.course.getCoursesFromEnrollment(user);
   }
 
   async updateSections(
-    uid: UserId,
+    this: CourseService<UserId>,
     courseId: CourseId,
     sections: Course["sections"],
   ): Promise<void> {
-    assertCourseInstructor(
-      await this.requireUser(uid),
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(
+      user,
       courseId,
+      ["instructor"],
       "updating course sections",
     );
-    const result = await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
-      {
-        $set: { sections },
-      },
-    );
-    assertAck(result, `update course ${courseId.code} (${courseId.term})`);
+    await this.repos.course.updateSections(courseId, sections);
   }
 
   async setEffectiveRequestTypes(
-    uid: UserId,
+    this: CourseService<UserId>,
     courseId: CourseId,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
-    assertCourseInstructor(
-      await this.requireUser(uid),
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(
+      user,
       courseId,
+      ["instructor"],
       "updating effective request types",
     );
-    const result = await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
-      {
-        $set: { effectiveRequestTypes },
-      },
-    );
-    assertAck(
-      result,
-      `update request types for course ${courseId.code} (${courseId.term})`,
+    await this.repos.course.setEffectiveRequestTypes(
+      courseId,
+      effectiveRequestTypes,
     );
   }
 }

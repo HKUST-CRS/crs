@@ -1,5 +1,5 @@
-/** Note: modifying test data may affect multiple tests */
-/** Users and courses are created by testDb automatically, while requests are not */
+/* Note: modifying test data may affect multiple tests */
+/* See: https://github.com/HKUST-CRS/crs/issues/35 */
 
 import type { Course, RequestInit, ResponseInit, User } from "../models";
 
@@ -42,14 +42,19 @@ export const students: [User, User, User] = [
     enrollment: [
       {
         role: "student",
-        course: { code: "COMP 1023", term: "2530" },
+        course: { code: "COMP 1023", term: "2510" },
         section: "L1",
+      },
+      {
+        role: "student",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "LA1",
       },
     ],
   },
 ];
 
-export const tas: [User] = [
+export const tas: [User, User] = [
   {
     email: "ta1@connect.ust.hk",
     name: "ta1",
@@ -68,6 +73,22 @@ export const tas: [User] = [
         role: "student",
         course: { code: "COMP 4971H", term: "2510" },
         section: "R1",
+      },
+    ],
+  },
+  {
+    email: "ta2@connect.ust.hk",
+    name: "ta2",
+    enrollment: [
+      {
+        role: "ta",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "L2",
+      },
+      {
+        role: "ta",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "LA2",
       },
     ],
   },
@@ -96,8 +117,13 @@ export const instructors: [User, User] = [
     enrollment: [
       {
         role: "instructor",
-        course: { code: "COMP 4971H", term: "2510" },
-        section: "R1",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "L2",
+      },
+      {
+        role: "instructor",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "LA2",
       },
     ],
   },

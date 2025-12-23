@@ -1,41 +1,39 @@
 import type { Class, Role, User, UserId } from "../models";
-import { BaseService } from "./baseService";
+import type { Repos } from "../repos";
 import { assertClassRole } from "./permission";
 
-export class UserService extends BaseService {
-  async getUser(uid: UserId): Promise<User> {
-    return this.requireUser(uid);
+export class UserService<TUser extends UserId | null = null> {
+  public user: TUser;
+
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
   }
 
-  async updateUserName(uid: UserId, name: string): Promise<void> {
-    await this.collections.users.updateOne({ email: uid }, { $set: { name } });
+  auth(this: UserService<null>, user: string): UserService<string> {
+    return new UserService(this.repos, user);
   }
 
-  /** For internal use of the service package only */
-  async _getUsersFromClassInternal(clazz: Class, role: Role): Promise<User[]> {
-    const users = await this.collections.users
-      .find({
-        enrollment: {
-          $elemMatch: {
-            "course.code": clazz.course.code,
-            "course.term": clazz.course.term,
-            section: clazz.section,
-            role,
-          },
-        },
-      })
-      .toArray();
-    return users;
+  async getCurrentUser(this: UserService<UserId>): Promise<User> {
+    return this.repos.user.requireUser(this.user);
+  }
+
+  async updateUserName(this: UserService<UserId>, name: string): Promise<void> {
+    await this.repos.user.updateUserName(this.user, name);
   }
 
   async getUsersFromClass(
-    uid: UserId,
+    this: UserService<UserId>,
     clazz: Class,
     role: Role,
   ): Promise<User[]> {
-    const user = await this.requireUser(uid);
+    const user = await this.repos.user.requireUser(this.user);
     if (role === "student") {
-      // only instructors/TAs in the class can view the students
+      // only instructors and TAs in the class can view the students
       assertClassRole(
         user,
         clazz,
@@ -51,6 +49,6 @@ export class UserService extends BaseService {
         `viewing instructors/TAs in class ${clazz.course.code} (${clazz.course.term})`,
       );
     }
-    return this._getUsersFromClassInternal(clazz, role);
+    return this.repos.user.getUsersFromClass(clazz, role);
   }
 }

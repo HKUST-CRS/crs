@@ -8,37 +8,24 @@ import {
 } from "../models";
 import { ClassPermissionError, CoursePermissionError } from "./error";
 
-export function assertInCourse(user: User, course: CourseId, op?: string) {
-  const isInCourse = user.enrollment.some(
-    (e) => e.course.code === course.code && e.course.term === course.term,
-  );
-  if (!isInCourse) {
-    throw new CoursePermissionError(
-      user.email,
-      [],
-      course,
-      op || "accessing course",
-    );
-  }
-}
-
-export function assertCourseInstructor(
+export function assertCourseRole(
   user: User,
   course: Course | CourseId,
+  roles: Role[],
   op?: string,
 ) {
-  const isInstructor = user.enrollment.some(
+  const hasRole = user.enrollment.some(
     (e) =>
       e.course.code === course.code &&
       e.course.term === course.term &&
-      e.role === "instructor",
+      roles.includes(e.role),
   );
-  if (!isInstructor) {
+  if (!hasRole) {
     throw new CoursePermissionError(
       user.email,
-      ["instructor"],
+      roles,
       course,
-      op || "accessing course as instructor",
+      op || "accessing the course",
     );
   }
 }
@@ -58,7 +45,7 @@ export function assertClassRole(
       user.email,
       roles,
       clazz,
-      op || "accessing class",
+      op || "accessing the class",
     );
   }
 }

@@ -1,19 +1,6 @@
-import {
-  CourseService,
-  NotificationService,
-  RequestService,
-  UserService,
-} from "service/lib";
+import { createServices } from "service/lib";
+import { createRepos } from "service/repos";
 import { db } from "./db";
 
-const course = new CourseService(db.collections);
-const user = new UserService(db.collections);
-const request = new RequestService(db.collections);
-const notification = new NotificationService({ user });
-
-export const services = {
-  course,
-  user,
-  request,
-  notification,
-};
+const repos = createRepos(db.collections);
+export const services = createServices(repos);

@@ -8,7 +8,7 @@ export const routerUser = router({
     .input(z.void())
     .output(User)
     .query(({ ctx }) => {
-      return services.user.getUser(ctx.user.email);
+      return services.user.auth(ctx.user.email).getCurrentUser();
     }),
   getAllFromClass: procedure
     .input(
@@ -19,6 +19,6 @@ export const routerUser = router({
     )
     .output(z.array(User))
     .query(({ input: { class: clazz, role }, ctx }) => {
-      return services.user.getUsersFromClass(ctx.user.email, clazz, role);
+      return services.user.auth(ctx.user.email).getUsersFromClass(clazz, role);
     }),
 });

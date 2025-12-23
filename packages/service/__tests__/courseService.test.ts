@@ -1,36 +1,57 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
-  CoursePermissionError,
-  CourseService,
-  UserNotFoundError,
-} from "../lib";
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "bun:test";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
+import { CourseService } from "../lib";
+import { CoursePermissionError } from "../lib/error";
+import { createRepos } from "../repos";
+import { UserNotFoundError } from "../repos/error";
 import * as testData from "./testData";
-import { TestConn } from "./testDb";
+import { clearData, insertTestData } from "./testUtils";
 
 describe("CourseService", () => {
-  let testConn: TestConn;
+  let conn: DbConn;
+  let memoryServer: MongoMemoryServer;
   let courseService: CourseService;
 
   beforeAll(async () => {
-    testConn = await TestConn.create();
-    courseService = new CourseService(testConn.collections);
+    memoryServer = await MongoMemoryServer.create();
+    conn = await DbConn.create(memoryServer.getUri());
+    courseService = new CourseService(createRepos(conn.collections));
   });
 
   afterAll(async () => {
-    await testConn.close();
+    await conn.close();
+  });
+
+  beforeEach(async () => {
+    await insertTestData(conn);
+  });
+
+  afterEach(async () => {
+    await clearData(conn);
   });
 
   describe("getCourse", () => {
     test("should get course by id", async () => {
       const student = testData.students[0];
       const courseId = { code: "COMP 1023", term: "2510" };
-      const course = await courseService.getCourse(student.email, courseId);
+      const course = await courseService
+        .auth(student.email)
+        .getCourse(courseId);
       expect(course.code).toEqual(courseId.code);
     });
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.getCourse("dne@dne.com", {
+        await courseService.auth("dne@dne.com").getCourse({
           code: "COMP1023",
           term: "2510",
         });
@@ -43,7 +64,7 @@ describe("CourseService", () => {
     test("should throw permission error when user is not in the course", async () => {
       const student = testData.students[0];
       try {
-        await courseService.getCourse(student.email, {
+        await courseService.auth(student.email).getCourse({
           code: "COMP 1023",
           term: "2530",
         });
@@ -56,7 +77,7 @@ describe("CourseService", () => {
     test("should throw error when course does not exist", async () => {
       const student = testData.students[0];
       try {
-        await courseService.getCourse(student.email, {
+        await courseService.auth(student.email).getCourse({
           code: "NONEXIST",
           term: "2510",
         });
@@ -70,9 +91,9 @@ describe("CourseService", () => {
   describe("getCoursesFromEnrollment", () => {
     test("should get all courses from user's enrollment", async () => {
       const student = testData.students[0];
-      const courses = await courseService.getCoursesFromEnrollment(
-        student.email,
-      );
+      const courses = await courseService
+        .auth(student.email)
+        .getCoursesFromEnrollment();
       expect(courses.length).toBe(1);
       const courseCodes = courses.map((course) => course.code);
       const enrollmentCourseCodes = student.enrollment.map(
@@ -85,7 +106,7 @@ describe("CourseService", () => {
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.getCoursesFromEnrollment("dne@dne.com");
+        await courseService.auth("dne@dne.com").getCoursesFromEnrollment();
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
@@ -99,8 +120,12 @@ describe("CourseService", () => {
       const course = testData.courses[0];
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
-      await courseService.updateSections(user.email, courseId, newSections);
-      const updatedCourse = await courseService.getCourse(user.email, courseId);
+      await courseService
+        .auth(user.email)
+        .updateSections(courseId, newSections);
+      const updatedCourse = await courseService
+        .auth(user.email)
+        .getCourse(courseId);
       expect(Object.keys(updatedCourse.sections).length).toBe(
         Object.keys(course.sections).length + 1,
       );
@@ -112,7 +137,9 @@ describe("CourseService", () => {
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       try {
-        await courseService.updateSections(user.email, courseId, newSections);
+        await courseService
+          .auth(user.email)
+          .updateSections(courseId, newSections);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
@@ -129,12 +156,12 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Deadline Extension": true,
       };
-      await courseService.setEffectiveRequestTypes(
-        user.email,
-        courseId,
-        newRequestTypes,
-      );
-      const updatedCourse = await courseService.getCourse(user.email, courseId);
+      await courseService
+        .auth(user.email)
+        .setEffectiveRequestTypes(courseId, newRequestTypes);
+      const updatedCourse = await courseService
+        .auth(user.email)
+        .getCourse(courseId);
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
     });
 
@@ -146,11 +173,9 @@ describe("CourseService", () => {
         "Deadline Extension": true,
       };
       try {
-        await courseService.setEffectiveRequestTypes(
-          user.email,
-          course,
-          newRequestTypes,
-        );
+        await courseService
+          .auth(user.email)
+          .setEffectiveRequestTypes(course, newRequestTypes);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);

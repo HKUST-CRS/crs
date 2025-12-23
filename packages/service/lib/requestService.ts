@@ -1,48 +1,56 @@
-import { DateTime } from "luxon";
-import { ObjectId } from "mongodb";
-import {
+import type {
   Request,
-  type RequestId,
-  type RequestInit,
-  type ResponseInit,
-  type Role,
-  type UserId,
+  RequestId,
+  RequestInit,
+  ResponseInit,
+  Role,
+  UserId,
 } from "../models";
-import { assertAck, BaseService } from "./baseService";
-import { ResponseAlreadyExistsError } from "./error";
+import type { Repos } from "../repos";
 import { assertClassRole } from "./permission";
 
-export class RequestService extends BaseService {
-  async createRequest(from: UserId, data: RequestInit): Promise<string> {
-    const user = await this.requireUser(from);
-    // only students in the class can create requests
-    assertClassRole(user, data.class, ["student"], "creating request");
+export class RequestService<TUser extends UserId | null = null> {
+  public user: TUser;
 
-    const id = new ObjectId().toHexString();
-    const result = await this.collections.requests.insertOne({
-      ...data,
-      id,
-      from,
-      timestamp: DateTime.now().toISO(),
-      response: null,
-    });
-    assertAck(result, `create request ${JSON.stringify(data)}`);
-    return id;
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
   }
 
-  async getRequest(uid: UserId, id: RequestId): Promise<Request> {
-    const user = await this.requireUser(uid);
-    const request = await this.requireRequest(id);
-    if (uid !== request.from) {
+  auth(this: RequestService<null>, user: string): RequestService<string> {
+    return new RequestService(this.repos, user);
+  }
+
+  async createRequest(
+    this: RequestService<UserId>,
+    data: RequestInit,
+  ): Promise<string> {
+    const user = await this.repos.user.requireUser(this.user);
+    // only students in the class can create requests
+    assertClassRole(user, data.class, ["student"], "creating request");
+    return this.repos.request.createRequest(this.user, data);
+  }
+
+  async getRequest(
+    this: RequestService<UserId>,
+    requestId: RequestId,
+  ): Promise<Request> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestId);
+    if (this.user !== request.from) {
       // only the requester or instructors/TAs in the class can view the request
       assertClassRole(
         user,
         request.class,
         ["instructor", "ta"],
-        `viewing request ${id}`,
+        `viewing request ${requestId}`,
       );
     }
-    return Request.parse({ ...request });
+    return request;
   }
 
   /**
@@ -52,71 +60,35 @@ export class RequestService extends BaseService {
    *
    * If the role is "instructor" or "ta", this returns all requests for classes that the user
    * is an instructor or ta of.
-   *
-   * @throws UserNotFoundError if the user does not exist
    */
-  async getRequestsAs(uid: UserId, role: Role): Promise<Request[]> {
-    const user = await this.requireUser(uid);
-
-    const requests = await this.collections.requests
-      .find({
-        ...(role === "student"
-          ? {
-              from: uid,
-            }
-          : {
-              $or: [
-                ...user.enrollment
-                  .filter((clazz) => clazz.role === role)
-                  .map((clazz) => ({
-                    class: {
-                      course: clazz.course,
-                      section: clazz.section,
-                    },
-                  })),
-                // This condition is to ensure that the $or array is non-empty.
-                {
-                  $expr: {
-                    $eq: [1, 0],
-                  },
-                },
-              ],
-            }),
-      })
-      .toArray();
-    return requests.map((request) => Request.parse({ ...request }));
+  async getRequestsAs(
+    this: RequestService<UserId>,
+    role: Role,
+  ): Promise<Request[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    // students can only get their own requests
+    if (role === "student") {
+      return this.repos.request.getRequestsMadeByUser(this.user);
+    }
+    // instructors and TAs can get requests for their classes
+    const enrollments = user.enrollment.filter((clazz) => clazz.role === role);
+    return this.repos.request.getRequestsInClasses(enrollments);
   }
 
   async createResponse(
-    uid: UserId,
-    rid: RequestId,
+    this: RequestService<UserId>,
+    requestId: RequestId,
     response: ResponseInit,
   ): Promise<void> {
-    const user = await this.requireUser(uid);
-    const request = await this.requireRequest(rid);
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestId);
     // only instructors of the class can create responses
     assertClassRole(
       user,
       request.class,
       ["instructor"],
-      `creating response for request ${rid}`,
+      `creating response for request ${requestId}`,
     );
-    if (request.response) {
-      throw new ResponseAlreadyExistsError(rid);
-    }
-
-    const result = await this.collections.requests.updateOne(
-      { id: rid },
-      {
-        $set: {
-          response: {
-            ...response,
-            from: uid,
-            timestamp: DateTime.now().toISO(),
-          },
-        },
-      },
-    );
-    assertAck(result, `create response to ${rid}`);
+    await this.repos.request.createResponse(this.user, requestId, response);
   }
 }
