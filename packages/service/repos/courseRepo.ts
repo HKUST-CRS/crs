@@ -1,7 +1,16 @@
+import type { Collections } from "../db";
 import type { Course, CourseId, User } from "../models";
-import { BaseRepo } from "./baseRepo";
+import { CourseNotFoundError } from "./error";
 
-export class CourseRepo extends BaseRepo {
+export class CourseRepo {
+  constructor(protected collections: Collections) {}
+
+  async requireCourse(courseId: CourseId): Promise<Course> {
+    const course = await this.collections.courses.findOne(courseId);
+    if (!course) throw new CourseNotFoundError(courseId);
+    return course;
+  }
+
   async getCoursesFromEnrollment(user: User): Promise<Course[]> {
     const courseIds = user.enrollment.map((e) => ({
       code: e.course.code,

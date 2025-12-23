@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
+import type { Collections } from "../db";
 import type {
   Class,
   Request,
@@ -8,10 +9,17 @@ import type {
   ResponseInit,
   UserId,
 } from "../models";
-import { BaseRepo } from "./baseRepo";
-import { ResponseAlreadyExistsError } from "./error";
+import { RequestNotFoundError, ResponseAlreadyExistsError } from "./error";
 
-export class RequestRepo extends BaseRepo {
+export class RequestRepo {
+  constructor(protected collections: Collections) {}
+
+  async requireRequest(requestId: RequestId): Promise<Request> {
+    const request = await this.collections.requests.findOne({ id: requestId });
+    if (!request) throw new RequestNotFoundError(requestId);
+    return request;
+  }
+
   async createRequest(from: UserId, data: RequestInit): Promise<string> {
     const id = new ObjectId().toHexString();
     await this.collections.requests.insertOne({

@@ -1,7 +1,16 @@
+import type { Collections } from "../db";
 import type { Class, Role, User, UserId } from "../models";
-import { BaseRepo } from "./baseRepo";
+import { UserNotFoundError } from "./error";
 
-export class UserRepo extends BaseRepo {
+export class UserRepo {
+  constructor(protected collections: Collections) {}
+
+  async requireUser(userId: UserId): Promise<User> {
+    const user = await this.collections.users.findOne({ email: userId });
+    if (!user) throw new UserNotFoundError(userId);
+    return user;
+  }
+
   async updateUserName(userId: UserId, name: string): Promise<void> {
     await this.collections.users.updateOne(
       { email: userId },
