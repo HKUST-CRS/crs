@@ -15,10 +15,10 @@ export const routerResponse = router({
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       await services.request
-        .withAuth(ctx.user.email)
+        .auth(ctx.user.email)
         .createResponse(input.id, input.init);
       const request = await services.request
-        .withAuth(ctx.user.email)
+        .auth(ctx.user.email)
         .getRequest(input.id);
       await services.notification.notifyNewResponse(request);
     }),

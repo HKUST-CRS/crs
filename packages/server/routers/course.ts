@@ -8,14 +8,12 @@ export const routerCourse = router({
     .input(CourseId)
     .output(Course)
     .query(({ input, ctx }) => {
-      return services.course.withAuth(ctx.user.email).getCourse(input);
+      return services.course.auth(ctx.user.email).getCourse(input);
     }),
   getEnrollment: procedure
     .input(z.void())
     .output(z.array(Course))
     .query(({ ctx }) => {
-      return services.course
-        .withAuth(ctx.user.email)
-        .getCoursesFromEnrollment();
+      return services.course.auth(ctx.user.email).getCoursesFromEnrollment();
     }),
 });

@@ -42,15 +42,13 @@ describe("UserService", () => {
   describe("getUser", () => {
     test("should get user by email", async () => {
       const user = testData.students[0];
-      const fetchedUser = await userService
-        .withAuth(user.email)
-        .getCurrentUser();
+      const fetchedUser = await userService.auth(user.email).getCurrentUser();
       expect(fetchedUser.email).toBe(user.email);
     });
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await userService.withAuth("dne@dne.com").getCurrentUser();
+        await userService.auth("dne@dne.com").getCurrentUser();
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
@@ -61,10 +59,8 @@ describe("UserService", () => {
   describe("updateUserName", () => {
     test("should update user name successfully", async () => {
       const user = testData.students[0];
-      await userService.withAuth(user.email).updateUserName("New Name");
-      const updatedUser = await userService
-        .withAuth(user.email)
-        .getCurrentUser();
+      await userService.auth(user.email).updateUserName("New Name");
+      const updatedUser = await userService.auth(user.email).getCurrentUser();
       expect(updatedUser.name).toBe("New Name");
     });
   });
@@ -74,15 +70,15 @@ describe("UserService", () => {
       const instructor = testData.instructors[0];
       const course = testData.courses[0];
       const students = await userService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getUsersFromClass({ course, section: "L1" }, "student");
       expect(students.length).toBeGreaterThan(0);
       const tas = await userService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getUsersFromClass({ course, section: "L1" }, "ta");
       expect(tas.length).toBeGreaterThan(0);
       const instructors = await userService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getUsersFromClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
@@ -91,7 +87,7 @@ describe("UserService", () => {
       const ta = testData.tas[0];
       const course = testData.courses[0];
       const students = await userService
-        .withAuth(ta.email)
+        .auth(ta.email)
         .getUsersFromClass({ course, section: "L1" }, "student");
       expect(students.length).toBeGreaterThan(0);
     });
@@ -100,11 +96,11 @@ describe("UserService", () => {
       const student = testData.students[0];
       const course = testData.courses[0];
       const tas = await userService
-        .withAuth(student.email)
+        .auth(student.email)
         .getUsersFromClass({ course, section: "L1" }, "ta");
       expect(tas.length).toBeGreaterThan(0);
       const instructors = await userService
-        .withAuth(student.email)
+        .auth(student.email)
         .getUsersFromClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
@@ -114,7 +110,7 @@ describe("UserService", () => {
       const course = testData.courses[0];
       try {
         await userService
-          .withAuth(student.email)
+          .auth(student.email)
           .getUsersFromClass({ course, section: "L1" }, "student");
         expect.unreachable("should have thrown an error");
       } catch (error) {
@@ -127,7 +123,7 @@ describe("UserService", () => {
       const course = testData.courses[0];
       try {
         await userService
-          .withAuth(user.email)
+          .auth(user.email)
           .getUsersFromClass({ course, section: "L1" }, "instructor");
         expect.unreachable("should have thrown an error");
       } catch (error) {

@@ -6,27 +6,42 @@ import type {
   Role,
   UserId,
 } from "../models";
-import { AuthableService, ServiceWithAuth } from "./baseService";
+import type { Repos } from "../repos";
 import { assertClassRole } from "./permission";
 
-export class RequestService extends AuthableService {
-  withAuth(userId: UserId): RequestServiceWithAuth {
-    return new RequestServiceWithAuth(this.repos, userId);
-  }
-}
+export class RequestService<TUser extends UserId | null = null> {
+  public user: TUser;
 
-class RequestServiceWithAuth extends ServiceWithAuth {
-  async createRequest(data: RequestInit): Promise<string> {
-    const user = await this.repos.user.requireUser(this.userId);
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
+  }
+
+  auth(this: RequestService<null>, user: string): RequestService<string> {
+    return new RequestService(this.repos, user);
+  }
+
+  async createRequest(
+    this: RequestService<UserId>,
+    data: RequestInit,
+  ): Promise<string> {
+    const user = await this.repos.user.requireUser(this.user);
     // only students in the class can create requests
     assertClassRole(user, data.class, ["student"], "creating request");
-    return this.repos.request.createRequest(this.userId, data);
+    return this.repos.request.createRequest(this.user, data);
   }
 
-  async getRequest(requestId: RequestId): Promise<Request> {
-    const user = await this.repos.user.requireUser(this.userId);
+  async getRequest(
+    this: RequestService<UserId>,
+    requestId: RequestId,
+  ): Promise<Request> {
+    const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestId);
-    if (this.userId !== request.from) {
+    if (this.user !== request.from) {
       // only the requester or instructors/TAs in the class can view the request
       assertClassRole(
         user,
@@ -46,11 +61,14 @@ class RequestServiceWithAuth extends ServiceWithAuth {
    * If the role is "instructor" or "ta", this returns all requests for classes that the user
    * is an instructor or ta of.
    */
-  async getRequestsAs(role: Role): Promise<Request[]> {
-    const user = await this.repos.user.requireUser(this.userId);
+  async getRequestsAs(
+    this: RequestService<UserId>,
+    role: Role,
+  ): Promise<Request[]> {
+    const user = await this.repos.user.requireUser(this.user);
     // students can only get their own requests
     if (role === "student") {
-      return this.repos.request.getRequestsMadeByUser(this.userId);
+      return this.repos.request.getRequestsMadeByUser(this.user);
     }
     // instructors and TAs can get requests for their classes
     const enrollments = user.enrollment.filter((clazz) => clazz.role === role);
@@ -58,10 +76,11 @@ class RequestServiceWithAuth extends ServiceWithAuth {
   }
 
   async createResponse(
+    this: RequestService<UserId>,
     requestId: RequestId,
     response: ResponseInit,
   ): Promise<void> {
-    const user = await this.repos.user.requireUser(this.userId);
+    const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestId);
     // only instructors of the class can create responses
     assertClassRole(
@@ -70,6 +89,6 @@ class RequestServiceWithAuth extends ServiceWithAuth {
       ["instructor"],
       `creating response for request ${requestId}`,
     );
-    await this.repos.request.createResponse(this.userId, requestId, response);
+    await this.repos.request.createResponse(this.user, requestId, response);
   }
 }

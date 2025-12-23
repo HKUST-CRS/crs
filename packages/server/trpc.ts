@@ -9,9 +9,9 @@ export const procedure = t.procedure.use(async (opts) => {
   const { ctx } = opts;
 
   // verify user exists
-  await services.user.withAuth(ctx.user.email).getCurrentUser();
+  await services.user.auth(ctx.user.email).getCurrentUser();
   // update user name
-  await services.user.withAuth(ctx.user.email).updateUserName(ctx.user.name);
+  await services.user.auth(ctx.user.email).updateUserName(ctx.user.name);
 
   const result = await opts.next({
     ctx: {

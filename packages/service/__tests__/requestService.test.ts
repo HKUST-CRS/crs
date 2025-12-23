@@ -44,10 +44,10 @@ describe("RequestService", () => {
       const student = testData.students[0];
       const request = { ...testData.requestInit };
       const id = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .createRequest(request);
       const requestInDb = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .getRequest(id);
       expect(requestInDb).toBeDefined();
     });
@@ -56,7 +56,7 @@ describe("RequestService", () => {
       const student = testData.students[1];
       const request = { ...testData.requestInit };
       try {
-        await requestService.withAuth(student.email).createRequest(request);
+        await requestService.auth(student.email).createRequest(request);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -72,30 +72,28 @@ describe("RequestService", () => {
       const request = testData.requestInit;
       await testConn.collections.requests.drop();
       requestId = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .createRequest(request);
     });
 
     test("should allow requester to get their own request", async () => {
       const student = testData.students[0];
       const request = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .getRequest(requestId);
       expect(request).toBeDefined();
     });
 
     test("should allow TAs to get requests in their class", async () => {
       const ta = testData.tas[0];
-      const request = await requestService
-        .withAuth(ta.email)
-        .getRequest(requestId);
+      const request = await requestService.auth(ta.email).getRequest(requestId);
       expect(request).toBeDefined();
     });
 
     test("should allow instructors to get requests in their class", async () => {
       const instructor = testData.instructors[0];
       const request = await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getRequest(requestId);
       expect(request).toBeDefined();
     });
@@ -103,7 +101,7 @@ describe("RequestService", () => {
     test("should throw permission error when user is neither requester nor instructor/TA", async () => {
       const student = testData.students[1];
       try {
-        await requestService.withAuth(student.email).getRequest(requestId);
+        await requestService.auth(student.email).getRequest(requestId);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -116,29 +114,27 @@ describe("RequestService", () => {
       const student = testData.students[0];
       const request = testData.requestInit;
       await testConn.collections.requests.drop();
-      await requestService.withAuth(student.email).createRequest(request);
+      await requestService.auth(student.email).createRequest(request);
     });
 
     test("should get requests as student", async () => {
       const student = testData.students[0];
       const requests = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .getRequestsAs("student");
       expect(requests.length).toEqual(1);
     });
 
     test("should get requests as ta", async () => {
       const ta = testData.tas[0];
-      const requests = await requestService
-        .withAuth(ta.email)
-        .getRequestsAs("ta");
+      const requests = await requestService.auth(ta.email).getRequestsAs("ta");
       expect(requests.length).toEqual(1);
     });
 
     test("should get requests as instructor", async () => {
       const instructor = testData.instructors[0];
       const requests = await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getRequestsAs("instructor");
       expect(requests.length).toEqual(1);
     });
@@ -146,23 +142,21 @@ describe("RequestService", () => {
     test("students should not get other students' requests", async () => {
       const student = testData.students[2];
       const requests = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .getRequestsAs("student");
       expect(requests.length).toEqual(0);
     });
 
     test("TAs should not get other classes' requests", async () => {
       const ta = testData.tas[1];
-      const requests = await requestService
-        .withAuth(ta.email)
-        .getRequestsAs("ta");
+      const requests = await requestService.auth(ta.email).getRequestsAs("ta");
       expect(requests.length).toEqual(0);
     });
 
     test("instructors should not get other classes' requests", async () => {
       const instructor = testData.instructors[1];
       const requests = await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getRequestsAs("instructor");
       expect(requests.length).toEqual(0);
     });
@@ -176,7 +170,7 @@ describe("RequestService", () => {
       const request = testData.requestInit;
       await testConn.collections.requests.drop();
       requestId = await requestService
-        .withAuth(student.email)
+        .auth(student.email)
         .createRequest(request);
     });
 
@@ -184,10 +178,10 @@ describe("RequestService", () => {
       const instructor = testData.instructors[0];
       const response = testData.responseInit;
       await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .createResponse(requestId, response);
       const requestInDb = await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getRequest(requestId);
       expect(requestInDb.response).toMatchObject(response);
     });
@@ -196,21 +190,19 @@ describe("RequestService", () => {
       const instructor = testData.instructors[0];
       const response = testData.responseInit;
       await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .createResponse(requestId, response);
       try {
-        await requestService
-          .withAuth(instructor.email)
-          .createResponse(requestId, {
-            ...response,
-            decision: "Reject",
-          });
+        await requestService.auth(instructor.email).createResponse(requestId, {
+          ...response,
+          decision: "Reject",
+        });
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ResponseAlreadyExistsError);
       }
       const request = await requestService
-        .withAuth(instructor.email)
+        .auth(instructor.email)
         .getRequest(requestId);
       expect(request.response).toMatchObject(response);
     });
@@ -220,7 +212,7 @@ describe("RequestService", () => {
       const response = { ...testData.responseInit };
       try {
         await requestService
-          .withAuth(student.email)
+          .auth(student.email)
           .createResponse(requestId, response);
         expect.unreachable("should have thrown an error");
       } catch (error) {

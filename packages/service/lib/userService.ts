@@ -1,24 +1,37 @@
 import type { Class, Role, User, UserId } from "../models";
-import { AuthableService, ServiceWithAuth } from "./baseService";
+import type { Repos } from "../repos";
 import { assertClassRole } from "./permission";
 
-export class UserService extends AuthableService {
-  withAuth(userId: UserId): UserServiceWithAuth {
-    return new UserServiceWithAuth(this.repos, userId);
-  }
-}
+export class UserService<TUser extends UserId | null = null> {
+  public user: TUser;
 
-class UserServiceWithAuth extends ServiceWithAuth {
-  async getCurrentUser(): Promise<User> {
-    return this.repos.user.requireUser(this.userId);
-  }
-
-  async updateUserName(name: string): Promise<void> {
-    await this.repos.user.updateUserName(this.userId, name);
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
   }
 
-  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
-    const user = await this.repos.user.requireUser(this.userId);
+  auth(this: UserService<null>, user: string): UserService<string> {
+    return new UserService(this.repos, user);
+  }
+
+  async getCurrentUser(this: UserService<UserId>): Promise<User> {
+    return this.repos.user.requireUser(this.user);
+  }
+
+  async updateUserName(this: UserService<UserId>, name: string): Promise<void> {
+    await this.repos.user.updateUserName(this.user, name);
+  }
+
+  async getUsersFromClass(
+    this: UserService<UserId>,
+    clazz: Class,
+    role: Role,
+  ): Promise<User[]> {
+    const user = await this.repos.user.requireUser(this.user);
     if (role === "student") {
       // only instructors and TAs in the class can view the students
       assertClassRole(

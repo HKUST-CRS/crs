@@ -3,17 +3,14 @@ import handlebars, { Exception } from "handlebars";
 import nodemailer from "nodemailer";
 import type { Request } from "../models";
 import type { Repos } from "../repos";
-import { BaseService } from "./baseService";
 import { ResponseNotFoundError } from "./error";
 
-export class NotificationService extends BaseService {
+export class NotificationService {
   private transporter: nodemailer.Transporter;
   private templateDir: string;
-
   private baseUrl: string;
 
-  constructor(repos: Repos) {
-    super(repos);
+  constructor(private repos: Repos) {
     this.transporter = nodemailer.createTransport({
       host: Bun.env.SMTP_HOST,
       port: Number(Bun.env.SMTP_PORT),

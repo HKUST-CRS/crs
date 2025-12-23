@@ -44,14 +44,14 @@ describe("CourseService", () => {
       const student = testData.students[0];
       const courseId = { code: "COMP 1023", term: "2510" };
       const course = await courseService
-        .withAuth(student.email)
+        .auth(student.email)
         .getCourse(courseId);
       expect(course.code).toEqual(courseId.code);
     });
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.withAuth("dne@dne.com").getCourse({
+        await courseService.auth("dne@dne.com").getCourse({
           code: "COMP1023",
           term: "2510",
         });
@@ -64,7 +64,7 @@ describe("CourseService", () => {
     test("should throw permission error when user is not in the course", async () => {
       const student = testData.students[0];
       try {
-        await courseService.withAuth(student.email).getCourse({
+        await courseService.auth(student.email).getCourse({
           code: "COMP 1023",
           term: "2530",
         });
@@ -77,7 +77,7 @@ describe("CourseService", () => {
     test("should throw error when course does not exist", async () => {
       const student = testData.students[0];
       try {
-        await courseService.withAuth(student.email).getCourse({
+        await courseService.auth(student.email).getCourse({
           code: "NONEXIST",
           term: "2510",
         });
@@ -92,7 +92,7 @@ describe("CourseService", () => {
     test("should get all courses from user's enrollment", async () => {
       const student = testData.students[0];
       const courses = await courseService
-        .withAuth(student.email)
+        .auth(student.email)
         .getCoursesFromEnrollment();
       expect(courses.length).toBe(1);
       const courseCodes = courses.map((course) => course.code);
@@ -106,7 +106,7 @@ describe("CourseService", () => {
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.withAuth("dne@dne.com").getCoursesFromEnrollment();
+        await courseService.auth("dne@dne.com").getCoursesFromEnrollment();
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
@@ -121,10 +121,10 @@ describe("CourseService", () => {
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       await courseService
-        .withAuth(user.email)
+        .auth(user.email)
         .updateSections(courseId, newSections);
       const updatedCourse = await courseService
-        .withAuth(user.email)
+        .auth(user.email)
         .getCourse(courseId);
       expect(Object.keys(updatedCourse.sections).length).toBe(
         Object.keys(course.sections).length + 1,
@@ -138,7 +138,7 @@ describe("CourseService", () => {
       const newSections = { ...course.sections, L3: { schedule: [] } };
       try {
         await courseService
-          .withAuth(user.email)
+          .auth(user.email)
           .updateSections(courseId, newSections);
         expect.unreachable("should have thrown an error");
       } catch (error) {
@@ -157,10 +157,10 @@ describe("CourseService", () => {
         "Deadline Extension": true,
       };
       await courseService
-        .withAuth(user.email)
+        .auth(user.email)
         .setEffectiveRequestTypes(courseId, newRequestTypes);
       const updatedCourse = await courseService
-        .withAuth(user.email)
+        .auth(user.email)
         .getCourse(courseId);
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
     });
@@ -174,7 +174,7 @@ describe("CourseService", () => {
       };
       try {
         await courseService
-          .withAuth(user.email)
+          .auth(user.email)
           .setEffectiveRequestTypes(course, newRequestTypes);
         expect.unreachable("should have thrown an error");
       } catch (error) {
