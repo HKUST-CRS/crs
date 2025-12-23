@@ -21,5 +21,5 @@ service/
 
 ## Notes
 
-- `UserService`, `CourseService` and `RequestService` are expected to be used through `withAuth`, and they will check the user's permission accordingly.
+- `UserService`, `CourseService` and `RequestService` are expected to be used through `auth`, and they will check the user's permission accordingly.
 - `NotificationService` does not take authorization into consideration, and it is `server`'s responsibility to use it correctly, after some operation is known to be successful.
