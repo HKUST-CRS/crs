@@ -34,6 +34,10 @@ export class RequestFunctions extends BaseFunctions {
 
   /** Get ALL requests in the specified classes */
   async getRequestsInClasses(classes: Array<Class>): Promise<Request[]> {
+    if (classes.length === 0) {
+      // Ensure that the $or array is non-empty.
+      return [];
+    }
     const requests = await this.collections.requests
       .find({
         $or: [
@@ -43,12 +47,6 @@ export class RequestFunctions extends BaseFunctions {
               section: clazz.section,
             },
           })),
-          // This condition is to ensure that the $or array is non-empty.
-          {
-            $expr: {
-              $eq: [1, 0],
-            },
-          },
         ],
       })
       .toArray();
