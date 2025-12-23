@@ -25,7 +25,7 @@ export function assertCourseRole(
       user.email,
       roles,
       course,
-      op || `accessing the course`,
+      op || "accessing the course",
     );
   }
 }
