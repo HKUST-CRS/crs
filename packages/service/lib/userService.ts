@@ -18,12 +18,23 @@ export class UserService<TUser extends UserId | null = null> {
     return new UserService(this.repos, user);
   }
 
-  async getCurrentUser(this: UserService<UserId>): Promise<User> {
-    return this.repos.user.requireUser(this.user);
+  /**
+   * Synchronize the current user. 
+   * 
+   * It update the user's name according to the latest info. 
+   * 
+   * If the user does not exist, it creates the user record.
+   */
+  async sync(this: UserService<UserId>, name: string): Promise<void> {
+    const user = await this.repos.user.getUser(this.user);
+    if (!user) {
+      await this.repos.user.createUser(this.user);
+    }
+    await this.repos.user.updateUserName(this.user, name);
   }
 
-  async updateUserName(this: UserService<UserId>, name: string): Promise<void> {
-    await this.repos.user.updateUserName(this.user, name);
+  async getCurrentUser(this: UserService<UserId>): Promise<User> {
+    return this.repos.user.requireUser(this.user);
   }
 
   async getUsersFromClass(
@@ -51,4 +62,5 @@ export class UserService<TUser extends UserId | null = null> {
     }
     return this.repos.user.getUsersFromClass(clazz, role);
   }
+
 }

@@ -56,10 +56,17 @@ describe("UserService", () => {
     });
   });
 
-  describe("updateUserName", () => {
+  describe("sync", () => {
+    test("should create user successfully", async () => {
+      await userService.auth("42@connect.ust.hk").sync("42");
+      const user = await userService.auth("42@connect.ust.hk").getCurrentUser();
+      expect(user.email).toBe("42@connect.ust.hk");
+      expect(user.name).toBe("42");
+      expect(user.enrollment).toEqual([]);
+    });
     test("should update user name successfully", async () => {
       const user = testData.students[0];
-      await userService.auth(user.email).updateUserName("New Name");
+      await userService.auth(user.email).sync("New Name");
       const updatedUser = await userService.auth(user.email).getCurrentUser();
       expect(updatedUser.name).toBe("New Name");
     });
