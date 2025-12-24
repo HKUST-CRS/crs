@@ -102,7 +102,7 @@ export default function ResponseForm(props: ResponseFormProps) {
 
   return (
     <Form {...form}>
-      <Wrapper className={clsx("m-4 grid grid-cols-12 gap-x-8 gap-y-4")}>
+      <Wrapper className={clsx("grid grid-cols-12 gap-x-8 gap-y-4")}>
         <RequestForm
           default={request}
           viewonly
