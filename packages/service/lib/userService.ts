@@ -26,7 +26,6 @@ export class UserService<TUser extends UserId | null = null> {
    * If the user does not exist, it creates the user record.
    */
   async sync(this: UserService<UserId>, name: string): Promise<void> {
-    const user = await this.repos.user.getUser(this.user);
     await this.repos.user.createUser(this.user);
     await this.repos.user.updateUserName(this.user, name);
   }
