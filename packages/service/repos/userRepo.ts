@@ -16,14 +16,24 @@ export class UserRepo {
     return user;
   }
 
-  async createUser(userId: UserId): Promise<User> {
-    const newUser: User = {
-      email: userId,
-      name: "",
-      enrollment: [],
-    };
-    await this.collections.users.insertOne(newUser);
-    return newUser;
+  /**
+   * Create a new user if not exists.
+   *
+   * The user's name is initialized as an empty string, and enrollment as an empty array.
+   */
+  async createUser(userId: UserId): Promise<void> {
+    await this.collections.users.updateOne(
+      {
+        email: userId,
+      },
+      {
+        $setOnInsert: {
+          email: userId,
+          name: "",
+          enrollment: [],
+        },
+      },
+    );
   }
 
   async updateUserName(userId: UserId, name: string): Promise<void> {
