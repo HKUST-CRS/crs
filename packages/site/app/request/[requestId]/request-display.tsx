@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import RequestForm from "@/components/requests/request-form";
-import ResponseForm from "@/components/requests/response-form";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 
@@ -16,13 +15,13 @@ export default function RequestDisplay({ requestId }: { requestId: string }) {
     });
     return null;
   }
-  if (requestQuery.data) {
-    if (requestQuery.data.response) {
-      return <ResponseForm request={requestQuery.data} viewonly />;
-    } else {
-      return <RequestForm default={requestQuery.data} viewonly />;
-    }
-  } else {
-    return <Spinner variant="ellipsis" />;
-  }
+  return (
+    <div className="m-4">
+      {requestQuery.data ? (
+        <RequestForm default={requestQuery.data} viewonly />
+      ) : (
+        <Spinner variant="ellipsis" />
+      )}
+    </div>
+  );
 }

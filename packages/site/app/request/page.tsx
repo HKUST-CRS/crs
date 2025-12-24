@@ -13,7 +13,7 @@ export default function Home() {
           <ChevronLeft className="size-6" />
         </Button>
       </Link>
-      <h3 className="typo-h3">New Request</h3>
+      <h3 className="typo-h3">Request</h3>
       <RequestForm />
     </article>
   );
