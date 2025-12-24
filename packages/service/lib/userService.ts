@@ -21,7 +21,7 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Synchronize the current user. 
    * 
-   * It update the user's name according to the latest info. 
+   * It updates the user's name according to the latest info. 
    * 
    * If the user does not exist, it creates the user record.
    */
