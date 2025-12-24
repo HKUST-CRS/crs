@@ -27,9 +27,7 @@ export class UserService<TUser extends UserId | null = null> {
    */
   async sync(this: UserService<UserId>, name: string): Promise<void> {
     const user = await this.repos.user.getUser(this.user);
-    if (!user) {
-      await this.repos.user.createUser(this.user);
-    }
+    await this.repos.user.createUser(this.user);
     await this.repos.user.updateUserName(this.user, name);
   }
 
