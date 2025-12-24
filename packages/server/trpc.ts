@@ -29,7 +29,7 @@ export const procedure = t.procedure.use(async (opts) => {
   );
 
   if (!result.ok) {
-    console.warn(`[TRPC] Error details:`, result.error)
+    console.warn(`[TRPC] Error details:`, result.error);
   }
 
   return result;

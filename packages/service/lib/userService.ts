@@ -19,10 +19,10 @@ export class UserService<TUser extends UserId | null = null> {
   }
 
   /**
-   * Synchronize the current user. 
-   * 
-   * It updates the user's name according to the latest info. 
-   * 
+   * Synchronize the current user.
+   *
+   * It updates the user's name according to the latest info.
+   *
    * If the user does not exist, it creates the user record.
    */
   async sync(this: UserService<UserId>, name: string): Promise<void> {
@@ -62,5 +62,4 @@ export class UserService<TUser extends UserId | null = null> {
     }
     return this.repos.user.getUsersFromClass(clazz, role);
   }
-
 }
