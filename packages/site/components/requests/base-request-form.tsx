@@ -125,19 +125,21 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                       <SelectValue placeholder="Choose a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {user.enrollment.map((e) => {
-                        const c = enrollment[Courses.id2str(e.course)];
-                        return (
-                          <SelectItem
-                            key={Classes.id2str(e)}
-                            value={Classes.id2str(e)}
-                          >
-                            <span>
-                              <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
+                      {user.enrollment
+                        .filter((e) => e.role === "student")
+                        .map((e) => {
+                          const c = enrollment[Courses.id2str(e.course)];
+                          return (
+                            <SelectItem
+                              key={Classes.id2str(e)}
+                              value={Classes.id2str(e)}
+                            >
+                              <span>
+                                <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                     </SelectContent>
                   </Select>
                 </FormControl>
