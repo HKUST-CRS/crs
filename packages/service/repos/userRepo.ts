@@ -33,6 +33,9 @@ export class UserRepo {
           enrollment: [],
         },
       },
+      {
+        upsert: true,
+      },
     );
   }
 
