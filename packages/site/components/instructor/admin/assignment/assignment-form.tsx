@@ -17,10 +17,10 @@ import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
 export const AssignmentFormSchema = z.object({
-  code: z.string().nonempty("Code is required"),
-  name: z.string().nonempty("Name is required"),
-  due: z.string().nonempty("Due date is required"),
-  maxExtension: z.string().nonempty("Max extension is required"),
+  code: z.string().min(1, "Code is required"),
+  name: z.string().min(1, "Name is required"),
+  due: z.string().min(1, "Due date is required"),
+  maxExtension: z.string().min(1, "Max extension is required"),
 });
 
 export type AssignmentFormSchema = z.infer<typeof AssignmentFormSchema>;
