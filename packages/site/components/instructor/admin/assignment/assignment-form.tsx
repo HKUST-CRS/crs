@@ -15,6 +15,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { DateTimeFormatter } from "@/lib/datetime";
 
 export const AssignmentFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -86,7 +87,7 @@ export function AssignmentForm({
                 <Button variant="outline">
                   <CalendarIcon />
                   {field.value ? (
-                    DateTime.fromISO(field.value).toLocaleString()
+                    DateTime.fromISO(field.value).toFormat(DateTimeFormatter)
                   ) : (
                     <span>Pick a date</span>
                   )}
@@ -123,7 +124,9 @@ export function AssignmentForm({
                 <Button variant="outline">
                   <CalendarIcon />
                   {field.value ? (
-                    due.plus(Duration.fromISO(field.value)).toLocaleString()
+                    due
+                      .plus(Duration.fromISO(field.value))
+                      .toFormat(DateTimeFormatter)
                   ) : (
                     <span>Pick a date</span>
                   )}

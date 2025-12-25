@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 import { DateTime } from "luxon";
 import type { Request, Response } from "service/models";
+import { DateTimeFormatter } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
@@ -74,7 +75,7 @@ export const columns: ColumnDef<Request>[] = [
   {
     accessorKey: "time",
     accessorFn: (row) =>
-      DateTime.fromISO(row.timestamp).toLocaleString(DateTime.DATETIME_MED),
+      DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter, {}),
     header: ({ column }) => {
       return (
         <Button

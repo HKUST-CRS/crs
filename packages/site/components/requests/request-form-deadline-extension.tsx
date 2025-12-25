@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateTimeFormatter } from "@/lib/datetime";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
 import { RequestFormDetails } from "./details-request-form";
@@ -125,7 +126,9 @@ export const DeadlineExtensionRequestForm: FC<
                         return (
                           <SelectItem key={code} value={code}>
                             <strong>{code}</strong> {assignment.name} - Due{" "}
-                            {DateTime.fromISO(assignment.due).toLocaleString()}
+                            {DateTime.fromISO(assignment.due).toFormat(
+                              DateTimeFormatter,
+                            )}
                           </SelectItem>
                         );
                       },
@@ -152,7 +155,9 @@ export const DeadlineExtensionRequestForm: FC<
                     >
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toLocaleString()
+                        DateTime.fromISO(field.value).toFormat(
+                          DateTimeFormatter,
+                        )
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -196,9 +201,9 @@ export const DeadlineExtensionRequestForm: FC<
                 </strong>{" "}
                 (due{" "}
                 <strong>
-                  {DateTime.fromISO(assignment.due).toLocaleString()}
+                  {DateTime.fromISO(assignment.due).toFormat(DateTimeFormatter)}
                 </strong>
-                ) to <strong>{deadline.toLocaleString()}</strong>.
+                ) to <strong>{deadline.toFormat(DateTimeFormatter)}</strong>.
               </div>
             );
           })()}

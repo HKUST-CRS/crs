@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DateTimeFormatter } from "@/lib/datetime";
 
 export const AssignmentRow = z.object({
   code: Course.shape.assignments.keyType,
@@ -38,16 +39,18 @@ export const columns: ColumnDef<AssignmentRow>[] = [
     accessorKey: "due",
     header: "Due Date",
     cell: ({ row }) => {
-      return DateTime.fromISO(row.original.due).toLocaleString();
+      return DateTime.fromISO(row.original.due).toFormat(DateTimeFormatter);
     },
   },
   {
     accessorKey: "maxExtension",
     header: "Max Extension",
     cell: ({ row }) => {
-      return Duration.fromISO(row.original.maxExtension).toHuman({
-        unitDisplay: "short",
-      });
+      return Duration.fromISO(row.original.maxExtension)
+        .shiftTo("days")
+        .toHuman({
+          unitDisplay: "short",
+        });
     },
   },
 ];

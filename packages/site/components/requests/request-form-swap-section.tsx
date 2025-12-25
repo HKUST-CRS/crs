@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DateFormatter, TimeFormatter } from "@/lib/datetime";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
 import { RequestFormDetails } from "./details-request-form";
@@ -171,7 +172,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     >
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toLocaleString()
+                        DateTime.fromISO(field.value).toFormat(DateFormatter)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -251,7 +252,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     <Button variant="outline" disabled={viewonly || !toSection}>
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toLocaleString()
+                        DateTime.fromISO(field.value).toFormat(DateFormatter)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -293,22 +294,18 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               .filter((s) => s.day === fromDate.weekday)
               .map(
                 (s) =>
-                  DateTime.fromISO(s.from).toLocaleString(
-                    DateTime.TIME_SIMPLE,
-                  ) +
+                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
                   " - " +
-                  DateTime.fromISO(s.to).toLocaleString(DateTime.TIME_SIMPLE),
+                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
               )
               .join(", ");
             const toSchedule = toSection.schedule
               .filter((s) => s.day === toDate.weekday)
               .map(
                 (s) =>
-                  DateTime.fromISO(s.from).toLocaleString(
-                    DateTime.TIME_SIMPLE,
-                  ) +
+                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
                   " - " +
-                  DateTime.fromISO(s.to).toLocaleString(DateTime.TIME_SIMPLE),
+                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
               )
               .join(", ");
             return (
@@ -316,11 +313,11 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                 You are requesting to swap from section{" "}
                 <strong>{fromSectionCode} </strong>on{" "}
                 <strong>
-                  {fromDate.toLocaleString()} ({fromSchedule})
+                  {fromDate.toFormat(DateFormatter)} ({fromSchedule})
                 </strong>{" "}
                 to section <strong>{toSectionCode}</strong> on{" "}
                 <strong>
-                  {toDate.toLocaleString()} ({toSchedule})
+                  {toDate.toFormat(DateFormatter)} ({toSchedule})
                 </strong>
                 .
               </div>
