@@ -75,7 +75,7 @@ export const columns: ColumnDef<Request>[] = [
   {
     accessorKey: "time",
     accessorFn: (row) =>
-      DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter, {}),
+      DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter),
     header: ({ column }) => {
       return (
         <Button
