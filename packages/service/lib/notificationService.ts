@@ -84,7 +84,7 @@ export class NotificationService {
       instructorEmails,
       [studentEmail],
       subject,
-      "new_request.html",
+      "new_request.hbs",
       { requestLink, responseLink, instructorNames, studentName },
     );
   }
@@ -120,7 +120,7 @@ export class NotificationService {
       [studentEmail],
       [...instructorEmails, ...taEmails],
       subject,
-      "new_response.html",
+      "new_response.hbs",
       {
         responseLink,
         decision: request.response.decision,

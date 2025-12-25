@@ -75,6 +75,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
 
   const courseQuery = useQuery(
     // biome-ignore lint/style/noNonNullAssertion: enabled by clazz
+    // biome-ignore lint/suspicious/noNonNullAssertedOptionalChain: enabled by clazz
     trpc.course.get.queryOptions(clazz?.course!, { enabled: !!clazz }),
   );
   const course = courseQuery.data;
