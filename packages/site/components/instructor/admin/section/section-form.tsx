@@ -91,7 +91,9 @@ export function SectionForm({
                   render={({ field }) => (
                     <Field className="flex-1">
                       <Select
-                        onValueChange={v => field.onChange(v ? Number(v) : undefined)}
+                        onValueChange={(v) =>
+                          field.onChange(v ? Number(v) : undefined)
+                        }
                         value={String(field.value)}
                       >
                         <SelectTrigger>
