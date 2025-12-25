@@ -18,12 +18,12 @@ import {
 } from "@/components/ui/select";
 
 export const SectionFormSchema = z.object({
-  code: z.string().nonempty("Code is required"),
+  code: z.string().min(1, "Code is required"),
   schedule: z.array(
     z.object({
       day: z.number(),
-      from: z.string().nonempty("From is required"),
-      to: z.string().nonempty("To is required"),
+      from: z.string().min(1, "From is required"),
+      to: z.string().min(1, "To is required"),
     }),
   ),
 });
