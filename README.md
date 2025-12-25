@@ -21,7 +21,7 @@ To install dependencies for all three packages:
 bun install
 ```
 
-Then, configure the environment variables as specified in the `env.example` files in the `site` and `server` packages. Copy the `env.example` files to `.env` file (for `server` package) and `.env.local` file (for `site` package) respectively, and fill in the missing values. After that, begin the development with:
+Then, configure the environment variables as specified in the `.env.example` files in the `site` and `server` packages. Copy the `.env.example` files to `.env` file (for `server` package) and `.env.local` file (for `site` package) respectively, and fill in the missing values. After that, begin the development with:
 
 ```bash
 bun dev
