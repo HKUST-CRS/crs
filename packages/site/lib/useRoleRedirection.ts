@@ -5,7 +5,7 @@ import type { Role } from "service/models";
 import { useTRPC } from "./trpc-client";
 
 /**
- * Redirects the window to a endpoint based on the user's role.
+ * Redirects the window to an endpoint based on the user's role.
  *
  * @param f A function that takes a set of roles and returns a redirection path or null, if no
  * redirection is needed.
