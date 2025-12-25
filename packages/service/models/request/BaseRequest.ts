@@ -7,6 +7,7 @@ import { Response } from "./Response";
 export const RequestDetails = z.object({
   reason: z
     .string()
+    .nonempty("A brief explanation for the request is required.")
     .meta({ description: "A brief explanation of the request." }),
   proof: z
     .array(
@@ -15,14 +16,13 @@ export const RequestDetails = z.object({
         size: z
           .number()
           .meta({ description: "The size of the file in bytes." })
-          .max(2 * 1024 * 1024), // 2 MiB
+          .max(2 * 1024 * 1024, "At most 2 MiB per file is allowed."),
         content: z.base64().meta({
           description: "The base64-encoded content of the file. ",
         }),
       }),
     )
-    .min(0)
-    .max(4)
+    .max(4, "At most 4 supporting documents are allowed.")
     .optional()
     .meta({
       description: "Optional supporting documents or files for the request.",

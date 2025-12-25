@@ -1,136 +1,140 @@
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
   expect,
   test,
 } from "bun:test";
-import {
-  CourseNotFound,
-  CourseService,
-  SectionNotFound,
-  UserNotFound,
-  UserService,
-} from "../lib";
-import type { Course, User } from "../models";
-import { MockDataGenerator } from "./mockData";
-import { getTestConn, type TestConn } from "./testDb";
+import { MongoMemoryServer } from "mongodb-memory-server";
+import { DbConn } from "../db";
+import { UserService } from "../lib";
+import { ClassPermissionError } from "../lib/error";
+import { createRepos } from "../repos";
+import { UserNotFoundError } from "../repos/error";
+import * as testData from "./testData";
+import { clearData, insertTestData } from "./testUtils";
 
 describe("UserService", () => {
-  let testConn: TestConn;
-  let mockDataGen: MockDataGenerator;
+  let conn: DbConn;
+  let memoryServer: MongoMemoryServer;
   let userService: UserService;
-  let courseService: CourseService;
-
-  let user: User;
-  let userId: User["email"];
 
   beforeAll(async () => {
-    testConn = await getTestConn();
-    mockDataGen = new MockDataGenerator();
-    const collections = await testConn.getCollections();
-    userService = new UserService(collections);
-    courseService = new CourseService(collections);
+    memoryServer = await MongoMemoryServer.create();
+    conn = await DbConn.create(memoryServer.getUri());
+    userService = new UserService(createRepos(conn.collections));
   });
 
   afterAll(async () => {
-    await testConn.close();
+    await conn.close();
   });
 
   beforeEach(async () => {
-    await testConn.clear();
-    user = mockDataGen.makeNewUser();
-    userId = user.email;
+    await insertTestData(conn);
   });
 
-  describe("createUser", () => {
-    test("should create a student user successfully", async () => {
-      await userService.createUser(user);
-    });
+  afterEach(async () => {
+    await clearData(conn);
   });
 
   describe("getUser", () => {
     test("should get user by email", async () => {
-      await userService.createUser(user);
-      const foundUser = await userService.getUser(userId);
-      expect(foundUser).toEqual(user);
+      const user = testData.students[0];
+      const fetchedUser = await userService.auth(user.email).getCurrentUser();
+      expect(fetchedUser.email).toBe(user.email);
     });
 
-    test("should throw error when user not found", async () => {
-      // user not created in the database
+    test("should throw user not found error when user does not exist", async () => {
       try {
-        await userService.getUser(userId);
-        expect.unreachable("Should have thrown an error");
+        await userService.auth("dne@dne.com").getCurrentUser();
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = UserNotFound(userId).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(UserNotFoundError);
       }
     });
   });
 
-  describe("updateEnrollment", () => {
-    let course: Course;
-    let userInDb: User;
-    let userInDbId: User["email"];
+  describe("sync", () => {
+    test("should create user successfully", async () => {
+      await userService.auth("42@connect.ust.hk").sync("42");
+      const user = await userService.auth("42@connect.ust.hk").getCurrentUser();
+      expect(user.email).toBe("42@connect.ust.hk");
+      expect(user.name).toBe("42");
+      expect(user.enrollment).toEqual([]);
+    });
+    test("should update user name successfully", async () => {
+      const user = testData.students[0];
+      await userService.auth(user.email).sync("New Name");
+      const updatedUser = await userService.auth(user.email).getCurrentUser();
+      expect(updatedUser.name).toBe("New Name");
+    });
+  });
 
-    beforeEach(async () => {
-      await userService.createUser(user);
-      userInDb = await userService.getUser(userId);
-      userInDbId = userInDb.email;
-      course = mockDataGen.makeNewCourse();
+  describe("getUsersFromClass", () => {
+    test("instructors should have full access", async () => {
+      const instructor = testData.instructors[0];
+      const course = testData.courses[0];
+      const students = await userService
+        .auth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "student");
+      expect(students.length).toBeGreaterThan(0);
+      const tas = await userService
+        .auth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "ta");
+      expect(tas.length).toBeGreaterThan(0);
+      const instructors = await userService
+        .auth(instructor.email)
+        .getUsersFromClass({ course, section: "L1" }, "instructor");
+      expect(instructors.length).toBeGreaterThan(0);
     });
 
-    test("should update user enrollment successfully", async () => {
-      await courseService.createCourse(course);
-      const enrollment: User["enrollment"] = [
-        {
-          code: course.code,
-          term: course.term,
-          role: "student",
-          sections: ["L1", "T1"],
-        },
-      ];
-      await userService.updateEnrollment(userInDbId, enrollment);
-      const updatedUser = await userService.getUser(userInDbId);
-      expect(updatedUser.enrollment).toEqual(enrollment);
+    test("TAs should be able to view students in their class", async () => {
+      const ta = testData.tas[0];
+      const course = testData.courses[0];
+      const students = await userService
+        .auth(ta.email)
+        .getUsersFromClass({ course, section: "L1" }, "student");
+      expect(students.length).toBeGreaterThan(0);
     });
 
-    test("should reject non-existing course and throw an error", async () => {
-      // course not created in the database
-      const enrollment: User["enrollment"] = [
-        {
-          code: course.code,
-          term: course.term,
-          role: "student",
-          sections: ["L1"],
-        },
-      ];
+    test("students should only see instructors and TAs", async () => {
+      const student = testData.students[0];
+      const course = testData.courses[0];
+      const tas = await userService
+        .auth(student.email)
+        .getUsersFromClass({ course, section: "L1" }, "ta");
+      expect(tas.length).toBeGreaterThan(0);
+      const instructors = await userService
+        .auth(student.email)
+        .getUsersFromClass({ course, section: "L1" }, "instructor");
+      expect(instructors.length).toBeGreaterThan(0);
+    });
+
+    test("students should not see other students", async () => {
+      const student = testData.students[0];
+      const course = testData.courses[0];
       try {
-        await userService.updateEnrollment(userInDbId, enrollment);
-        expect.unreachable("Should have thrown an error");
+        await userService
+          .auth(student.email)
+          .getUsersFromClass({ course, section: "L1" }, "student");
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = CourseNotFound(course).message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
 
-    test("should reject non-existing section and throw an error", async () => {
-      await courseService.createCourse(course);
-      const enrollment: User["enrollment"] = [
-        {
-          code: course.code,
-          term: course.term,
-          role: "student",
-          sections: ["L1", "DNE"],
-        },
-      ];
+    test("users not in class should not have access", async () => {
+      const user = testData.students[1];
+      const course = testData.courses[0];
       try {
-        await userService.updateEnrollment(userInDbId, enrollment);
-        expect.unreachable("Should have thrown an error");
+        await userService
+          .auth(user.email)
+          .getUsersFromClass({ course, section: "L1" }, "instructor");
+        expect.unreachable("should have thrown an error");
       } catch (error) {
-        const errorMessage = SectionNotFound(course, "DNE").message;
-        expect((error as Error).message).toBe(errorMessage);
+        expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
   });

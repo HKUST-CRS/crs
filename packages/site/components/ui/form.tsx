@@ -6,6 +6,7 @@ import * as React from "react";
 import {
   Controller,
   type ControllerProps,
+  type FieldError,
   type FieldPath,
   type FieldValues,
   FormProvider,
@@ -135,9 +136,27 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
   );
 }
 
+function flattenError(error: unknown): FieldError[] {
+  if (!error) return [];
+  if (Array.isArray(error)) {
+    return error.flatMap(flattenError);
+  }
+  if (typeof error === "object") {
+    if ("type" in error) {
+      return [error as FieldError];
+    }
+    return Object.values(error).flatMap(flattenError);
+  }
+  return [];
+}
+
 function FormMessage({ className, ...props }: React.ComponentProps<"p">) {
   const { error, formMessageId } = useFormField();
-  const body = error ? String(error?.message ?? "") : props.children;
+  const body = error
+    ? flattenError(error)
+        .map((e) => e.message ?? "")
+        .join("\n")
+    : props.children;
 
   if (!body) {
     return null;

@@ -72,7 +72,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (validateSession(auth)) {
         return true;
       }
-      console.log("Unauthorized. Redirecting to login...");
       const redirectTo = new URL("/login", request.url);
       redirectTo.searchParams.set("r", url.href);
       return NextResponse.redirect(redirectTo);

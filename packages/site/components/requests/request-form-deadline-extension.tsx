@@ -15,6 +15,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from "@/components/ui/form";
 import {
   Popover,
@@ -57,6 +58,10 @@ export const DeadlineExtensionRequestForm: FC<
     resolver: zodResolver(DeadlineExtensionFormSchema),
     defaultValues: {
       type: "Deadline Extension",
+      details: {
+        reason: "",
+        proof: [],
+      },
       ...props.default,
     },
   });
@@ -128,6 +133,7 @@ export const DeadlineExtensionRequestForm: FC<
                   </SelectContent>
                 </Select>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -176,6 +182,7 @@ export const DeadlineExtensionRequestForm: FC<
                   </PopoverContent>
                 </Popover>
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />

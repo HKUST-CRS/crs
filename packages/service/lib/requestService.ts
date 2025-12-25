@@ -1,72 +1,56 @@
-import { DateTime } from "luxon";
-import { ObjectId } from "mongodb";
-import type { Collections } from "../db";
-import {
-  Classes,
+import type {
   Request,
-  type RequestId,
-  type RequestInit,
-  type ResponseInit,
-  type Role,
-  type UserId,
+  RequestId,
+  RequestInit,
+  ResponseInit,
+  Role,
+  UserId,
 } from "../models";
-import {
-  CourseNotFoundError,
-  RequestNotFoundError,
-  ResponseAlreadyExistsError,
-  UserClassEnrollmentError,
-  UserNotFoundError,
-  UserPermissionError,
-} from "./error";
+import type { Repos } from "../repos";
+import { assertClassRole } from "./permission";
 
-export class RequestService {
-  private collections: Collections;
+export class RequestService<TUser extends UserId | null = null> {
+  public user: TUser;
 
-  constructor(collection: Collections) {
-    this.collections = collection;
+  constructor(repos: Repos);
+  constructor(repos: Repos, user: TUser);
+  constructor(
+    private repos: Repos,
+    user?: TUser,
+  ) {
+    this.user = (user ?? null) as TUser;
   }
 
-  async createRequest(from: UserId, data: RequestInit): Promise<string> {
-    const user = await this.collections.users.findOne({ email: from });
-    if (!user) throw new UserNotFoundError(from);
+  auth(this: RequestService<null>, user: string): RequestService<string> {
+    return new RequestService(this.repos, user);
+  }
 
-    UserPermissionError.assertRole(
-      user,
-      data.class,
-      "student",
-      `create request`,
-    );
+  async createRequest(
+    this: RequestService<UserId>,
+    data: RequestInit,
+  ): Promise<string> {
+    const user = await this.repos.user.requireUser(this.user);
+    // only students in the class can create requests
+    assertClassRole(user, data.class, ["student"], "creating request");
+    return this.repos.request.createRequest(this.user, data);
+  }
 
-    const course = await this.collections.courses.findOne({
-      code: data.class.course.code,
-      term: data.class.course.term,
-    });
-    if (!course) throw new CourseNotFoundError(data.class.course);
-
-    const enrolled = user.enrollment.some(
-      (e) => Classes.id2str(e) === Classes.id2str(data.class),
-    );
-    if (!enrolled) throw new UserClassEnrollmentError(from, data.class);
-
-    const id = new ObjectId().toHexString();
-    const result = await this.collections.requests.insertOne({
-      id,
-      from,
-      timestamp: DateTime.now().toISO(),
-      response: null,
-      ...data,
-    });
-    if (!result.acknowledged) {
-      throw new Error(`Failed to create request.`);
+  async getRequest(
+    this: RequestService<UserId>,
+    requestId: RequestId,
+  ): Promise<Request> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestId);
+    if (this.user !== request.from) {
+      // only the requester or instructors/TAs in the class can view the request
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor", "ta"],
+        `viewing request ${requestId}`,
+      );
     }
-
-    return id;
-  }
-
-  async getRequest(id: RequestId): Promise<Request> {
-    const request = await this.collections.requests.findOne({ id });
-    if (!request) throw new RequestNotFoundError(id);
-    return Request.parse({ ...request });
+    return request;
   }
 
   /**
@@ -76,75 +60,35 @@ export class RequestService {
    *
    * If the role is "instructor" or "ta", this returns all requests for classes that the user
    * is an instructor or ta of.
-   *
-   * @throws UserNotFoundError if the user does not exist
    */
-  async getRequestsAs(uid: UserId, role: Role): Promise<Request[]> {
-    const user = await this.collections.users.findOne({ email: uid });
-    if (!user) throw new UserNotFoundError(uid);
-
-    const requests = await this.collections.requests
-      .find({
-        ...(role === "student"
-          ? {
-              from: uid,
-            }
-          : {
-              $or: [
-                ...user.enrollment
-                  .filter((clazz) => clazz.role === role)
-                  .map((clazz) => ({
-                    class: {
-                      course: clazz.course,
-                      section: clazz.section,
-                    },
-                  })),
-                // This condition is to ensure that the $or array is non-empty.
-                {
-                  $expr: {
-                    $eq: [1, 0],
-                  },
-                },
-              ],
-            }),
-      })
-      .toArray();
-    return requests.map((request) => Request.parse({ ...request }));
+  async getRequestsAs(
+    this: RequestService<UserId>,
+    role: Role,
+  ): Promise<Request[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    // students can only get their own requests
+    if (role === "student") {
+      return this.repos.request.getRequestsMadeByUser(this.user);
+    }
+    // instructors and TAs can get requests for their classes
+    const enrollments = user.enrollment.filter((clazz) => clazz.role === role);
+    return this.repos.request.getRequestsInClasses(enrollments);
   }
 
   async createResponse(
-    uid: UserId,
-    rid: RequestId,
+    this: RequestService<UserId>,
+    requestId: RequestId,
     response: ResponseInit,
   ): Promise<void> {
-    const user = await this.collections.users.findOne({ email: uid });
-    if (!user) throw new UserNotFoundError(uid);
-
-    const request = await this.collections.requests.findOne({ id: rid });
-    if (!request) throw new RequestNotFoundError(rid);
-    if (request.response) throw new ResponseAlreadyExistsError(rid);
-
-    UserPermissionError.assertRole(
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestId);
+    // only instructors of the class can create responses
+    assertClassRole(
       user,
       request.class,
-      "instructor",
-      `create response for request ${rid}`,
+      ["instructor"],
+      `creating response for request ${requestId}`,
     );
-
-    const result = await this.collections.requests.updateOne(
-      { id: rid },
-      {
-        $set: {
-          response: {
-            from: uid,
-            timestamp: DateTime.now().toISO(),
-            ...response,
-          },
-        },
-      },
-    );
-    if (!result.acknowledged) {
-      throw new Error(`Failed to create response.`);
-    }
+    await this.repos.request.createResponse(this.user, requestId, response);
   }
 }

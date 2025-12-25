@@ -14,12 +14,12 @@ export const routerResponse = router({
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      await services.request.createResponse(
-        ctx.user.email,
-        input.id,
-        input.init,
-      );
-      const r = await services.request.getRequest(input.id);
-      await services.notification.notifyNewResponse(r);
+      await services.request
+        .auth(ctx.user.email)
+        .createResponse(input.id, input.init);
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await services.notification.notifyNewResponse(request);
     }),
 });

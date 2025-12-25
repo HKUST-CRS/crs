@@ -8,10 +8,8 @@ export const router = t.router;
 export const procedure = t.procedure.use(async (opts) => {
   const { ctx } = opts;
 
-  // verify user exists
-  await services.user.getUser(ctx.user.email);
-  // update user name
-  await services.user.updateUserName(ctx.user.email, ctx.user.name);
+  // synchronize user info
+  await services.user.auth(ctx.user.email).sync(ctx.user.name);
 
   const result = await opts.next({
     ctx: {
@@ -29,6 +27,10 @@ export const procedure = t.procedure.use(async (opts) => {
   console.info(
     `[TRPC] ${meta.ok ? "OK" : "NG"} - ${meta.type} ${meta.path} (${meta.user.name} <${meta.user.email}>)`,
   );
+
+  if (!result.ok) {
+    console.warn(`[TRPC] Error details:`, result.error);
+  }
 
   return result;
 });

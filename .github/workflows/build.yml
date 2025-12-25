@@ -18,10 +18,6 @@ env:
 
 jobs:
   server:
-    # Don't trigger the action on PRs from the same repo unless it's from dependabot.
-    # This prevents the same action from triggering twice, by push and pull_request events.
-    # https://github.com/orgs/community/discussions/26940#discussioncomment-6656489
-    if: (github.event_name != 'pull_request' && ! github.event.pull_request.head.repo.fork) || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]'))
     name: Build Server
     runs-on: ubuntu-latest
     steps:
@@ -62,10 +58,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
   
   site:
-    # Don't trigger the action on PRs from the same repo unless it's from dependabot.
-    # This prevents the same action from triggering twice, by push and pull_request events.
-    # https://github.com/orgs/community/discussions/26940#discussioncomment-6656489
-    if: (github.event_name != 'pull_request' && ! github.event.pull_request.head.repo.fork) || (github.event_name == 'pull_request' && (github.event.pull_request.head.repo.fork || github.actor == 'dependabot[bot]'))
     name: Build Site
     runs-on: ubuntu-latest
     steps:

@@ -7,14 +7,14 @@ export const routerCourse = router({
   get: procedure
     .input(CourseId)
     .output(Course)
-    .query(({ input }) => {
-      return services.course.getCourse(input);
+    .query(({ input, ctx }) => {
+      return services.course.auth(ctx.user.email).getCourse(input);
     }),
   getEnrollment: procedure
     .input(z.void())
     .output(z.array(Course))
     .query(({ ctx }) => {
-      return services.course.getCoursesFromEnrollment(ctx.user.email);
+      return services.course.auth(ctx.user.email).getCoursesFromEnrollment();
     }),
   updateSections: procedure
     .input(
@@ -23,8 +23,10 @@ export const routerCourse = router({
         sections: Course.shape.sections,
       }),
     )
-    .mutation(({ input }) => {
-      return services.course.updateSections(input.courseId, input.sections);
+    .mutation(({ ctx, input }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .updateSections(input.courseId, input.sections);
     }),
   updateAssignments: procedure
     .input(
@@ -33,10 +35,9 @@ export const routerCourse = router({
         assignments: Course.shape.assignments,
       }),
     )
-    .mutation(({ input }) => {
-      return services.course.updateAssignments(
-        input.courseId,
-        input.assignments,
-      );
+    .mutation(({ ctx, input }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .updateAssignments(input.courseId, input.assignments);
     }),
 });
