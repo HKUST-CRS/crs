@@ -59,7 +59,7 @@ export class CourseService<TUser extends UserId | null = null> {
       user,
       courseId,
       ["instructor"],
-      "updating course sections",
+      "updating course assignments",
     );
     await this.repos.course.updateAssignments(courseId, assignments);
   }
