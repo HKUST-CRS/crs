@@ -1,16 +1,39 @@
 import path from "node:path";
-import handlebars, { Exception } from "handlebars";
+import handlebars from "handlebars";
 import nodemailer from "nodemailer";
 import type { Request } from "../models";
 import type { Repos } from "../repos";
 import { ResponseNotFoundError } from "./error";
 
 export class NotificationService {
-  private transporter: nodemailer.Transporter;
   private templateDir: string;
+  private transporter: nodemailer.Transporter | null;
   private baseUrl: string;
 
   constructor(private repos: Repos) {
+    this.templateDir =
+      Bun.env.EMAIL_TEMPLATES_DIR || path.join(__dirname, "../templates");
+
+    if (
+      !Bun.env.SMTP_HOST ||
+      !Bun.env.SMTP_PORT ||
+      !Bun.env.EMAIL_FROM ||
+      !Bun.env.BASE_URL
+    ) {
+      if (Bun.env.NODE_ENV === "production") {
+        throw new Error(
+          "SMTP configuration is incomplete. Missing one of SMTP_HOST, SMTP_PORT, EMAIL_FROM, or BASE_URL.",
+        );
+      } else {
+        console.warn(
+          "SMTP configuration is incomplete. Emails are suppressed.",
+        );
+        this.transporter = null;
+        this.baseUrl = "";
+        return;
+      }
+    }
+
     this.transporter = nodemailer.createTransport({
       host: Bun.env.SMTP_HOST,
       port: Number(Bun.env.SMTP_PORT),
@@ -24,9 +47,6 @@ export class NotificationService {
         }),
       connectionTimeout: 5000,
     });
-    this.templateDir =
-      Bun.env.EMAIL_TEMPLATES_DIR || path.join(__dirname, "../templates");
-    if (!Bun.env.BASE_URL) throw new Exception("BASE_URL not found");
     this.baseUrl = Bun.env.BASE_URL;
   }
 
@@ -130,6 +150,13 @@ export class NotificationService {
     context: Record<string, string>,
   ): Promise<void> {
     const html = await this.renderTemplate(templateName, context);
+    if (!this.transporter) {
+      console.warn(
+        "Email sending is suppressed due to incomplete SMTP configuration.",
+      );
+      console.warn("Sending", { to, cc, subject }, "with content", "\n", html);
+      return;
+    }
     await this.transporter.sendMail({
       from: Bun.env.EMAIL_FROM,
       sender: "CSE Request System",
