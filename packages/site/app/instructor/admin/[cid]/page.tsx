@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { use } from "react";
 import { Courses } from "service/models";
 import { CourseSettings } from "@/components/instructor/admin/course-settings";
@@ -37,6 +38,11 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
         {course && (
           <div className="text-gray-500 text-xs">
             (Admin View for {Courses.formatCourse(course)})
+            <br />
+            Alternatively, click for{" "}
+            <u>
+              <Link href="/instructor">Instructors' View</Link>
+            </u>
           </div>
         )}
       </header>
