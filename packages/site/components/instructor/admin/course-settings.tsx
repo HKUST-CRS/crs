@@ -39,7 +39,6 @@ export function CourseSettings({ cid }: { cid: CourseId }) {
       <AssignmentsConfig
         course={course}
         onUpdate={(assignments) => {
-          console.log("Hi");
           updateAssignments.mutate({ courseId: cid, assignments });
         }}
       />

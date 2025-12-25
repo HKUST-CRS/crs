@@ -56,18 +56,8 @@ export function SectionsConfig({
   };
 
   const handleRemove = () => {
-    if (!focusSection) return;
-
-    const newSections = Object.fromEntries(
-      sections
-        .flatMap((s) => {
-          if (s === focusSection) {
-            return [];
-          }
-          return [s];
-        })
-        .map(({ code, ...section }) => [code, section] as const),
-    );
+    const section = focusSection;
+    const { [section?.code ?? ""]: _, ...newSections } = course.sections;
 
     onUpdate(newSections);
     setFormOpen(false);
@@ -95,10 +85,10 @@ export function SectionsConfig({
       <SectionTable sections={sections} onClickRow={handleEdit} />
 
       <FieldDescription>
-        This configures the sections in the course. This affects how students
-        can create the requests merely, e.g., swap from one section to another.
-        In other words, sections here only configure that students are allowed
-        to swap to and from, which are typically lab sections.
+        This configures the sections in the course. This only affects how
+        students can create the requests, e.g., swap from one section to
+        another, which are typically lab sections. In other words, it does not
+        have to be configured to add new enrollments to the course / section.
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

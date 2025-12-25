@@ -141,8 +141,6 @@ export function EnrollmentTable({
   const [globalFilter, setGlobalFilter] = useState<string[]>([]);
   const [rowSelection, setRowSelection] = useState({});
 
-  console.log(rowSelection);
-
   const table = useReactTable({
     data: enrollments,
     columns,

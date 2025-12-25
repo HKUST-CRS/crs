@@ -24,7 +24,7 @@ export const useRoleRedirection = (f: (rs: Set<Role>) => string | null) => {
         router.replace(redirection);
       }
     }
-  });
+  }, [user, router, f]);
 };
 
 /**

@@ -58,18 +58,9 @@ export function AssignmentsConfig({
   };
 
   const handleRemove = () => {
-    if (!focusAssignment) return;
-
-    const newAssignments = Object.fromEntries(
-      assignments
-        .flatMap((s) => {
-          if (s.code === focusAssignment.code) {
-            return [];
-          }
-          return [s];
-        })
-        .map(({ code, ...assignment }) => [code, assignment] as const),
-    );
+    const assignment = focusAssignment;
+    const { [assignment?.code ?? ""]: _, ...newAssignments } =
+      course.assignments;
 
     onUpdate(newAssignments);
     setFormOpen(false);

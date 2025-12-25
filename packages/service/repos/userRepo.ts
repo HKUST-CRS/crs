@@ -95,7 +95,7 @@ export class UserRepo {
   ): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid },
-      { $push: { enrollment } },
+      { $addToSet: { enrollment } },
     );
   }
 

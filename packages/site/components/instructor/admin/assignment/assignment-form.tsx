@@ -5,7 +5,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@radix-ui/react-popover";
+} from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { DateTime, Duration } from "luxon";
 import { Controller, useForm } from "react-hook-form";
@@ -79,40 +79,36 @@ export function AssignmentForm({
         name="due"
         control={form.control}
         render={({ field, fieldState }) => (
-          <>
-            <Field>
-              <FieldLabel>Due Date</FieldLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    <CalendarIcon />
-                    {field.value ? (
-                      DateTime.fromISO(field.value).toLocaleString()
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  {
-                    <Calendar
-                      mode="single"
-                      selected={DateTime.fromISO(field.value).toJSDate()}
-                      onSelect={(date) => {
-                        if (date) {
-                          field.onChange(
-                            DateTime.fromJSDate(date).endOf("day").toISO(),
-                          );
-                        }
-                      }}
-                      className="rounded-lg border shadow-sm"
-                    />
-                  }
-                </PopoverContent>
-              </Popover>
-              <FieldError errors={[fieldState.error]} />
-            </Field>
-          </>
+          <Field>
+            <FieldLabel>Due Date</FieldLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline">
+                  <CalendarIcon />
+                  {field.value ? (
+                    DateTime.fromISO(field.value).toLocaleString()
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={DateTime.fromISO(field.value).toJSDate()}
+                  onSelect={(date) => {
+                    if (date) {
+                      field.onChange(
+                        DateTime.fromJSDate(date).endOf("day").toISO(),
+                      );
+                    }
+                  }}
+                  className="rounded-lg border shadow-sm"
+                />
+              </PopoverContent>
+            </Popover>
+            <FieldError errors={[fieldState.error]} />
+          </Field>
         )}
       />
 
