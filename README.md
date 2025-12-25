@@ -31,7 +31,7 @@ bun dev
 
 The current plan is to preserve type-safety throughout the application by leveraging TypeScript and its powerful type system. In particular,
 
-- The Model utilizes the typesystem in TypeScript and [Zod](https://github.com/colinhacks/zod) for preserving type safety, building JSON schema, and validating JSON information.
+- The Model utilizes the type system in TypeScript and [Zod](https://github.com/colinhacks/zod) for preserving type safety, building JSON schema, and validating JSON information.
 - The View mainly makes use of [React](https://reactjs.org/), [Next.js](https://nextjs.org/), [shadcn/ui](https://ui.shadcn.com/), and [Tailwind CSS](https://tailwindcss.com/) for building the beautiful server-side rendering site.
 - The Controller uses [tRPC](https://trpc.io/) for creating type-safe APIs, and [MongoDB](https://www.mongodb.com/) for (type-safe and efficient) persistent data storage.
 
