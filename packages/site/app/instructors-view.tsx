@@ -111,7 +111,7 @@ export default function InstructorsView() {
         <p className="pb-4 font-medium text-sm leading-none">
           Course Management
         </p>
-        <div className="grid grid-cols-3">
+        <div className="grid grid-cols-3 gap-4">
           {iCourses.map((course) => {
             return (
               <Link
