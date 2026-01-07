@@ -50,11 +50,12 @@ export default function StudentsView() {
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
-        <h1>CRS</h1>
+        <h1 className="text-foreground">CRS</h1>
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          className="text-foreground"
+          textColors={["currentColor"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,

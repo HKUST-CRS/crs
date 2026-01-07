@@ -161,7 +161,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           <FormLabel>Instructor</FormLabel>
           <FormControl>
             {instructors ? (
-              <div>
+              <div className="rounded-md border border-input bg-muted/50 px-3 py-2">
                 {instructors?.map((instructor) => (
                   <div key={instructor.email}>
                     {instructor.name}
