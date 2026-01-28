@@ -54,7 +54,7 @@ export default function StudentsView() {
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          textColors={["var(--text-foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
