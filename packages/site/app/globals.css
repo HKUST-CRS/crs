@@ -113,6 +113,9 @@
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
 }
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
 
 *, *::before, *::after {
   /* used to control transitions, i.e. prevent sudden changes */
