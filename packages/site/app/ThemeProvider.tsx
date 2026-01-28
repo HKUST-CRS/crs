@@ -1,8 +1,10 @@
 "use client"; 
 
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState, ReactNode, createContext, useContext } from "react";
 
-export function ThemeProvider() {
+const ThemeContext = createContext<any>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
     const [isDark, setIsDark] = useState(false);
 
     // Prevent FOUC by applying theme before rendering
@@ -18,31 +20,33 @@ export function ThemeProvider() {
     })()
         `;
 
+    
+    const handleThemeChange = (fromListener = false, eMatches?: boolean) => {
+        const root = document.documentElement;
+        if (fromListener) {
+            if (eMatches) {
+                root.classList.add('dark');
+                setIsDark(true); 
+            } else {
+                root.classList.remove('dark');
+                setIsDark(false);
+            }
+        } else {
+            if (isDark) { 
+                root.classList.remove('dark');
+                setIsDark(false);
+                console.log()
+            } else {
+                root.classList.add('dark');
+                setIsDark(true);
+            }
+        }
+    };
+
     useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     
-    const handleThemeChange = (fromListener = false, eMatches: boolean) => {
-        const root = document.documentElement;
-        if (fromListener) { // Change to the new system theme 
-        if (eMatches) {
-            root.classList.add('dark');
-            console.log("Applied dark theme from listener: to dark");
-        } else {
-            root.classList.remove('dark');
-            console.log("Applied light theme from listener: to light");
-        }
-        }else { // toggle toggle theme manually
-            if (isDark) { 
-            root.classList.remove('dark');
-            setIsDark(false); // Update state
-            console.log("Applied light theme manually");
-            }else{
-            root.classList.add('dark');
-            setIsDark(true);
-            console.log("Applied dark theme manually");
-            }
-    };
-    };
+
 
     handleThemeChange(true, mediaQuery.matches);
 
@@ -55,7 +59,12 @@ export function ThemeProvider() {
     return () => mediaQuery.removeEventListener('change', handleChange);
     }, []);
 
-    return <>
-        <script dangerouslySetInnerHTML={{ __html: blockingStatusScript }} />
-    </>;
+    return (
+        <ThemeContext.Provider value={{ isDark, handleThemeChange }}>
+            <script dangerouslySetInnerHTML={{ __html: blockingStatusScript }} />
+            {children}
+        </ThemeContext.Provider>
+    );
 }
+
+export const useTheme = () => useContext(ThemeContext);

@@ -30,13 +30,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider />
-        <SessionProvider>
-          <TRPCReactProvider>
-            {children}
-            <Toaster position="top-center" richColors />
-          </TRPCReactProvider>
-        </SessionProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <TRPCReactProvider>
+              {children}
+              <Toaster position="top-center" richColors />
+            </TRPCReactProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
