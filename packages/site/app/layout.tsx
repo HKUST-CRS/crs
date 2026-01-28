@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import { TRPCReactProvider } from "@/lib/trpc-client";
+import { ThemeProvider } from "./ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,12 +30,14 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>
-          <TRPCReactProvider>
-            {children}
-            <Toaster position="top-center" richColors />
-          </TRPCReactProvider>
-        </SessionProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <TRPCReactProvider>
+              {children}
+              <Toaster position="top-center" richColors />
+            </TRPCReactProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

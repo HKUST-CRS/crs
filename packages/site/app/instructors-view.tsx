@@ -12,8 +12,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
+import {Button} from "@/components/ui/button";
+import { useTheme } from "./ThemeProvider";
+import { Sun, Moon } from "lucide-react";
 
 export default function InstructorsView() {
+  
+  const { isDark, handleThemeChange } = useTheme();
+
   const router = useRouter();
 
   const trpc = useTRPC();
@@ -67,11 +73,21 @@ export default function InstructorsView() {
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
+
+        <Button
+          className="absolute right-4 top-4 md:right-8 md:top-8"
+          variant="outline"
+          size="sm"
+          onClick={() => handleThemeChange()}
+        >
+          {isDark ? <Sun className="text-yellow-500" /> : <Moon className="text-blue-750" />}
+        </Button>
+
         <h1>CRS</h1>
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          textColors={["var(--text-foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
@@ -118,10 +134,11 @@ export default function InstructorsView() {
                 key={Courses.id2str(course)}
                 href={`/instructor/admin/${Courses.id2str(course)}`}
               >
-                <Card>
+                <Card className = "bg-background">
+                  
                   <CardContent>
-                    <p className="font-medium">{Courses.formatID(course)}</p>
-                    <p className="text-sm">{course.title}</p>
+                    <p className="font-medium text-foreground">{Courses.formatID(course)}</p>
+                    <p className="text-foreground text-sm">{course.title}</p>
                   </CardContent>
                 </Card>
               </Link>
