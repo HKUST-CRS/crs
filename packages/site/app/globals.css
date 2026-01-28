@@ -114,7 +114,14 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
-
+*, *::before, *::after {
+  /* used to control transitions, i.e. prevent sudden changes */
+  transition-property: background-color, border-color, color, fill, stroke;
+  
+  transition-duration: 1000ms;
+  
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
 
 body {
   background: var(--background);
