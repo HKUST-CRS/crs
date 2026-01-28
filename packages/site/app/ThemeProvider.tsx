@@ -3,7 +3,20 @@
 import { useEffect, useState, ReactNode } from "react";
 
 export function ThemeProvider() {
-const [isDark, setIsDark] = useState(false);
+    const [isDark, setIsDark] = useState(false);
+
+    // Prevent FOUC by applying theme before rendering
+    const blockingStatusScript = `
+    (function() {
+        const savedTheme = localStorage.getItem('theme');
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+        document.documentElement.classList.add('dark');
+        } else {
+        document.documentElement.classList.remove('dark');
+        }
+    })()
+        `;
 
     useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -42,5 +55,7 @@ const [isDark, setIsDark] = useState(false);
     return () => mediaQuery.removeEventListener('change', handleChange);
     }, []);
 
-    return <></>;
+    return <>
+        <script dangerouslySetInnerHTML={{ __html: blockingStatusScript }} />
+    </>;
 }
