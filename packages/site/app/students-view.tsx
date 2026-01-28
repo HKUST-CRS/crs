@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
@@ -47,6 +47,9 @@ export default function StudentsView() {
     }, [userQuery, requestsQuery]),
   );
 
+  
+
+
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
@@ -54,7 +57,7 @@ export default function StudentsView() {
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          textColors={["var(--text-foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
