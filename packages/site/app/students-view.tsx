@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
@@ -46,6 +46,51 @@ export default function StudentsView() {
       requestsQuery.refetch();
     }, [userQuery, requestsQuery]),
   );
+
+  // NEW CODE -- FOR HANDLING THEME CHANGE
+
+  const [isDark, setIsDark] = useState( window.matchMedia('(prefers-color-scheme: dark)').matches);
+  // Initialize isDark based on system preference
+
+  // Initializing the event listener
+  useEffect(() => {
+  const mediaSystemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+  
+  const handleChange = (e: MediaQueryListEvent) => {
+    handleThemeChange(true, e.matches);
+  };
+
+  handleThemeChange(true, mediaSystemTheme.matches);
+
+  mediaSystemTheme.addEventListener('change', handleChange);
+
+  return () => mediaSystemTheme.removeEventListener('change', handleChange);
+}, []);
+
+  const handleThemeChange = (fromListener = false, eMatches: boolean) => {
+    const root = document.documentElement;
+    if (fromListener) { // Change to the new system theme 
+      if (eMatches) {
+        root.classList.add('dark');
+        console.log("Applied dark theme from listener: to dark");
+      } else {
+        root.classList.remove('dark');
+        console.log("Applied light theme from listener: to light");
+      }
+    }else { // toggle toggle theme manually
+        if (isDark) { 
+          root.classList.remove('dark');
+          setIsDark(false); // Update state
+          console.log("Applied light theme manually");
+        }else{
+          root.classList.add('dark');
+          setIsDark(true);
+          console.log("Applied dark theme manually");
+        }
+  };
+};
+  // END NEW CODE
+
 
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
