@@ -10,9 +10,14 @@ import TextType from "@/components/TextType";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useInstructorOnly } from "@/lib/useRoleRedirection";
+import {Button} from "@/components/ui/button";
+import { useTheme } from "../../../ThemeProvider";
+import { Sun, Moon } from "lucide-react";
 
 export default function Page({ params }: { params: Promise<{ cid: string }> }) {
   useInstructorOnly();
+  const { isDark, handleThemeChange } = useTheme();
+
   const { cid: cidRaw } = use(params);
   const cid = decodeURIComponent(cidRaw);
 
@@ -24,11 +29,19 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
+        <Button
+          className="absolute right-4 top-4 md:right-8 md:top-8"
+          variant="outline"
+          size="sm"
+          onClick={() => handleThemeChange()}
+        >
+          {isDark ? <Sun className="text-yellow-500" /> : <Moon className="text-blue-750" />}
+        </Button>
         <h1>CRS</h1>
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          textColors={["var(--text-foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
