@@ -221,7 +221,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   disabled={viewonly}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="From Section" />
+                    <SelectValue placeholder="To Section" />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(course?.sections ?? {}).map(
