@@ -74,7 +74,7 @@ export class NotificationService {
     const instructorEmails = instructors.map((i) => i.email);
     const instructorNames = instructors
       .map((i) => i.name)
-      .filter((name) => name && name.trim() !== "")
+      .filter((name) => name !== "")
       .join(", ");
 
     const studentEmail = student.email;
