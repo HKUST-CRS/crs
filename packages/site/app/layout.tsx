@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { TRPCReactProvider } from "@/lib/trpc-client";
-import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +32,7 @@ export default function RootLayout({
       >
         <SessionProvider>
           <TRPCReactProvider>
-            <ThemeProvider 
+            <ThemeProvider
               attribute="class"
               defaultTheme="system"
               enableSystem
