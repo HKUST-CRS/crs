@@ -48,7 +48,7 @@ function generatePreviewMessage(input: string, cid: CourseId) {
   const ref = (() => {
     const [row] = rows;
     if (!row) return {};
-    const [, , section, role] = row.split("\t");
+    const [, section, role] = row.split("\t");
     return { section, role };
   })();
   const errors = rows
@@ -103,7 +103,7 @@ function generateEnrollments(input: string, cid: CourseId) {
   const ref = (() => {
     const [row] = rows;
     if (!row) return {};
-    const [, , section, role] = row.split("\t");
+    const [, section, role] = row.split("\t");
     return { section, role };
   })();
   return rows.map((r) => parseRow(r, cid, ref));
