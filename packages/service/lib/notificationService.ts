@@ -3,6 +3,7 @@ import handlebars from "handlebars";
 import nodemailer from "nodemailer";
 import type { Request } from "../models";
 import type { Repos } from "../repos";
+import { compareString } from "../utils/comparison";
 import { ResponseNotFoundError } from "./error";
 
 export class NotificationService {
@@ -77,7 +78,7 @@ export class NotificationService {
     const classInstructorNames = classInstructors
       .map((i) => i.name)
       .filter((name) => name !== "")
-      .sort()
+      .sort(compareString)
       .join(", ");
 
     const classObservers = await this.repos.user.getUsersInClass(
