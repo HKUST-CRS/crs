@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compareString } from "../utils/comparison";
 import { RequestType } from "./request/RequestType";
 
 export const Course = z
@@ -74,6 +75,64 @@ export namespace Terms {
     }[term.substring(2, 4)];
     return `${y1}-${y2} ${semester}`;
   }
+  export function term2num(term: string): number {
+    const y = parseInt(term.substring(0, 2), 10);
+    const s = parseInt(term.substring(2, 4), 10);
+    if (!(s === 10 || s === 20 || s === 30 || s === 40)) {
+      throw new Error(`Invalid term format: ${term}`);
+    }
+    return y * 4 + (s / 10 - 1);
+  }
+  export function num2term(num: number): string {
+    const y = Math.floor(num / 4);
+    const s = ((num % 4) + 1) * 10;
+    return `${y.toString().padStart(2, "0")}${s.toString().padStart(2, "0")}`;
+  }
+  /**
+   * The approximate current term from the current date.
+   *
+   * In this approximation, Sep to Dec is Fall, Jan is Winter, Feb to May is Spring, and Jun to Aug
+   * is Summer.
+   */
+  export function currentTermApprox(): string {
+    const now = new Date();
+    const yy = now.getFullYear() % 100;
+    const mm = now.getMonth();
+    const [y, s] = (() => {
+      switch (mm) {
+        // Jan
+        case 0:
+          // Winter
+          return [yy - 1, 20];
+
+        // Feb to May
+        case 1:
+        case 2:
+        case 3:
+        case 4:
+          // Spring
+          return [yy - 1, 30];
+
+        // Jun to Aug
+        case 5:
+        case 6:
+        case 7:
+          // Summer
+          return [yy - 1, 40];
+
+        // Sep to Dec
+        case 8:
+        case 9:
+        case 10:
+        case 11:
+          // Fall
+          return [yy, 10];
+        default:
+          throw new Error(`Unreachable month value: ${mm}`);
+      }
+    })();
+    return `${y.toString().padStart(2, "0")}${s.toString().padStart(2, "0")}`;
+  }
 }
 
 export namespace Courses {
@@ -98,6 +157,17 @@ export namespace Courses {
 
   export function formatCourse(course: Course): string {
     return `${course.code} (${Terms.formatTerm(course.term)})`;
+  }
+
+  export function toID(course: Course): CourseId {
+    return {
+      code: course.code,
+      term: course.term,
+    };
+  }
+
+  export function compare(a: CourseId, b: CourseId): number {
+    return compareString(Courses.id2str(a), Courses.id2str(b));
   }
 }
 
@@ -132,5 +202,8 @@ export namespace Classes {
     } else {
       throw new Error(`Illegal class string: ${classStr}`);
     }
+  }
+  export function format(clazz: Class): string {
+    return `${Courses.formatID(clazz.course)} ${clazz.section}`;
   }
 }

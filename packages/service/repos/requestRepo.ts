@@ -32,7 +32,7 @@ export class RequestRepo {
     return id;
   }
 
-  async getRequestsMadeByUser(userId: UserId): Promise<Request[]> {
+  async getRequestsFromUser(userId: UserId): Promise<Request[]> {
     const requests = await this.collections.requests
       .find({ from: userId })
       .toArray();

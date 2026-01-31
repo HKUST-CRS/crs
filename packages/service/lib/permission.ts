@@ -6,8 +6,22 @@ import {
   type Role,
   type User,
 } from "../models";
-import { ClassPermissionError, CoursePermissionError } from "./error";
+import {
+  ClassPermissionError,
+  CoursePermissionError,
+  SudoerPermissionError,
+} from "./error";
 
+/**
+ * Asserts that the user has one of the specified roles in the given course.
+ *
+ * @param user The user whose role is being checked.
+ * @param course The course in which the role is being checked.
+ * @param roles The roles to check for.
+ * @param op The operation being performed (used for error messages).
+ *
+ * @throws CoursePermissionError if the user does not have the required role in the course.
+ */
 export function assertCourseRole(
   user: User,
   course: Course | CourseId,
@@ -30,6 +44,16 @@ export function assertCourseRole(
   }
 }
 
+/**
+ * Asserts that the user has one of the specified roles in the given class.
+ *
+ * @param user The user whose role is being checked.
+ * @param clazz The class in which the role is being checked.
+ * @param roles The roles to check for.
+ * @param op The operation being performed (used for error messages).
+ *
+ * @throws ClassPermissionError if the user does not have the required role in the class.
+ */
 export function assertClassRole(
   user: User,
   clazz: Class,
@@ -47,5 +71,19 @@ export function assertClassRole(
       clazz,
       op || "accessing the class",
     );
+  }
+}
+
+/**
+ * Asserts that the user is a sudoer.
+ *
+ * @param user The user to check.
+ * @param op The operation being performed (used for error messages).
+ *
+ * @throws SudoerPermissionError if the user is not a sudoer.
+ */
+export function assertSudoer(user: User, op: string) {
+  if (!user.sudoer) {
+    throw new SudoerPermissionError(user.email, op);
   }
 }

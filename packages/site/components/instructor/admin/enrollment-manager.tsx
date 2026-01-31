@@ -159,10 +159,12 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     }));
     if (
       es.some(
-        (e) => e.uid === user?.email && e.enrollment.role === "instructor",
+        (e) =>
+          e.uid === user?.email &&
+          (e.enrollment.role === "instructor" || e.enrollment.role === "admin"),
       )
     ) {
-      toast.error("You cannot delete your own instructor enrollment.");
+      toast.error("You cannot delete your own instructor or admin enrollment.");
       return;
     }
     es.map((e) => deleteEnrollment.mutate(e));
@@ -181,14 +183,14 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
             : `Delete ${selection.length} Enrollment(s)`}
         </Button>
         <Button onClick={() => setImporting(!isImporting)}>
-          {isImporting ? "Cancel Import Data" : "Import Data"}
+          {isImporting ? "Cancel Import Enrollment(s)" : "Import Enrollment(s)"}
         </Button>
       </div>
 
       {isImporting && (
         <Card>
           <CardContent className="space-y-4">
-            <FieldTitle>Import Data</FieldTitle>
+            <FieldTitle>Import Enrollment(s)</FieldTitle>
             <Textarea
               value={importInput}
               onChange={(e) => setImportInput(e.target.value)}
@@ -229,10 +231,10 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
                 email <Kbd>Tab</Kbd> section <Kbd>Tab</Kbd> role
               </span>
               Note that role is one of <code>student</code>,{" "}
-              <code>instructor</code>, and <code>ta</code>. If the first line
-              contains section and role, the sections and roles in the
-              subsequent lines can be left blank, in which case they will
-              inherit from the first line.
+              <code>instructor</code>, <code>observer</code>, and{" "}
+              <code>admin</code>. If the first line contains section and role,
+              the sections and roles in the subsequent lines can be left blank,
+              in which case they will inherit from the first line.
             </FieldDescription>
             <FieldDescription className="whitespace-pre-wrap font-mono">
               {importPreviewMsg.status === "ok" ? importPreviewMsg.msg : ""}

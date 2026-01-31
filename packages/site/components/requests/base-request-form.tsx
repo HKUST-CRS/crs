@@ -62,12 +62,14 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
   const userQuery = useQuery(trpc.user.get.queryOptions());
   const user = userQuery.data;
 
-  const enrollmentQuery = useQuery(trpc.course.getEnrollment.queryOptions());
-  const enrollment = useMemo(
+  const studentCoursesQuery = useQuery(
+    trpc.course.getAllFromEnrollment.queryOptions(["student"]),
+  );
+  const studentCourses = useMemo(
     () =>
-      enrollmentQuery.data &&
-      keyBy(enrollmentQuery.data, (c) => Courses.id2str(c)),
-    [enrollmentQuery],
+      studentCoursesQuery.data &&
+      keyBy(studentCoursesQuery.data, (c) => Courses.id2str(c)),
+    [studentCoursesQuery],
   );
 
   const clazz = form.watch("class");
@@ -114,7 +116,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           render={({ field }) => (
             <FormItem className="col-span-6">
               <FormLabel>Class (Course & Section)</FormLabel>
-              {user && enrollment ? (
+              {user && studentCourses ? (
                 <FormControl>
                   <Select
                     value={field.value && Classes.id2str(field.value)}
@@ -132,7 +134,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                       {user.enrollment
                         .filter((e) => e.role === "student")
                         .map((e) => {
-                          const c = enrollment[Courses.id2str(e.course)];
+                          const c = studentCourses[Courses.id2str(e.course)];
                           return (
                             <SelectItem
                               key={Classes.id2str(e)}

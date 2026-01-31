@@ -1,13 +1,17 @@
-import type {
-  Class,
-  CourseId,
-  Enrollment,
-  Role,
-  User,
-  UserId,
+import { deepEquals } from "bun";
+import {
+  type Class,
+  Classes,
+  type CourseId,
+  Courses,
+  type Enrollment,
+  type Role,
+  Roles,
+  type User,
+  type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole } from "./permission";
+import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -28,20 +32,67 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Synchronize the current user.
    *
-   * It updates the user's name according to the latest info.
+   * It updates the user's name according to the latest info. It updates the sudoers' enrollment
+   * invariant: all sudoers have the admin role in all courses.
    *
    * If the user does not exist, it creates the user record.
    */
   async sync(this: UserService<UserId>, name: string): Promise<void> {
     await this.repos.user.createUser(this.user);
     await this.repos.user.updateUserName(this.user, name);
+
+    const user = await this.getCurrentUser();
+    if (user.sudoer) {
+      for (const course of await this.repos.course.getCourses()) {
+        const oldEnrollment = user.enrollment.find(
+          (e) =>
+            Courses.id2str(e.course) === Courses.id2str(course) &&
+            e.role === "admin",
+        );
+        const newEnrollment = {
+          role: "admin",
+          course: Courses.toID(course),
+          section: "(as system admin)",
+        } satisfies Enrollment;
+        if (!deepEquals(oldEnrollment, newEnrollment)) {
+          if (oldEnrollment) {
+            await this.repos.user.deleteEnrollment(this.user, oldEnrollment);
+          }
+          await this.repos.user.createEnrollment(this.user, newEnrollment);
+        }
+      }
+    }
   }
 
+  /**
+   * Returns the current authenticated user.
+   */
   async getCurrentUser(this: UserService<UserId>): Promise<User> {
     return this.repos.user.requireUser(this.user);
   }
 
-  async getUsersFromCourse(
+  /**
+   * Get all sudoers in the system.
+   *
+   * The current user must be a sudoer.
+   *
+   * @returns The list of sudoer users.
+   */
+  async getSudoers(this: UserService<UserId>): Promise<User[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertSudoer(user, "getting sudoers");
+    return this.repos.user.getSudoers();
+  }
+
+  /**
+   * Gets all users such that they have an enrollment in the given course.
+   *
+   * The current user must have the "instructor" role or the "admin" role in the course.
+   *
+   * @param courseId The course ID.
+   * @returns The list of users in the course.
+   */
+  async getUsersInCourse(
     this: UserService<UserId>,
     courseId: CourseId,
   ): Promise<User[]> {
@@ -49,48 +100,66 @@ export class UserService<TUser extends UserId | null = null> {
     assertCourseRole(
       user,
       courseId,
-      ["instructor"],
-      `viewing users in course ${courseId.code} (${courseId.term})`,
+      ["instructor", "admin"],
+      `getting users in course ${courseId.code} (${courseId.term})`,
     );
-    return this.repos.user.getUsersFromCourse(courseId);
+    return this.repos.user.getUsersInCourse(courseId);
   }
 
-  async getUsersFromClass(
+  /**
+   * Gets all users such that they have an enrollment in the given class with the specified role.
+   *
+   * If the target role is "student", the current user must have the "instructor" or "admin" role
+   * in the class. If the target role is "instructor", "observer" or "admin", the current user must
+   * have any role in the class.
+   *
+   * @param clazz The class.
+   * @param role The target role to filter by.
+   * @returns The list of users in the class with the specified role.
+   */
+  async getUsersInClass(
     this: UserService<UserId>,
     clazz: Class,
     role: Role,
   ): Promise<User[]> {
     const user = await this.repos.user.requireUser(this.user);
     switch (role) {
-      case "student":
-        // only instructors and TAs in the class can view the students
+      case "student": {
+        // only instructors and admins in the class can view the students
         assertClassRole(
           user,
           clazz,
-          ["instructor", "ta"],
+          ["instructor", "admin"],
           `viewing students in class ${clazz.course.code} (${clazz.course.term})`,
         );
-        break;
+        return this.repos.user.getUsersInClass(clazz, role);
+      }
       case "instructor":
-      case "ta":
-        // only people in the class can view the instructors/TAs
+      case "observer":
+      case "admin": {
+        // only users in the class can view the instructors/observers/admins
         assertClassRole(
           user,
           clazz,
-          ["student", "instructor", "ta"],
-          `viewing instructors/TAs in class ${clazz.course.code} (${clazz.course.term})`,
+          Roles,
+          `viewing instructors/observers/admins in class ${clazz.course.code} (${clazz.course.term})`,
         );
-        break;
+        return this.repos.user.getUsersInClass(clazz, role);
+      }
     }
-    return this.repos.user.getUsersFromClass(clazz, role);
   }
 
   /**
-   * Create a role for the user in a section of a course.
+   * Create an enrollment for the user in a class (a section of a course) with a specific role.
    *
    * If the user does not exist, it creates the user record.
+   *
+   * The current user must have the "instructor" or "admin" role in the course.
+   *
+   * @param uid The user ID.
+   * @param enrollment The enrollment to create.
    */
-  async createEnrollmentForUser(
+  async createEnrollment(
     this: UserService<UserId>,
     uid: UserId,
     enrollment: Enrollment,
@@ -99,18 +168,23 @@ export class UserService<TUser extends UserId | null = null> {
     assertCourseRole(
       user,
       enrollment.course,
-      ["instructor"],
-      `creating enrollment for user ${uid} in course ${enrollment.course.code} (${enrollment.course.term})`,
+      ["instructor", "admin"],
+      `creating enrollment for user ${uid} in class ${Classes.id2str(enrollment)}`,
     );
 
     await this.repos.user.createUser(uid);
-    await this.repos.user.createEnrollmentForUser(uid, enrollment);
+    await this.repos.user.createEnrollment(uid, enrollment);
   }
 
   /**
-   * Delete a role for the user in a section of a course.
+   * Delete an enrollment for the user in a class (a section of a course).
+   *
+   * The current user must have the "instructor" or "admin" role in the course.
+   *
+   * @param uid The user ID.
+   * @param enrollment The enrollment to delete.
    */
-  async deleteEnrollmentForUser(
+  async deleteEnrollment(
     this: UserService<UserId>,
     uid: UserId,
     enrollment: Enrollment,
@@ -119,10 +193,10 @@ export class UserService<TUser extends UserId | null = null> {
     assertCourseRole(
       user,
       enrollment.course,
-      ["instructor"],
-      `deleting enrollment for user ${uid} in course ${enrollment.course.code} (${enrollment.course.term})`,
+      ["instructor", "admin"],
+      `deleting enrollment for user ${uid} in class ${Classes.id2str(enrollment)}`,
     );
 
-    await this.repos.user.deleteEnrollmentForUser(uid, enrollment);
+    await this.repos.user.deleteEnrollment(uid, enrollment);
   }
 }
