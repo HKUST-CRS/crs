@@ -7,7 +7,6 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { sortRecord } from "../utils/comparison";
 import { assertCourseRole, assertSudoer } from "./permission";
 
 export class CourseService<TUser extends UserId | null = null> {
@@ -101,7 +100,6 @@ export class CourseService<TUser extends UserId | null = null> {
       ["instructor", "admin"],
       `updating sections of course ${Courses.formatID(courseId)}`,
     );
-    sections = sortRecord(sections);
     await this.repos.course.updateSections(courseId, sections);
   }
 
@@ -125,7 +123,6 @@ export class CourseService<TUser extends UserId | null = null> {
       ["instructor", "admin"],
       `updating assignments of course ${Courses.formatID(courseId)}`,
     );
-    assignments = sortRecord(assignments);
     await this.repos.course.updateAssignments(courseId, assignments);
   }
 

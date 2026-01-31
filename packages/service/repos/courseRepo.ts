@@ -1,11 +1,6 @@
 import type { Collections } from "../db";
-import {
-  type Course,
-  type CourseId,
-  Courses,
-  type Role,
-  type User,
-} from "../models";
+import type { Course, CourseId, Role, User } from "../models";
+import { sortRecord } from "../utils/comparison";
 import { CourseNotFoundError } from "./error";
 
 export class CourseRepo {
@@ -27,8 +22,11 @@ export class CourseRepo {
   }
 
   async getCourses(): Promise<Course[]> {
-    const courses = await this.collections.courses.find({}).toArray();
-    return courses.sort(Courses.compare);
+    return await this.collections.courses
+      .find()
+      .sort({ code: "ascending", term: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
+      .toArray();
   }
 
   async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
@@ -46,19 +44,35 @@ export class CourseRepo {
       .find({
         $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
       })
-      .toArray()
-      .then((courses) => courses.sort(Courses.compare));
+      .sort({ code: "ascending", term: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
+      .toArray();
   }
 
   async updateSections(
     courseId: CourseId,
     sections: Course["sections"],
   ): Promise<void> {
+    sections = sortRecord(sections);
     await this.collections.courses.updateOne(
       // cannot use courseId directly, in case of extra fields
       { code: courseId.code, term: courseId.term },
       {
         $set: { sections },
+      },
+    );
+  }
+
+  async updateAssignments(
+    courseId: CourseId,
+    assignments: Course["assignments"],
+  ): Promise<void> {
+    assignments = sortRecord(assignments);
+    await this.collections.courses.updateOne(
+      // cannot use courseId directly, in case of extra fields
+      { code: courseId.code, term: courseId.term },
+      {
+        $set: { assignments },
       },
     );
   }
@@ -72,19 +86,6 @@ export class CourseRepo {
       { code: courseId.code, term: courseId.term },
       {
         $set: { effectiveRequestTypes },
-      },
-    );
-  }
-
-  async updateAssignments(
-    courseId: CourseId,
-    assignments: Course["assignments"],
-  ): Promise<void> {
-    await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
-      {
-        $set: { assignments },
       },
     );
   }

@@ -59,7 +59,11 @@ export class UserRepo {
    * Gets all users that are sudoers.
    */
   async getSudoers(): Promise<User[]> {
-    const users = await this.collections.users.find({ sudoer: true }).toArray();
+    const users = await this.collections.users
+      .find({ sudoer: true })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
+      .toArray();
     return users;
   }
 
@@ -76,6 +80,8 @@ export class UserRepo {
           },
         },
       })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
   }
@@ -92,6 +98,8 @@ export class UserRepo {
           },
         },
       })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
   }
