@@ -153,8 +153,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                 <Skeleton className="h-10" />
               )}
               <FormDescription>
-                The course & (lecture) class section you want to make the
-                request for.
+                The class (lecture) you want to make the request for.
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -182,8 +181,8 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
             )}
           </FormControl>
           <FormDescription>
-            The course instructor of your course section, who is also
-            responsible for handling the request.
+            The course instructor(s) of your course section, who will be also
+            responsible for handling your request.
           </FormDescription>
           <FormMessage />
         </FormItem>

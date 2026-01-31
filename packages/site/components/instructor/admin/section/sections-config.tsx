@@ -77,7 +77,9 @@ export function SectionsConfig({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-row items-end justify-between">
-        <CardTitle>Sections</CardTitle>
+        <CardTitle>
+          Sections (for request types Swap Section & Absent from Section)
+        </CardTitle>
         <Button onClick={handleNew} size="sm">
           <Plus className="mr-2 h-4 w-4" /> Add Section
         </Button>
@@ -85,10 +87,10 @@ export function SectionsConfig({
       <SectionTable sections={sections} onClickRow={handleEdit} />
 
       <FieldDescription>
-        This configures the sections in the course. This only affects how
-        students can create the requests, e.g., swap from one section to
-        another, which are typically lab sections. In other words, it does not
-        have to be configured to add new enrollments to the course / section.
+        This configures the sections in the course. This only affects the
+        request type <b>Swap Section</b> and <b>Absent from Section</b>.
+        Therefore, only sections that can be swapped from/to or absent from
+        should be added here.
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

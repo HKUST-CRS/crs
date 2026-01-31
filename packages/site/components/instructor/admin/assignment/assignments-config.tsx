@@ -80,7 +80,7 @@ export function AssignmentsConfig({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-row items-end justify-between">
-        <CardTitle>Assignments</CardTitle>
+        <CardTitle>Assignments (for request type Deadline Extension)</CardTitle>
         <Button onClick={handleNew} size="sm">
           <Plus className="mr-2 h-4 w-4" /> Add Assignment
         </Button>
@@ -88,8 +88,9 @@ export function AssignmentsConfig({
       <AssignmentTable assignments={assignments} onClickRow={handleEdit} />
 
       <FieldDescription>
-        This configures the assignments in the course. This affects how students
-        can create requests related to assignments, such as deadline extensions.
+        This configures the assignments in the course. This only affects the
+        request type <b>Deadline Extension</b>. Therefore, only assignments that
+        can have deadline extensions should be added here.
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

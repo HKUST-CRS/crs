@@ -247,9 +247,14 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
               </span>
               Note that role is one of <code>student</code>,{" "}
               <code>instructor</code>, <code>observer</code>, and{" "}
-              <code>admin</code>. If the first line contains section and role,
-              the sections and roles in the subsequent lines can be left blank,
-              in which case they will inherit from the first line.
+              <code>admin</code>. A <code>student</code> can create requests. An{" "}
+              <code>instructor</code> can view the requests, manage the course
+              (such as setting up sections and assignments), and approve/reject
+              the requests. A <code>observer</code> can only view the requests.
+              An <code>admin</code> can only manage the course. If the first
+              line contains section and role, the sections and roles in the
+              subsequent lines can be left blank, in which case they will
+              inherit from the first line.
             </FieldDescription>
             <FieldDescription className="whitespace-pre-wrap font-mono">
               {importPreviewMsg.status === "ok" ? importPreviewMsg.msg : ""}
