@@ -181,7 +181,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
             )}
           </FormControl>
           <FormDescription>
-            The course instructor(s) of your course section, who will be also
+            The course instructor(s) of your course section, who will also be
             responsible for handling your request.
           </FormDescription>
           <FormMessage />
