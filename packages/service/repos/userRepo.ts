@@ -39,6 +39,7 @@ export class UserRepo {
           email: userId,
           name: "",
           enrollment: [],
+          sudoer: false,
         },
       },
       {
