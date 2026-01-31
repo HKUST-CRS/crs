@@ -28,10 +28,15 @@ export const useRoleRedirection = (f: (rs: Set<Role>) => string | null) => {
 };
 
 /**
- * Redirects non-instructor users to the home page.
+ * Redirects users who are neither instructors nor admins to the home page.
+ * This hook is intended for pages that are accessible only to users with
+ * either the "instructor" or "admin" role (i.e., instructor-or-admin-only pages).
  */
-export const useInstructorOnly = () => {
+export const useAdminOnly = () => {
   useRoleRedirection(
-    useCallback((rs) => (!rs.has("instructor") ? "/" : null), []),
+    useCallback(
+      (rs) => (!rs.has("instructor") && !rs.has("admin") ? "/" : null),
+      [],
+    ),
   );
 };

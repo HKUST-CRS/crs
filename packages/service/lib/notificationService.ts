@@ -3,6 +3,7 @@ import handlebars from "handlebars";
 import nodemailer from "nodemailer";
 import type { Request } from "../models";
 import type { Repos } from "../repos";
+import { compareString } from "../utils/comparison";
 import { ResponseNotFoundError } from "./error";
 
 export class NotificationService {
@@ -29,7 +30,7 @@ export class NotificationService {
           "SMTP configuration is incomplete. Emails are suppressed.",
         );
         this.transporter = null;
-        this.baseUrl = "";
+        this.baseUrl = "https://crs.cse.ust.hk";
         return;
       }
     }
@@ -59,38 +60,52 @@ export class NotificationService {
   }
 
   /**
-   * Notify the responsible instructors, and the requester, for a new request.
+   * Notify the responsible instructors, observers, and the requester, for a new request.
    * @param request The request made.
    */
   async notifyNewRequest(request: Request) {
     const subject = "New Request";
 
-    const instructors = await this.repos.user.getUsersFromClass(
+    const student = await this.repos.user.requireUser(request.from);
+    const studentName = student.name;
+    const studentEmail = student.email;
+
+    const classInstructors = await this.repos.user.getUsersInClass(
       request.class,
       "instructor",
     );
-    const student = await this.repos.user.requireUser(request.from);
+    const classInstructorEmails = classInstructors.map((i) => i.email);
+    const classInstructorNames = classInstructors
+      .map((i) => i.name)
+      .filter((name) => name !== "")
+      .sort(compareString)
+      .join(", ");
 
-    const instructorEmails = instructors.map((i) => i.email);
-    const instructorNames = instructors.map((i) => i.name).join(", ");
-
-    const studentEmail = student.email;
-    const studentName = student.name;
+    const classObservers = await this.repos.user.getUsersInClass(
+      request.class,
+      "observer",
+    );
+    const classObserverEmails = classObservers.map((i) => i.email);
 
     const requestLink = this.urlToRequest(request.id);
     const responseLink = this.urlToResponse(request.id);
 
     await this.sendEmail(
-      instructorEmails,
-      [studentEmail],
+      classInstructorEmails,
+      [studentEmail, ...classObserverEmails],
       subject,
       "new_request.hbs",
-      { requestLink, responseLink, instructorNames, studentName },
+      {
+        requestLink,
+        responseLink,
+        instructorNames: classInstructorNames,
+        studentName,
+      },
     );
   }
 
   /**
-   * Notify the requester, and the responsible instructors and TAs, for a new response.
+   * Notify the requester, and the responsible instructors and observers, for a new response.
    * @param request The request on which the response is made.
    */
   async notifyNewResponse(request: Request) {
@@ -100,25 +115,28 @@ export class NotificationService {
     const subject = "New Response";
 
     const student = await this.repos.user.requireUser(request.from);
+    const studentName = student.name;
+    const studentEmail = student.email;
+
     const instructor = await this.repos.user.requireUser(request.response.from);
-    const instructors = await this.repos.user.getUsersFromClass(
+    const instructorName = instructor.name;
+
+    const classInstructors = await this.repos.user.getUsersInClass(
       request.class,
       "instructor",
     );
-    const tas = await this.repos.user.getUsersFromClass(request.class, "ta");
-
-    const studentEmail = student.email;
-    const studentName = student.name;
-    const instructorName = instructor.name;
-
-    const instructorEmails = instructors.map((i) => i.email);
-    const taEmails = tas.map((i) => i.email);
+    const classInstructorEmails = classInstructors.map((i) => i.email);
+    const classObservers = await this.repos.user.getUsersInClass(
+      request.class,
+      "observer",
+    );
+    const classObserverEmails = classObservers.map((i) => i.email);
 
     const responseLink = this.urlToResponse(request.id);
 
     await this.sendEmail(
       [studentEmail],
-      [...instructorEmails, ...taEmails],
+      [...classInstructorEmails, ...classObserverEmails],
       subject,
       "new_response.hbs",
       {

@@ -2,7 +2,14 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { type CourseId, Courses, Enrollment, UserId } from "service/models";
+import {
+  type CourseId,
+  Courses,
+  Enrollment,
+  Enrollments,
+  UserId,
+} from "service/models";
+import { compareString } from "service/utils/comparison";
 import { toast } from "sonner";
 import z, { ZodError } from "zod";
 import { Button } from "@/components/ui/button";
@@ -41,7 +48,7 @@ function generatePreviewMessage(input: string, cid: CourseId) {
   const ref = (() => {
     const [row] = rows;
     if (!row) return {};
-    const [, , section, role] = row.split("\t");
+    const [, section, role] = row.split("\t");
     return { section, role };
   })();
   const errors = rows
@@ -96,7 +103,7 @@ function generateEnrollments(input: string, cid: CourseId) {
   const ref = (() => {
     const [row] = rows;
     if (!row) return {};
-    const [, , section, role] = row.split("\t");
+    const [, section, role] = row.split("\t");
     return { section, role };
   })();
   return rows.map((r) => parseRow(r, cid, ref));
@@ -110,11 +117,19 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
   const { data: users, refetch } = useQuery(
     trpc.user.getAllFromCourse.queryOptions(cid),
   );
-  const enrollments = (users ?? []).flatMap((u) =>
-    u.enrollment
-      .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
-      .map((e) => ({ user: u, enrollment: e })),
-  );
+  const enrollments = (users ?? [])
+    .flatMap((u) =>
+      u.enrollment
+        .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+        .map((e) => ({ user: u, enrollment: e })),
+    )
+    .sort((a, b) => {
+      const enrollmentCompare = Enrollments.compare(a.enrollment, b.enrollment);
+      if (enrollmentCompare !== 0) {
+        return enrollmentCompare;
+      }
+      return compareString(a.user.email, b.user.email);
+    });
 
   const createEnrollment = useMutation(
     trpc.user.createEnrollment.mutationOptions({
@@ -159,10 +174,12 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     }));
     if (
       es.some(
-        (e) => e.uid === user?.email && e.enrollment.role === "instructor",
+        (e) =>
+          e.uid === user?.email &&
+          (e.enrollment.role === "instructor" || e.enrollment.role === "admin"),
       )
     ) {
-      toast.error("You cannot delete your own instructor enrollment.");
+      toast.error("You cannot delete your own instructor or admin enrollment.");
       return;
     }
     es.map((e) => deleteEnrollment.mutate(e));
@@ -181,14 +198,14 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
             : `Delete ${selection.length} Enrollment(s)`}
         </Button>
         <Button onClick={() => setImporting(!isImporting)}>
-          {isImporting ? "Cancel Import Data" : "Import Data"}
+          {isImporting ? "Cancel Import Enrollment(s)" : "Import Enrollment(s)"}
         </Button>
       </div>
 
       {isImporting && (
         <Card>
           <CardContent className="space-y-4">
-            <FieldTitle>Import Data</FieldTitle>
+            <FieldTitle>Import Enrollment(s)</FieldTitle>
             <Textarea
               value={importInput}
               onChange={(e) => setImportInput(e.target.value)}
@@ -229,8 +246,13 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
                 email <Kbd>Tab</Kbd> section <Kbd>Tab</Kbd> role
               </span>
               Note that role is one of <code>student</code>,{" "}
-              <code>instructor</code>, and <code>ta</code>. If the first line
-              contains section and role, the sections and roles in the
+              <code>instructor</code>, <code>observer</code>, and{" "}
+              <code>admin</code>. A <code>student</code> can create requests. An{" "}
+              <code>instructor</code> can view the requests, manage the course
+              (such as setting up sections and assignments), and approve/reject
+              the requests. An <code>observer</code> can only view the requests.
+              An <code>admin</code> can only manage the course. If the first
+              line contains section and role, the sections and roles in the
               subsequent lines can be left blank, in which case they will
               inherit from the first line.
             </FieldDescription>

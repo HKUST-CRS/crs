@@ -1,11 +1,12 @@
 import type { Collections } from "../db";
-import type {
-  Class,
-  CourseId,
-  Enrollment,
-  Role,
-  User,
-  UserId,
+import {
+  type Class,
+  type CourseId,
+  type Enrollment,
+  Enrollments,
+  type Role,
+  type User,
+  type UserId,
 } from "../models";
 import { UserNotFoundError } from "./error";
 
@@ -38,6 +39,7 @@ export class UserRepo {
           email: userId,
           name: "",
           enrollment: [],
+          sudoer: false,
         },
       },
       {
@@ -54,9 +56,21 @@ export class UserRepo {
   }
 
   /**
+   * Gets all users that are sudoers.
+   */
+  async getSudoers(): Promise<User[]> {
+    const users = await this.collections.users
+      .find({ sudoer: true })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
+      .toArray();
+    return users;
+  }
+
+  /**
    * Get all users enrolled in the course.
    */
-  async getUsersFromCourse(courseId: CourseId): Promise<User[]> {
+  async getUsersInCourse(courseId: CourseId): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -66,11 +80,13 @@ export class UserRepo {
           },
         },
       })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
   }
 
-  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
+  async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -82,6 +98,8 @@ export class UserRepo {
           },
         },
       })
+      .sort({ email: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
   }
@@ -89,26 +107,48 @@ export class UserRepo {
   /**
    * Create a role for the user in a class.
    */
-  async createEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $addToSet: { enrollment } },
-    );
+  async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+    await this.collections.withTransaction(async (session) => {
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $addToSet: { enrollment } },
+        { session },
+      );
+      const user = await this.collections.users.findOne(
+        { email: uid },
+        { session },
+      );
+      if (!user) throw new UserNotFoundError(uid);
+      user.enrollment.sort(Enrollments.compare);
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $set: { enrollment: user.enrollment } },
+        { session },
+      );
+    });
   }
 
   /**
    * Delete a role for the user in a class.
    */
-  async deleteEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $pull: { enrollment } },
-    );
+  async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+    await this.collections.withTransaction(async (session) => {
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $pull: { enrollment } },
+        { session },
+      );
+      const user = await this.collections.users.findOne(
+        { email: uid },
+        { session },
+      );
+      if (!user) throw new UserNotFoundError(uid);
+      user.enrollment.sort(Enrollments.compare);
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $set: { enrollment: user.enrollment } },
+        { session },
+      );
+    });
   }
 }

@@ -1,20 +1,28 @@
-import { Course, CourseId } from "service/models";
+import { Course, CourseId, Role } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
 
 export const routerCourse = router({
+  create: procedure
+    .input(Course)
+    .output(CourseId)
+    .mutation(({ input, ctx }) => {
+      return services.course.auth(ctx.user.email).createCourse(input);
+    }),
   get: procedure
     .input(CourseId)
     .output(Course)
     .query(({ input, ctx }) => {
       return services.course.auth(ctx.user.email).getCourse(input);
     }),
-  getEnrollment: procedure
-    .input(z.void())
+  getAllFromEnrollment: procedure
+    .input(z.array(Role))
     .output(z.array(Course))
-    .query(({ ctx }) => {
-      return services.course.auth(ctx.user.email).getCoursesFromEnrollment();
+    .query(({ ctx, input }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .getCoursesFromEnrollment(input);
     }),
   updateSections: procedure
     .input(

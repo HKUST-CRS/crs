@@ -1,8 +1,11 @@
 import * as dotenv from "dotenv";
-import { type Collection, MongoClient } from "mongodb";
+import { type ClientSession, type Collection, MongoClient } from "mongodb";
 import type { Course, Request, User } from "../models";
 
 export interface Collections {
+  withTransaction: <T>(
+    fn: (session: ClientSession) => Promise<T>,
+  ) => Promise<T>;
   users: Collection<User>;
   courses: Collection<Course>;
   requests: Collection<Request>;
@@ -28,6 +31,16 @@ export class DbConn {
     await this.client.connect();
     const db = this.client.db();
     this.collections = {
+      withTransaction: async <T>(
+        fn: (session: ClientSession) => Promise<T>,
+      ): Promise<T> => {
+        const session = this.client.startSession();
+        try {
+          return await session.withTransaction(fn);
+        } finally {
+          await session.endSession();
+        }
+      },
       users: db.collection<User>("users"),
       courses: db.collection<Course>("courses"),
       requests: db.collection<Request>("requests"),

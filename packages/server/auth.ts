@@ -78,31 +78,38 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
           message: "Malformed JWT (malformed email claim)",
         });
       }
-      try {
-        const verification =
-          Verification[domain as keyof typeof Verification] ?? Verification[""];
-        const { payload } = await jose.jwtVerify(token, verification.jwks, {
-          audience: ID,
-          issuer: verification.issuer,
-        });
-        return {
-          email: String(payload.email),
-          name: String(payload.name),
-        };
-      } catch (e) {
-        if (e instanceof jose.errors.JOSEError) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "JWT Verification Failed",
-            cause: e,
-          });
-        }
+
+      const verification =
+        Verification[domain as keyof typeof Verification] ?? Verification[""];
+      const { payload } = await jose.jwtVerify(token, verification.jwks, {
+        audience: ID,
+        issuer: verification.issuer,
+      });
+      return {
+        email: String(payload.email),
+        name: String(payload.name),
+      };
+    } catch (e) {
+      if (e instanceof TRPCError) {
         throw e;
       }
-    } catch (e) {
+      if (e instanceof jose.errors.JWTExpired) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "JWT Expired",
+          cause: e,
+        });
+      }
+      if (e instanceof jose.errors.JOSEError) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: `JWT Verification Error: ${e.message}`,
+          cause: e,
+        });
+      }
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: "Malformed JWT",
+        message: `Unknown Error during JWT Verification: ${String(e)}`,
         cause: e,
       });
     }

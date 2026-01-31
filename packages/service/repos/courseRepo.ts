@@ -1,9 +1,19 @@
 import type { Collections } from "../db";
-import type { Course, CourseId, User } from "../models";
+import type { Course, CourseId, Role, User } from "../models";
+import { sortRecord } from "../utils/comparison";
 import { CourseNotFoundError } from "./error";
 
 export class CourseRepo {
   constructor(protected collections: Collections) {}
+
+  /**
+   * Creates a new course.
+   *
+   * @param course The course to create.
+   */
+  async createCourse(course: Course): Promise<void> {
+    await this.collections.courses.insertOne(course);
+  }
 
   async requireCourse(courseId: CourseId): Promise<Course> {
     const course = await this.collections.courses.findOne(courseId);
@@ -11,11 +21,21 @@ export class CourseRepo {
     return course;
   }
 
-  async getCoursesFromEnrollment(user: User): Promise<Course[]> {
-    const courseIds = user.enrollment.map((e) => ({
-      code: e.course.code,
-      term: e.course.term,
-    }));
+  async getCourses(): Promise<Course[]> {
+    return await this.collections.courses
+      .find()
+      .sort({ code: "ascending", term: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
+      .toArray();
+  }
+
+  async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
+    const courseIds = user.enrollment
+      .filter((e) => roles.includes(e.role))
+      .map((e) => ({
+        code: e.course.code,
+        term: e.course.term,
+      }));
     // MongoDB throws an error when $or receives an empty array
     if (courseIds.length === 0) {
       return [];
@@ -24,6 +44,8 @@ export class CourseRepo {
       .find({
         $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
       })
+      .sort({ code: "ascending", term: "ascending" })
+      .collation({ locale: "en", numericOrdering: true })
       .toArray();
   }
 
@@ -31,6 +53,7 @@ export class CourseRepo {
     courseId: CourseId,
     sections: Course["sections"],
   ): Promise<void> {
+    sections = sortRecord(sections);
     await this.collections.courses.updateOne(
       // cannot use courseId directly, in case of extra fields
       { code: courseId.code, term: courseId.term },
@@ -40,7 +63,21 @@ export class CourseRepo {
     );
   }
 
-  async setEffectiveRequestTypes(
+  async updateAssignments(
+    courseId: CourseId,
+    assignments: Course["assignments"],
+  ): Promise<void> {
+    assignments = sortRecord(assignments);
+    await this.collections.courses.updateOne(
+      // cannot use courseId directly, in case of extra fields
+      { code: courseId.code, term: courseId.term },
+      {
+        $set: { assignments },
+      },
+    );
+  }
+
+  async updateEffectiveRequestTypes(
     courseId: CourseId,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
@@ -51,14 +88,5 @@ export class CourseRepo {
         $set: { effectiveRequestTypes },
       },
     );
-  }
-
-  async updateAssignments(
-    courseId: CourseId,
-    assignments: Course["assignments"],
-  ): Promise<void> {
-    await this.collections.courses.updateOne(courseId, {
-      $set: { assignments },
-    });
   }
 }

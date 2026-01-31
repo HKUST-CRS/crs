@@ -17,6 +17,12 @@ export const routerUser = router({
     .query(({ ctx }) => {
       return services.user.auth(ctx.user.email).getCurrentUser();
     }),
+  getAllFromCourse: procedure
+    .input(CourseId)
+    .output(z.array(User))
+    .query(({ ctx, input }) => {
+      return services.user.auth(ctx.user.email).getUsersInCourse(input);
+    }),
   getAllFromClass: procedure
     .input(
       z.object({
@@ -26,13 +32,7 @@ export const routerUser = router({
     )
     .output(z.array(User))
     .query(({ input: { class: clazz, role }, ctx }) => {
-      return services.user.auth(ctx.user.email).getUsersFromClass(clazz, role);
-    }),
-  getAllFromCourse: procedure
-    .input(CourseId)
-    .output(z.array(User))
-    .query(({ ctx, input }) => {
-      return services.user.auth(ctx.user.email).getUsersFromCourse(input);
+      return services.user.auth(ctx.user.email).getUsersInClass(clazz, role);
     }),
   createEnrollment: procedure
     .input(
@@ -44,7 +44,7 @@ export const routerUser = router({
     .mutation(({ ctx, input: { uid, enrollment } }) => {
       return services.user
         .auth(ctx.user.email)
-        .createEnrollmentForUser(uid, enrollment);
+        .createEnrollment(uid, enrollment);
     }),
   deleteEnrollment: procedure
     .input(
@@ -56,6 +56,6 @@ export const routerUser = router({
     .mutation(({ ctx, input: { uid, enrollment } }) => {
       return services.user
         .auth(ctx.user.email)
-        .deleteEnrollmentForUser(uid, enrollment);
+        .deleteEnrollment(uid, enrollment);
     }),
 });

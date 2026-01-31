@@ -47,7 +47,9 @@ export default function ResponseForm(props: ResponseFormProps) {
 
   const form = useForm<ResponseFormSchema>({
     resolver: zodResolver(ResponseFormSchema),
-    defaultValues: request.response ?? undefined,
+    defaultValues: request.response ?? {
+      remarks: "",
+    },
   });
 
   const trpc = useTRPC();

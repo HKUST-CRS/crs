@@ -7,32 +7,35 @@ import {
   expect,
   test,
 } from "bun:test";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { CourseService } from "../lib";
-import { CoursePermissionError } from "../lib/error";
+import { CoursePermissionError, SudoerPermissionError } from "../lib/error";
+import type { Course, User } from "../models";
 import { createRepos } from "../repos";
-import { UserNotFoundError } from "../repos/error";
-import * as testData from "./testData";
-import { clearData, insertTestData } from "./testUtils";
+import { CourseNotFoundError, UserNotFoundError } from "../repos/error";
+import { clearData, insertData } from "./tests";
 
 describe("CourseService", () => {
   let conn: DbConn;
-  let memoryServer: MongoMemoryServer;
+  let memoryServer: MongoMemoryReplSet;
   let courseService: CourseService;
 
   beforeAll(async () => {
-    memoryServer = await MongoMemoryServer.create();
+    memoryServer = await MongoMemoryReplSet.create({
+      replSet: { storageEngine: "wiredTiger" },
+    });
     conn = await DbConn.create(memoryServer.getUri());
     courseService = new CourseService(createRepos(conn.collections));
   });
 
   afterAll(async () => {
     await conn.close();
+    await memoryServer.stop();
   });
 
   beforeEach(async () => {
-    await insertTestData(conn);
+    await clearData(conn);
   });
 
   afterEach(async () => {
@@ -41,18 +44,79 @@ describe("CourseService", () => {
 
   describe("getCourse", () => {
     test("should get course by id", async () => {
-      const student = testData.students[0];
-      const courseId = { code: "COMP 1023", term: "2510" };
-      const course = await courseService
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+
+      await insertData(conn, { users: [student], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const courseResult = await courseService
         .auth(student.email)
         .getCourse(courseId);
-      expect(course.code).toEqual(courseId.code);
+      expect(courseResult.code).toEqual(courseId.code);
+    });
+
+    test("admins should be able to get course by id", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+
+      await insertData(conn, { users: [admin], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const courseResult = await courseService
+        .auth(admin.email)
+        .getCourse(courseId);
+      expect(courseResult.code).toEqual(courseId.code);
     });
 
     test("should throw user not found error when user does not exist", async () => {
       try {
         await courseService.auth("dne@dne.com").getCourse({
-          code: "COMP1023",
+          code: "COMP 1023",
           term: "2510",
         });
         expect.unreachable("should have thrown an error");
@@ -62,7 +126,32 @@ describe("CourseService", () => {
     });
 
     test("should throw permission error when user is not in the course", async () => {
-      const student = testData.students[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student] });
+
       try {
         await courseService.auth(student.email).getCourse({
           code: "COMP 1023",
@@ -74,30 +163,66 @@ describe("CourseService", () => {
       }
     });
 
-    test("should throw error when course does not exist", async () => {
-      const student = testData.students[0];
+    test("should throw error when course does not exist but user is enrolled", async () => {
+      const courseId = { code: "NONEXIST", term: "2510" };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: courseId,
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student] });
+
       try {
-        await courseService.auth(student.email).getCourse({
-          code: "NONEXIST",
-          term: "2510",
-        });
+        await courseService.auth(student.email).getCourse(courseId);
         expect.unreachable("should have thrown an error");
       } catch (error) {
-        expect(error).toBeInstanceOf(CoursePermissionError);
+        expect(error).toBeInstanceOf(CourseNotFoundError);
       }
     });
   });
 
   describe("getCoursesFromEnrollment", () => {
     test("should get all courses from user's enrollment", async () => {
-      const student = testData.students[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
       const courses = await courseService
         .auth(student.email)
-        .getCoursesFromEnrollment();
+        .getCoursesFromEnrollment(["student"]);
       expect(courses.length).toBe(1);
-      const courseCodes = courses.map((course) => course.code);
+      const courseCodes = courses.map((c) => c.code);
       const enrollmentCourseCodes = student.enrollment.map(
-        (enroll) => enroll.course.code,
+        (e) => e.course.code,
       );
       expect(courseCodes).toEqual(
         expect.arrayContaining(enrollmentCourseCodes),
@@ -106,25 +231,117 @@ describe("CourseService", () => {
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.auth("dne@dne.com").getCoursesFromEnrollment();
+        await courseService
+          .auth("dne@dne.com")
+          .getCoursesFromEnrollment(["student"]);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
       }
     });
+
+    test("should return empty when no roles match", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
+      const courses = await courseService
+        .auth(student.email)
+        .getCoursesFromEnrollment(["admin"]);
+      expect(courses.length).toBe(0);
+    });
+
+    test("should return empty when roles list is empty", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
+      const courses = await courseService
+        .auth(student.email)
+        .getCoursesFromEnrollment([]);
+      expect(courses.length).toBe(0);
+    });
   });
 
   describe("updateSections", () => {
     test("should update course sections successfully", async () => {
-      const user = testData.instructors[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor], courses: [course] });
+
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       await courseService
-        .auth(user.email)
+        .auth(instructor.email)
         .updateSections(courseId, newSections);
       const updatedCourse = await courseService
-        .auth(user.email)
+        .auth(instructor.email)
         .getCourse(courseId);
       expect(Object.keys(updatedCourse.sections).length).toBe(
         Object.keys(course.sections).length + 1,
@@ -132,14 +349,297 @@ describe("CourseService", () => {
     });
 
     test("should throw permission error when user is not instructor", async () => {
-      const user = testData.students[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
       const courseId = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       try {
         await courseService
-          .auth(user.email)
+          .auth(student.email)
           .updateSections(courseId, newSections);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("admins should be able to update course sections", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [admin], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const newSections = { ...course.sections, L3: { schedule: [] } };
+      await courseService
+        .auth(admin.email)
+        .updateSections(courseId, newSections);
+      const updatedCourse = await courseService
+        .auth(admin.email)
+        .getCourse(courseId);
+      expect(Object.keys(updatedCourse.sections)).toContain("L3");
+    });
+  });
+
+  describe("updateEffectiveRequestTypes", () => {
+    test("should update effective request types successfully", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const newRequestTypes = {
+        "Swap Section": false,
+        "Absent from Section": true,
+        "Deadline Extension": true,
+      };
+      await courseService
+        .auth(instructor.email)
+        .updateEffectiveRequestTypes(courseId, newRequestTypes);
+      const updatedCourse = await courseService
+        .auth(instructor.email)
+        .getCourse(courseId);
+      expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
+    });
+
+    test("should throw permission error when user is not instructor", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
+      const newRequestTypes = {
+        "Swap Section": false,
+        "Absent from Section": true,
+        "Deadline Extension": true,
+      };
+      try {
+        await courseService
+          .auth(student.email)
+          .updateEffectiveRequestTypes(course, newRequestTypes);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("admins should be able to update effective request types", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [admin], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const newRequestTypes = {
+        "Swap Section": false,
+        "Absent from Section": true,
+        "Deadline Extension": true,
+      };
+      await courseService
+        .auth(admin.email)
+        .updateEffectiveRequestTypes(courseId, newRequestTypes);
+      const updatedCourse = await courseService
+        .auth(admin.email)
+        .getCourse(courseId);
+      expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
+    });
+  });
+
+  describe("updateAssignments", () => {
+    test("admins should be able to update assignments", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [admin], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const newAssignments = {
+        Lab1: {
+          name: "Lab 1",
+          due: "2025-12-01T00:00:00.000+00:00",
+          maxExtension: "PT24H",
+        },
+      };
+
+      await courseService
+        .auth(admin.email)
+        .updateAssignments(courseId, newAssignments);
+      const updatedCourse = await courseService
+        .auth(admin.email)
+        .getCourse(courseId);
+      expect(updatedCourse.assignments).toEqual(newAssignments);
+    });
+
+    test("students should not be able to update assignments", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student], courses: [course] });
+
+      const courseId = { code: course.code, term: course.term };
+      const newAssignments = {
+        Lab1: {
+          name: "Lab 1",
+          due: "2025-12-01T00:00:00.000+00:00",
+          maxExtension: "PT24H",
+        },
+      };
+
+      try {
+        await courseService
+          .auth(student.email)
+          .updateAssignments(courseId, newAssignments);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
@@ -147,38 +647,63 @@ describe("CourseService", () => {
     });
   });
 
-  describe("setEffectiveRequestTypes", () => {
-    test("should update effective request types successfully", async () => {
-      const user = testData.instructors[0];
-      const course = testData.courses[0];
-      const courseId = { code: course.code, term: course.term };
-      const newRequestTypes = {
-        "Swap Section": false,
-        "Deadline Extension": true,
+  describe("createCourse", () => {
+    test("sudoers should be able to create a course", async () => {
+      const sudoer: User = {
+        email: "sudoer1@ust.hk",
+        name: "sudoer1",
+        enrollment: [],
+        sudoer: true,
       };
-      await courseService
-        .auth(user.email)
-        .setEffectiveRequestTypes(courseId, newRequestTypes);
-      const updatedCourse = await courseService
-        .auth(user.email)
-        .getCourse(courseId);
-      expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      await insertData(conn, { users: [sudoer] });
+
+      const courseId = await courseService
+        .auth(sudoer.email)
+        .createCourse(course);
+      expect(courseId).toEqual({ code: course.code, term: course.term });
+
+      const fetchedCourse = await conn.collections.courses.findOne(courseId);
+      expect(fetchedCourse?.title).toBe(course.title);
     });
 
-    test("should throw permission error when user is not instructor", async () => {
-      const user = testData.students[0];
-      const course = testData.courses[0];
-      const newRequestTypes = {
-        "Swap Section": false,
-        "Deadline Extension": true,
+    test("non-sudoers should not be able to create a course", async () => {
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [],
+        sudoer: false,
       };
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      await insertData(conn, { users: [admin] });
+
       try {
-        await courseService
-          .auth(user.email)
-          .setEffectiveRequestTypes(course, newRequestTypes);
+        await courseService.auth(admin.email).createCourse(course);
         expect.unreachable("should have thrown an error");
       } catch (error) {
-        expect(error).toBeInstanceOf(CoursePermissionError);
+        expect(error).toBeInstanceOf(SudoerPermissionError);
       }
     });
   });

@@ -9,10 +9,11 @@ import { EnrollmentManager } from "@/components/instructor/admin/enrollment-mana
 import TextType from "@/components/TextType";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
-import { useInstructorOnly } from "@/lib/useRoleRedirection";
+import { useAdminOnly } from "@/lib/useRoleRedirection";
 
 export default function Page({ params }: { params: Promise<{ cid: string }> }) {
-  useInstructorOnly();
+  useAdminOnly();
+
   const { cid: cidRaw } = use(params);
   const cid = decodeURIComponent(cidRaw);
 
@@ -28,7 +29,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["var(--text-foreground)"]}
+          textColors={["var(--foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
