@@ -10,8 +10,8 @@ export const routerRequest = router({
     .query(({ input, ctx }) => {
       return services.request.auth(ctx.user.email).getRequest(input);
     }),
-  getAll: procedure
-    .input(Role)
+  getAllAs: procedure
+    .input(z.array(Role))
     .output(z.array(Request))
     .query(({ input: role, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsAs(role);

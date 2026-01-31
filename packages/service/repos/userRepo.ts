@@ -1,11 +1,12 @@
 import type { Collections } from "../db";
-import type {
-  Class,
-  CourseId,
-  Enrollment,
-  Role,
-  User,
-  UserId,
+import {
+  type Class,
+  type CourseId,
+  Courses,
+  type Enrollment,
+  type Role,
+  type User,
+  type UserId,
 } from "../models";
 import { UserNotFoundError } from "./error";
 
@@ -54,9 +55,17 @@ export class UserRepo {
   }
 
   /**
+   * Gets all users that are sudoers.
+   */
+  async getSudoers(): Promise<User[]> {
+    const users = await this.collections.users.find({ sudoer: true }).toArray();
+    return users;
+  }
+
+  /**
    * Get all users enrolled in the course.
    */
-  async getUsersFromCourse(courseId: CourseId): Promise<User[]> {
+  async getUsersInCourse(courseId: CourseId): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -70,7 +79,7 @@ export class UserRepo {
     return users;
   }
 
-  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
+  async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -89,26 +98,32 @@ export class UserRepo {
   /**
    * Create a role for the user in a class.
    */
-  async createEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
+  async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid },
       { $addToSet: { enrollment } },
+    );
+    const user = await this.requireUser(uid);
+    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $set: { enrollment: user.enrollment } },
     );
   }
 
   /**
    * Delete a role for the user in a class.
    */
-  async deleteEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
+  async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid },
       { $pull: { enrollment } },
+    );
+    const user = await this.requireUser(uid);
+    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $set: { enrollment: user.enrollment } },
     );
   }
 }

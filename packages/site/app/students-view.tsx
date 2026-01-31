@@ -19,26 +19,26 @@ export default function StudentsView() {
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.get.queryOptions());
-  const requestsQuery = useQuery(trpc.request.getAll.queryOptions("student"));
-  const requests = requestsQuery.data;
 
-  const hasStudentRole = userQuery.data?.enrollment?.some((e) => {
-    return e.role === "student";
-  });
-  const hasTeachingRole = userQuery.data?.enrollment?.some((e) => {
-    return e.role === "instructor" || e.role === "ta";
-  });
-
+  // Redirection
+  const hasStudentRole = userQuery.data?.enrollment?.some(
+    (e) => e.role === "student",
+  );
+  const hasTeachingRole = userQuery.data?.enrollment?.some(
+    (e) =>
+      e.role === "instructor" || e.role === "observer" || e.role === "admin",
+  );
   useEffect(() => {
-    if (
-      hasStudentRole !== undefined &&
-      !hasStudentRole &&
-      hasTeachingRole !== undefined &&
-      hasTeachingRole
-    ) {
+    if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {
       router.replace("/instructor");
     }
-  }, [router, hasStudentRole, hasTeachingRole]);
+  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+
+  // Requests
+  const requestsQuery = useQuery(
+    trpc.request.getAllAs.queryOptions(["student"]),
+  );
+  const requests = requestsQuery.data;
 
   useWindowFocus(
     useCallback(() => {
