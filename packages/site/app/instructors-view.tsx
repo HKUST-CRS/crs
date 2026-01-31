@@ -80,6 +80,7 @@ export default function InstructorsView() {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       },

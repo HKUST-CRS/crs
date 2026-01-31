@@ -100,6 +100,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -111,6 +112,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -259,6 +261,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -322,6 +325,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -369,6 +373,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -428,6 +433,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -475,6 +481,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -516,6 +523,7 @@ describe("UserService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };

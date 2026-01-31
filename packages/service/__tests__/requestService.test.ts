@@ -55,6 +55,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -105,6 +106,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -153,6 +155,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -203,6 +206,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -253,6 +257,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -314,6 +319,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -375,6 +381,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -439,6 +446,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -503,6 +511,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -539,6 +548,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -587,6 +597,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -647,6 +658,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -707,6 +719,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -767,6 +780,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -827,6 +841,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -887,6 +902,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -947,6 +963,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -995,6 +1012,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -1082,6 +1100,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -1148,6 +1167,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -1223,6 +1243,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
@@ -1290,6 +1311,7 @@ describe("RequestService", () => {
         assignments: {},
         effectiveRequestTypes: {
           "Swap Section": true,
+          "Absent from Section": true,
           "Deadline Extension": true,
         },
       };
