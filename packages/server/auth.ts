@@ -103,13 +103,13 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
       if (e instanceof jose.errors.JOSEError) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: `JWT Verification Error: ${JSON.stringify(e)}`,
+          message: `JWT Verification Error: ${e.message}`,
           cause: e,
         });
       }
       throw new TRPCError({
         code: "UNAUTHORIZED",
-        message: `Unknown Error during JWT Verification: ${JSON.stringify(e)}`,
+        message: `Unknown Error during JWT Verification: ${String(e)}`,
         cause: e,
       });
     }
