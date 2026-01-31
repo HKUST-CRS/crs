@@ -14,6 +14,10 @@ import {
   type BaseRequestFormSchema,
 } from "./base-request-form";
 import {
+  AbsentFromSectionFormSchema,
+  AbsentFromSectionRequestForm,
+} from "./request-form-absent-from-section";
+import {
   DeadlineExtensionFormSchema,
   DeadlineExtensionRequestForm,
 } from "./request-form-deadline-extension";
@@ -31,6 +35,7 @@ export type RequestFormProps = {
 
 const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
+  AbsentFromSectionFormSchema,
   DeadlineExtensionFormSchema,
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
@@ -51,13 +56,21 @@ export default function RequestForm(props: RequestFormProps) {
   async function onSubmit(meta: MetaFormSchema) {
     console.log({ message: "Submit Request", meta, base });
 
-    async function mutate() {
+    async function mutate(): Promise<string> {
       if (!base) {
         throw new Error("base is undefined");
       }
       setMeta(meta);
       switch (meta.type) {
         case "Swap Section": {
+          return await createRequest.mutateAsync({
+            class: base.class,
+            type: meta.type,
+            details: meta.details,
+            metadata: meta.meta,
+          });
+        }
+        case "Absent from Section": {
           return await createRequest.mutateAsync({
             class: base.class,
             type: meta.type,
@@ -101,6 +114,26 @@ export default function RequestForm(props: RequestFormProps) {
               : undefined;
           return (
             <SwapSectionRequestForm
+              base={base}
+              default={defMeta ?? defProps}
+              viewonly={viewonly}
+              onSubmit={onSubmit}
+            />
+          );
+        }
+        case "Absent from Section": {
+          const defMeta =
+            meta?.type === "Absent from Section" ? meta : undefined;
+          const defProps =
+            props.default?.type === "Absent from Section"
+              ? {
+                  type: base.type,
+                  meta: props.default?.metadata,
+                  details: props.default?.details,
+                }
+              : undefined;
+          return (
+            <AbsentFromSectionRequestForm
               base={base}
               default={defMeta ?? defProps}
               viewonly={viewonly}

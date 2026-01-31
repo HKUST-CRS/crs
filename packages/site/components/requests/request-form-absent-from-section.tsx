@@ -5,7 +5,7 @@ import { CalendarIcon } from "lucide-react";
 import { DateTime } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
-import { SwapSectionMeta } from "service/models";
+import { AbsentFromSectionMeta } from "service/models";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,29 +35,31 @@ import type { BaseRequestFormSchema } from "./base-request-form";
 import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
 
-export const SwapSectionFormSchema = FormSchema(
-  "Swap Section",
-  SwapSectionMeta,
+export const AbsentFromSectionFormSchema = FormSchema(
+  "Absent from Section",
+  AbsentFromSectionMeta,
 );
-export type SwapSectionFormSchema = z.infer<typeof SwapSectionFormSchema>;
+export type AbsentFromSectionFormSchema = z.infer<
+  typeof AbsentFromSectionFormSchema
+>;
 
-export type SwapSectionRequestFormProps = {
+export type AbsentFromSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: SwapSectionFormSchema;
+  default?: AbsentFromSectionFormSchema;
 
-  onSubmit?: (data: SwapSectionFormSchema) => void;
+  onSubmit?: (data: AbsentFromSectionFormSchema) => void;
 
   className?: string;
 };
 
-export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
-  props,
-) => {
-  const form = useForm<SwapSectionFormSchema>({
-    resolver: zodResolver(SwapSectionFormSchema),
+export const AbsentFromSectionRequestForm: FC<
+  AbsentFromSectionRequestFormProps
+> = (props) => {
+  const form = useForm<AbsentFromSectionFormSchema>({
+    resolver: zodResolver(AbsentFromSectionFormSchema),
     defaultValues: {
-      type: "Swap Section",
+      type: "Absent from Section",
       details: {
         reason: "",
         proof: [],
@@ -74,25 +76,17 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
 
   const fromSectionCode = form.watch("meta.fromSection");
   const fromSection = course?.sections?.[fromSectionCode];
-  const toSectionCode = form.watch("meta.toSection");
-  const toSection = course?.sections?.[toSectionCode];
 
   const fromDate = DateTime.fromISO(form.watch("meta.fromDate"));
-  const toDate = DateTime.fromISO(form.watch("meta.toDate"));
 
   console.log({
     fromSectionRaw: form.watch("meta.fromSection"),
-    toSectionRaw: form.watch("meta.toSection"),
     fromDateRaw: form.watch("meta.fromDate"),
-    toDateRaw: form.watch("meta.toDate"),
-    fromSection,
-    toSection,
-    fromDate,
-    toDate,
+    fromSection: fromSection,
+    fromDate: fromDate,
   });
 
-  const isMetaDone =
-    fromSection && toSection && fromDate.isValid && toDate.isValid;
+  const isMetaDone = fromSection && fromDate.isValid;
 
   const Wrapper = useCallback(
     (props: { className: string; children: ReactNode }) => {
@@ -104,7 +98,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
             className={props.className}
             onSubmit={(e) => {
               form.handleSubmit(onSubmit, (err) => {
-                console.error("SwapSection form submission error", err);
+                console.error("AbsentFromSection form submission error", err);
               })(e);
             }}
           >
@@ -210,88 +204,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
             </FormItem>
           )}
         />
-        <FormField
-          name="meta.toSection"
-          control={form.control}
-          render={({ field }) => (
-            <FormItem className="col-span-2">
-              <FormLabel>To Section...</FormLabel>
-              <FormControl>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                  disabled={viewonly}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="To Section" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(course?.sections ?? {}).map(
-                      ([code, _section]) => {
-                        return (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
-                        );
-                      },
-                    )}
-                  </SelectContent>
-                </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          name="meta.toDate"
-          control={form.control}
-          render={({ field }) => (
-            <FormItem className="col-span-4">
-              <FormLabel>To Date...</FormLabel>
-              <FormControl>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" disabled={viewonly || !toSection}>
-                      <CalendarIcon />
-                      {field.value ? (
-                        DateTime.fromISO(field.value).toFormat(DateFormatter)
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    {toSection && (
-                      <Calendar
-                        mode="single"
-                        selected={DateTime.fromISO(field.value).toJSDate()}
-                        onSelect={(date) => {
-                          if (date) {
-                            field.onChange(
-                              DateTime.fromJSDate(date).toISODate(),
-                            );
-                          }
-                        }}
-                        disabled={{
-                          dayOfWeek: [0, 1, 2, 3, 4, 5, 6].filter(
-                            (d) =>
-                              !toSection.schedule.some(
-                                // 0 is Sunday in the calendar component, but
-                                // 7 is Sunday in DateTime
-                                (s) => s.day === (d === 0 ? 7 : d),
-                              ),
-                          ),
-                        }}
-                        className="rounded-lg border shadow-sm"
-                      />
-                    )}
-                  </PopoverContent>
-                </Popover>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
         {isMetaDone &&
           (() => {
             const fromSchedule = fromSection.schedule
@@ -303,25 +216,12 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                   DateTime.fromISO(s.to).toFormat(TimeFormatter),
               )
               .join(", ");
-            const toSchedule = toSection.schedule
-              .filter((s) => s.day === toDate.weekday)
-              .map(
-                (s) =>
-                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
-                  " - " +
-                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
-              )
-              .join(", ");
             return (
               <div className="typo-muted col-span-full">
-                You are requesting to swap from section{" "}
+                You are requesting to be absent from section{" "}
                 <strong>{fromSectionCode} </strong>on{" "}
                 <strong>
                   {fromDate.toFormat(DateFormatter)} ({fromSchedule})
-                </strong>{" "}
-                to section <strong>{toSectionCode}</strong> on{" "}
-                <strong>
-                  {toDate.toFormat(DateFormatter)} ({toSchedule})
                 </strong>
                 .
               </div>
