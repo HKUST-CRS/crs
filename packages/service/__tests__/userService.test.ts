@@ -10,11 +10,11 @@ import {
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { UserService } from "../lib";
-import { ClassPermissionError } from "../lib/error";
+import { ClassPermissionError, CoursePermissionError } from "../lib/error";
+import type { Course, User } from "../models";
 import { createRepos } from "../repos";
 import { UserNotFoundError } from "../repos/error";
-import * as testData from "./testData";
-import { clearData, insertTestData } from "./testUtils";
+import { clearData, insertData } from "./tests";
 
 describe("UserService", () => {
   let conn: DbConn;
@@ -32,7 +32,7 @@ describe("UserService", () => {
   });
 
   beforeEach(async () => {
-    await insertTestData(conn);
+    await clearData(conn);
   });
 
   afterEach(async () => {
@@ -41,7 +41,12 @@ describe("UserService", () => {
 
   describe("getUser", () => {
     test("should get user by email", async () => {
-      const user = testData.students[0];
+      const user: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [],
+      };
+      await insertData(conn, { users: [user] });
       const fetchedUser = await userService.auth(user.email).getCurrentUser();
       expect(fetchedUser.email).toBe(user.email);
     });
@@ -65,17 +70,106 @@ describe("UserService", () => {
       expect(user.enrollment).toEqual([]);
     });
     test("should update user name successfully", async () => {
-      const user = testData.students[0];
+      const user: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [],
+      };
+      await insertData(conn, { users: [user] });
       await userService.auth(user.email).sync("New Name");
       const updatedUser = await userService.auth(user.email).getCurrentUser();
       expect(updatedUser.name).toBe("New Name");
     });
   });
 
+  describe("getUsersInCourse", () => {
+    test("admins should be able to view users in a course", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [{ role: "admin", course: courseId, section: "L1" }],
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+      };
+      await insertData(conn, { users: [admin, student] });
+
+      const users = await userService
+        .auth(admin.email)
+        .getUsersInCourse(courseId);
+      expect(users.map((u) => u.email)).toEqual(
+        expect.arrayContaining([student.email]),
+      );
+    });
+
+    test("students should not be able to view users in a course", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+      };
+      await insertData(conn, { users: [student] });
+
+      try {
+        await userService.auth(student.email).getUsersInCourse(courseId);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+  });
+
   describe("getUsersInClass", () => {
     test("instructors should have full access", async () => {
-      const instructor = testData.instructors[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const observer: User = {
+        email: "observer1@connect.ust.hk",
+        name: "observer1",
+        enrollment: [
+          {
+            role: "observer",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [instructor, observer, student] });
       const students = await userService
         .auth(instructor.email)
         .getUsersInClass({ course, section: "L1" }, "student");
@@ -91,8 +185,40 @@ describe("UserService", () => {
     });
 
     test("observers should not be able to view students in their class", async () => {
-      const observer = testData.tas[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const observer: User = {
+        email: "observer1@connect.ust.hk",
+        name: "observer1",
+        enrollment: [
+          {
+            role: "observer",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [observer, student] });
       try {
         await userService
           .auth(observer.email)
@@ -104,8 +230,51 @@ describe("UserService", () => {
     });
 
     test("students should only see instructors and observers", async () => {
-      const student = testData.students[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const observer: User = {
+        email: "observer1@connect.ust.hk",
+        name: "observer1",
+        enrollment: [
+          {
+            role: "observer",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [student, observer, instructor] });
       const observers = await userService
         .auth(student.email)
         .getUsersInClass({ course, section: "L1" }, "observer");
@@ -117,8 +286,40 @@ describe("UserService", () => {
     });
 
     test("students should not see other students", async () => {
-      const student = testData.students[0];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const otherStudent: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [student, otherStudent] });
       try {
         await userService
           .auth(student.email)
@@ -130,8 +331,34 @@ describe("UserService", () => {
     });
 
     test("users not in class should not have access", async () => {
-      const user = testData.students[1];
-      const course = testData.courses[0];
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const user: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [],
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [user, instructor] });
       try {
         await userService
           .auth(user.email)
@@ -140,6 +367,130 @@ describe("UserService", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
       }
+    });
+
+    test("students should be able to view admins in their class", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+      };
+      await insertData(conn, { users: [student, admin] });
+
+      const admins = await userService
+        .auth(student.email)
+        .getUsersInClass({ course, section: "L1" }, "admin");
+      expect(admins.map((u) => u.email)).toEqual(
+        expect.arrayContaining([admin.email]),
+      );
+    });
+  });
+
+  describe("createEnrollment", () => {
+    test("admins should be able to create enrollment for new user", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [{ role: "admin", course: courseId, section: "L1" }],
+      };
+      await insertData(conn, { users: [admin] });
+
+      await userService
+        .auth(admin.email)
+        .createEnrollment("new@connect.ust.hk", {
+          role: "student",
+          course: courseId,
+          section: "L1",
+        });
+
+      const createdUser = await userService
+        .auth("new@connect.ust.hk")
+        .getCurrentUser();
+      expect(createdUser.enrollment).toEqual(
+        expect.arrayContaining([
+          { role: "student", course: courseId, section: "L1" },
+        ]),
+      );
+    });
+
+    test("students should not be able to create enrollment", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+      };
+      await insertData(conn, { users: [student] });
+
+      try {
+        await userService
+          .auth(student.email)
+          .createEnrollment("new@connect.ust.hk", {
+            role: "student",
+            course: courseId,
+            section: "L1",
+          });
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+  });
+
+  describe("deleteEnrollment", () => {
+    test("instructors should be able to delete enrollment", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+      };
+      await insertData(conn, { users: [instructor, student] });
+
+      await userService.auth(instructor.email).deleteEnrollment(student.email, {
+        role: "student",
+        course: courseId,
+        section: "L1",
+      });
+
+      const updatedUser = await userService
+        .auth(student.email)
+        .getCurrentUser();
+      expect(updatedUser.enrollment).toEqual([]);
     });
   });
 });
