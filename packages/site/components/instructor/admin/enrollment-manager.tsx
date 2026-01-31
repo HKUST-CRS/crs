@@ -2,7 +2,14 @@
 
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { type CourseId, Courses, Enrollment, UserId } from "service/models";
+import {
+  type CourseId,
+  Courses,
+  Enrollment,
+  Enrollments,
+  UserId,
+} from "service/models";
+import { compareString } from "service/utils/comparison";
 import { toast } from "sonner";
 import z, { ZodError } from "zod";
 import { Button } from "@/components/ui/button";
@@ -110,11 +117,19 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
   const { data: users, refetch } = useQuery(
     trpc.user.getAllFromCourse.queryOptions(cid),
   );
-  const enrollments = (users ?? []).flatMap((u) =>
-    u.enrollment
-      .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
-      .map((e) => ({ user: u, enrollment: e })),
-  );
+  const enrollments = (users ?? [])
+    .flatMap((u) =>
+      u.enrollment
+        .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+        .map((e) => ({ user: u, enrollment: e })),
+    )
+    .sort((a, b) => {
+      const enrollmentCompare = Enrollments.compare(a.enrollment, b.enrollment);
+      if (enrollmentCompare !== 0) {
+        return enrollmentCompare;
+      }
+      return compareString(a.user.email, b.user.email);
+    });
 
   const createEnrollment = useMutation(
     trpc.user.createEnrollment.mutationOptions({
