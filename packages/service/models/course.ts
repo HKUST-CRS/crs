@@ -133,4 +133,7 @@ export namespace Classes {
       throw new Error(`Illegal class string: ${classStr}`);
     }
   }
+  export function format(clazz: Class): string {
+    return `${Courses.formatID(clazz.course)} ${clazz.section}`;
+  }
 }

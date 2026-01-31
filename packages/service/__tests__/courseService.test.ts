@@ -93,7 +93,7 @@ describe("CourseService", () => {
       const student = testData.students[0];
       const courses = await courseService
         .auth(student.email)
-        .getCoursesFromEnrollment();
+        .getCoursesFromEnrollment(["student"]);
       expect(courses.length).toBe(1);
       const courseCodes = courses.map((course) => course.code);
       const enrollmentCourseCodes = student.enrollment.map(
@@ -106,7 +106,9 @@ describe("CourseService", () => {
 
     test("should throw user not found error when user does not exist", async () => {
       try {
-        await courseService.auth("dne@dne.com").getCoursesFromEnrollment();
+        await courseService
+          .auth("dne@dne.com")
+          .getCoursesFromEnrollment(["student"]);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);
@@ -158,7 +160,7 @@ describe("CourseService", () => {
       };
       await courseService
         .auth(user.email)
-        .setEffectiveRequestTypes(courseId, newRequestTypes);
+        .updateEffectiveRequestTypes(courseId, newRequestTypes);
       const updatedCourse = await courseService
         .auth(user.email)
         .getCourse(courseId);
@@ -175,7 +177,7 @@ describe("CourseService", () => {
       try {
         await courseService
           .auth(user.email)
-          .setEffectiveRequestTypes(course, newRequestTypes);
+          .updateEffectiveRequestTypes(course, newRequestTypes);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);

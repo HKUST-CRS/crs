@@ -1,5 +1,5 @@
 import type { Collections } from "../db";
-import type { Course, CourseId, User } from "../models";
+import type { Course, CourseId, Role, User } from "../models";
 import { CourseNotFoundError } from "./error";
 
 export class CourseRepo {
@@ -11,11 +11,13 @@ export class CourseRepo {
     return course;
   }
 
-  async getCoursesFromEnrollment(user: User): Promise<Course[]> {
-    const courseIds = user.enrollment.map((e) => ({
-      code: e.course.code,
-      term: e.course.term,
-    }));
+  async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
+    const courseIds = user.enrollment
+      .filter((e) => roles.includes(e.role))
+      .map((e) => ({
+        code: e.course.code,
+        term: e.course.term,
+      }));
     // MongoDB throws an error when $or receives an empty array
     if (courseIds.length === 0) {
       return [];
@@ -40,7 +42,7 @@ export class CourseRepo {
     );
   }
 
-  async setEffectiveRequestTypes(
+  async updateEffectiveRequestTypes(
     courseId: CourseId,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
@@ -57,8 +59,12 @@ export class CourseRepo {
     courseId: CourseId,
     assignments: Course["assignments"],
   ): Promise<void> {
-    await this.collections.courses.updateOne(courseId, {
-      $set: { assignments },
-    });
+    await this.collections.courses.updateOne(
+      // cannot use courseId directly, in case of extra fields
+      { code: courseId.code, term: courseId.term },
+      {
+        $set: { assignments },
+      },
+    );
   }
 }

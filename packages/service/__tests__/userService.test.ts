@@ -72,43 +72,47 @@ describe("UserService", () => {
     });
   });
 
-  describe("getUsersFromClass", () => {
+  describe("getUsersInClass", () => {
     test("instructors should have full access", async () => {
       const instructor = testData.instructors[0];
       const course = testData.courses[0];
       const students = await userService
         .auth(instructor.email)
-        .getUsersFromClass({ course, section: "L1" }, "student");
+        .getUsersInClass({ course, section: "L1" }, "student");
       expect(students.length).toBeGreaterThan(0);
-      const tas = await userService
+      const observers = await userService
         .auth(instructor.email)
-        .getUsersFromClass({ course, section: "L1" }, "ta");
-      expect(tas.length).toBeGreaterThan(0);
+        .getUsersInClass({ course, section: "L1" }, "observer");
+      expect(observers.length).toBeGreaterThan(0);
       const instructors = await userService
         .auth(instructor.email)
-        .getUsersFromClass({ course, section: "L1" }, "instructor");
+        .getUsersInClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
 
-    test("TAs should be able to view students in their class", async () => {
-      const ta = testData.tas[0];
+    test("observers should not be able to view students in their class", async () => {
+      const observer = testData.tas[0];
       const course = testData.courses[0];
-      const students = await userService
-        .auth(ta.email)
-        .getUsersFromClass({ course, section: "L1" }, "student");
-      expect(students.length).toBeGreaterThan(0);
+      try {
+        await userService
+          .auth(observer.email)
+          .getUsersInClass({ course, section: "L1" }, "student");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
     });
 
-    test("students should only see instructors and TAs", async () => {
+    test("students should only see instructors and observers", async () => {
       const student = testData.students[0];
       const course = testData.courses[0];
-      const tas = await userService
+      const observers = await userService
         .auth(student.email)
-        .getUsersFromClass({ course, section: "L1" }, "ta");
-      expect(tas.length).toBeGreaterThan(0);
+        .getUsersInClass({ course, section: "L1" }, "observer");
+      expect(observers.length).toBeGreaterThan(0);
       const instructors = await userService
         .auth(student.email)
-        .getUsersFromClass({ course, section: "L1" }, "instructor");
+        .getUsersInClass({ course, section: "L1" }, "instructor");
       expect(instructors.length).toBeGreaterThan(0);
     });
 
@@ -118,7 +122,7 @@ describe("UserService", () => {
       try {
         await userService
           .auth(student.email)
-          .getUsersFromClass({ course, section: "L1" }, "student");
+          .getUsersInClass({ course, section: "L1" }, "student");
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -131,7 +135,7 @@ describe("UserService", () => {
       try {
         await userService
           .auth(user.email)
-          .getUsersFromClass({ course, section: "L1" }, "instructor");
+          .getUsersInClass({ course, section: "L1" }, "instructor");
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);

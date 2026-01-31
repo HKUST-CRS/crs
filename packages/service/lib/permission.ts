@@ -8,6 +8,14 @@ import {
 } from "../models";
 import { ClassPermissionError, CoursePermissionError } from "./error";
 
+/**
+ * Asserts that the user has one of the specified roles in the given course.
+ *
+ * @param user The user whose role is being checked.
+ * @param course The course in which the role is being checked.
+ * @param roles The roles to check for.
+ * @param op The operation being performed (used for error messages).
+ */
 export function assertCourseRole(
   user: User,
   course: Course | CourseId,
@@ -30,6 +38,14 @@ export function assertCourseRole(
   }
 }
 
+/**
+ * Asserts that the user has one of the specified roles in the given class.
+ *
+ * @param user The user whose role is being checked.
+ * @param clazz The class in which the role is being checked.
+ * @param roles The roles to check for.
+ * @param op The operation being performed (used for error messages).
+ */
 export function assertClassRole(
   user: User,
   clazz: Class,

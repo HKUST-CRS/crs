@@ -18,7 +18,7 @@ export class CoursePermissionError extends Error {
     const roleStr =
       roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
     super(
-      `User ${userId} does not have ${roleStr} in course ${Courses.id2str(courseId)} for ${operation}.`,
+      `User ${userId} does not have ${roleStr} in course ${Courses.formatID(courseId)} for ${operation}.`,
     );
     this.name = "CoursePermissionError";
   }
@@ -29,7 +29,7 @@ export class ClassPermissionError extends Error {
     const roleStr =
       roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
     super(
-      `User ${userId} does not have ${roleStr} in class ${Classes.id2str(clazz)} for ${operation}.`,
+      `User ${userId} does not have ${roleStr} in class ${Classes.format(clazz)} for ${operation}.`,
     );
     this.name = "ClassPermissionError";
   }

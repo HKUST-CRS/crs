@@ -56,7 +56,7 @@ export class UserRepo {
   /**
    * Get all users enrolled in the course.
    */
-  async getUsersFromCourse(courseId: CourseId): Promise<User[]> {
+  async getUsersInCourse(courseId: CourseId): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -70,7 +70,7 @@ export class UserRepo {
     return users;
   }
 
-  async getUsersFromClass(clazz: Class, role: Role): Promise<User[]> {
+  async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -89,10 +89,7 @@ export class UserRepo {
   /**
    * Create a role for the user in a class.
    */
-  async createEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
+  async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid },
       { $addToSet: { enrollment } },
@@ -102,10 +99,7 @@ export class UserRepo {
   /**
    * Delete a role for the user in a class.
    */
-  async deleteEnrollmentForUser(
-    uid: UserId,
-    enrollment: Enrollment,
-  ): Promise<void> {
+  async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid },
       { $pull: { enrollment } },

@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { Class } from "./course";
 
-export const Role = z.enum(["student", "instructor", "ta"]);
+export const Role = z.enum(["student", "instructor", "observer", "admin"]);
 export type Role = z.infer<typeof Role>;
-export const ALL_ROLES = Role.options;
+export const Roles = Role.options;
 
 export const Enrollment = z.object({
   ...Class.shape,

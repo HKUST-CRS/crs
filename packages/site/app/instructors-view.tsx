@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
@@ -19,49 +19,39 @@ export default function InstructorsView() {
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.get.queryOptions());
-  const instructorRequestsQuery = useQuery(
-    trpc.request.getAll.queryOptions("instructor"),
+
+  // Redirection
+  const hasStudentRole = userQuery.data?.enrollment?.some(
+    (e) => e.role === "student",
   );
-  const taRequestsQuery = useQuery(trpc.request.getAll.queryOptions("ta"));
-  const requests = instructorRequestsQuery.data &&
-    taRequestsQuery.data && [
-      ...instructorRequestsQuery.data,
-      ...taRequestsQuery.data,
-    ];
-
-  const hasStudentRole = userQuery.data?.enrollment?.some((e) => {
-    return e.role === "student";
-  });
-  const hasTeachingRole = userQuery.data?.enrollment?.some((e) => {
-    return e.role === "instructor" || e.role === "ta";
-  });
-
-  // Instructor Courses
-  const iCourseIDs = (userQuery.data?.enrollment ?? [])
-    .filter((e) => e.role === "instructor")
-    .map((e) => e.course);
-  const iCourses = useQueries({
-    queries: iCourseIDs.map((id) => trpc.course.get.queryOptions(id)),
-  })
-    .map((r) => r.data)
-    .filter((c): c is NonNullable<typeof c> => !!c);
-
+  const hasTeachingRole = userQuery.data?.enrollment?.some(
+    (e) =>
+      e.role === "instructor" || e.role === "observer" || e.role === "admin",
+  );
   useEffect(() => {
-    if (
-      hasStudentRole !== undefined &&
-      hasStudentRole &&
-      hasTeachingRole !== undefined &&
-      !hasTeachingRole
-    ) {
+    if (userQuery.data !== undefined && hasStudentRole && !hasTeachingRole) {
       router.replace("/");
     }
-  }, [router, hasStudentRole, hasTeachingRole]);
+  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+
+  // Requests
+  const requestsQuery = useQuery(
+    trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
+  );
+  const requests = requestsQuery.data;
+
+  // Courses
+  const coursesQuery = useQuery(
+    trpc.course.getAllFromEnrollment.queryOptions(["instructor", "admin"]),
+  );
+  const courses = coursesQuery.data;
 
   useWindowFocus(
     useCallback(() => {
-      instructorRequestsQuery.refetch();
-      taRequestsQuery.refetch();
-    }, [instructorRequestsQuery, taRequestsQuery]),
+      userQuery.refetch();
+      requestsQuery.refetch();
+      coursesQuery.refetch();
+    }, [userQuery, requestsQuery, coursesQuery]),
   );
 
   return (
@@ -112,21 +102,25 @@ export default function InstructorsView() {
           Course Management
         </p>
         <div className="grid grid-cols-3 gap-4">
-          {iCourses.map((course) => {
-            return (
-              <Link
-                key={Courses.id2str(course)}
-                href={`/instructor/admin/${Courses.id2str(course)}`}
-              >
-                <Card>
-                  <CardContent>
-                    <p className="font-medium">{Courses.formatID(course)}</p>
-                    <p className="text-sm">{course.title}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
+          {courses ? (
+            courses.map((course) => {
+              return (
+                <Link
+                  key={Courses.id2str(course)}
+                  href={`/instructor/admin/${Courses.id2str(course)}`}
+                >
+                  <Card>
+                    <CardContent>
+                      <p className="font-medium">{Courses.formatID(course)}</p>
+                      <p className="text-sm">{course.title}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })
+          ) : (
+            <Spinner variant="ellipsis" />
+          )}
         </div>
       </section>
     </article>

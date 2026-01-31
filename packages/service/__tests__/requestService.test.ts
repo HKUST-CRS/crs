@@ -84,9 +84,11 @@ describe("RequestService", () => {
       expect(request).toBeDefined();
     });
 
-    test("should allow TAs to get requests in their class", async () => {
-      const ta = testData.tas[0];
-      const request = await requestService.auth(ta.email).getRequest(requestId);
+    test("should allow observers to get requests in their class", async () => {
+      const observer = testData.tas[0];
+      const request = await requestService
+        .auth(observer.email)
+        .getRequest(requestId);
       expect(request).toBeDefined();
     });
 
@@ -98,7 +100,7 @@ describe("RequestService", () => {
       expect(request).toBeDefined();
     });
 
-    test("should throw permission error when user is neither requester nor instructor/TA", async () => {
+    test("should throw permission error when user is neither requester nor instructor/observer", async () => {
       const student = testData.students[1];
       try {
         await requestService.auth(student.email).getRequest(requestId);
@@ -121,13 +123,15 @@ describe("RequestService", () => {
       const student = testData.students[0];
       const requests = await requestService
         .auth(student.email)
-        .getRequestsAs("student");
+        .getRequestsAs(["student"]);
       expect(requests.length).toEqual(1);
     });
 
-    test("should get requests as ta", async () => {
-      const ta = testData.tas[0];
-      const requests = await requestService.auth(ta.email).getRequestsAs("ta");
+    test("should get requests as observer", async () => {
+      const observer = testData.tas[0];
+      const requests = await requestService
+        .auth(observer.email)
+        .getRequestsAs(["observer"]);
       expect(requests.length).toEqual(1);
     });
 
@@ -135,7 +139,7 @@ describe("RequestService", () => {
       const instructor = testData.instructors[0];
       const requests = await requestService
         .auth(instructor.email)
-        .getRequestsAs("instructor");
+        .getRequestsAs(["instructor"]);
       expect(requests.length).toEqual(1);
     });
 
@@ -143,13 +147,15 @@ describe("RequestService", () => {
       const student = testData.students[2];
       const requests = await requestService
         .auth(student.email)
-        .getRequestsAs("student");
+        .getRequestsAs(["student"]);
       expect(requests.length).toEqual(0);
     });
 
-    test("TAs should not get other classes' requests", async () => {
-      const ta = testData.tas[1];
-      const requests = await requestService.auth(ta.email).getRequestsAs("ta");
+    test("observers should not get other classes' requests", async () => {
+      const observer = testData.tas[1];
+      const requests = await requestService
+        .auth(observer.email)
+        .getRequestsAs(["observer"]);
       expect(requests.length).toEqual(0);
     });
 
@@ -157,7 +163,7 @@ describe("RequestService", () => {
       const instructor = testData.instructors[1];
       const requests = await requestService
         .auth(instructor.email)
-        .getRequestsAs("instructor");
+        .getRequestsAs(["instructor"]);
       expect(requests.length).toEqual(0);
     });
   });

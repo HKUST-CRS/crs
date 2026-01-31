@@ -60,12 +60,12 @@ export const tas: [User, User] = [
     name: "ta1",
     enrollment: [
       {
-        role: "ta",
+        role: "observer",
         course: { code: "COMP 1023", term: "2510" },
         section: "L1",
       },
       {
-        role: "ta",
+        role: "observer",
         course: { code: "COMP 1023", term: "2510" },
         section: "LA1",
       },
@@ -81,12 +81,12 @@ export const tas: [User, User] = [
     name: "ta2",
     enrollment: [
       {
-        role: "ta",
+        role: "observer",
         course: { code: "COMP 1023", term: "2510" },
         section: "L2",
       },
       {
-        role: "ta",
+        role: "observer",
         course: { code: "COMP 1023", term: "2510" },
         section: "LA2",
       },
