@@ -188,7 +188,9 @@ export const AbsentFromSectionRequestForm: FC<
                           dayOfWeek: [0, 1, 2, 3, 4, 5, 6].filter(
                             (d) =>
                               !fromSection.schedule.some(
-                                (s) => (d === 6 ? 7 : s.day) === d,
+                                // 0 is Sunday in the calendar component, but
+                                // 7 is Sunday in DateTime
+                                (s) => s.day === (d === 0 ? 7 : d),
                               ),
                           ),
                         }}
