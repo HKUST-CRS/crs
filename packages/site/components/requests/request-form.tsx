@@ -35,8 +35,8 @@ export type RequestFormProps = {
 
 const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
-  DeadlineExtensionFormSchema,
   AbsentFromSectionFormSchema,
+  DeadlineExtensionFormSchema,
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
 
