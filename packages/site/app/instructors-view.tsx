@@ -98,7 +98,7 @@ export default function InstructorsView() {
         <TextType
           text="CSE Request System"
           as="div"
-          textColors={["#000000"]}
+          textColors={["var(--foreground)"]}
           cursorCharacter="_"
           variableSpeed={{
             min: 120,
