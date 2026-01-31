@@ -8,7 +8,7 @@ import {
 } from "../models";
 import type { Repos } from "../repos";
 import { sortRecord } from "../utils/comparison";
-import { assertCourseRole } from "./permission";
+import { assertCourseRole, assertSudoer } from "./permission";
 
 export class CourseService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -24,6 +24,26 @@ export class CourseService<TUser extends UserId | null = null> {
 
   auth(this: CourseService<null>, user: string): CourseService<string> {
     return new CourseService(this.repos, user);
+  }
+
+  /**
+   * Creates a new course.
+   *
+   * The current user must be a sudoer.
+   *
+   * It is suggested that the caller also call `UserService.sync` after creating the course to
+   * ensure that the creator is in the course as a sudoer.
+   *
+   * @param course The course to create.
+   */
+  async createCourse(
+    this: CourseService<UserId>,
+    course: Course,
+  ): Promise<CourseId> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertSudoer(user, `creating a new course ${Courses.formatCourse(course)}`);
+    await this.repos.course.createCourse(course);
+    return Courses.toID(course);
   }
 
   /**

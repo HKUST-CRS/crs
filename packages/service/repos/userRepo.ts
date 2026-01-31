@@ -1,11 +1,12 @@
 import type { Collections } from "../db";
-import type {
-  Class,
-  CourseId,
-  Enrollment,
-  Role,
-  User,
-  UserId,
+import {
+  type Class,
+  type CourseId,
+  Courses,
+  type Enrollment,
+  type Role,
+  type User,
+  type UserId,
 } from "../models";
 import { UserNotFoundError } from "./error";
 
@@ -54,6 +55,14 @@ export class UserRepo {
   }
 
   /**
+   * Gets all users that are sudoers.
+   */
+  async getSudoers(): Promise<User[]> {
+    const users = await this.collections.users.find({ sudoer: true }).toArray();
+    return users;
+  }
+
+  /**
    * Get all users enrolled in the course.
    */
   async getUsersInCourse(courseId: CourseId): Promise<User[]> {
@@ -94,6 +103,12 @@ export class UserRepo {
       { email: uid },
       { $addToSet: { enrollment } },
     );
+    const user = await this.requireUser(uid);
+    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $set: { enrollment: user.enrollment } },
+    );
   }
 
   /**
@@ -103,6 +118,12 @@ export class UserRepo {
     await this.collections.users.updateOne(
       { email: uid },
       { $pull: { enrollment } },
+    );
+    const user = await this.requireUser(uid);
+    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
+    await this.collections.users.updateOne(
+      { email: uid },
+      { $set: { enrollment: user.enrollment } },
     );
   }
 }

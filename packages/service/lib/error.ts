@@ -35,6 +35,13 @@ export class ClassPermissionError extends Error {
   }
 }
 
+export class SudoerPermissionError extends Error {
+  constructor(userId: UserId, operation: string) {
+    super(`User ${userId} is not a sudoer and cannot perform ${operation}.`);
+    this.name = "SudoerPermissionError";
+  }
+}
+
 export class ResponseNotFoundError extends Error {
   constructor(requestId: RequestId) {
     super(`Request ${requestId} does not have a response yet`);

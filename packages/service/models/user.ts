@@ -17,6 +17,12 @@ export const User = z.object({
   }),
   name: z.string().meta({ description: "The full name of the user." }),
   enrollment: z.array(Enrollment),
+  sudoer: z.boolean().meta({
+    description:
+      "Indicates whether the user has sudo privileges. " +
+      "If a user is a sudoer, they have the admin role in all courses, " +
+      "their admin roles are fixed, and they can create new courses.",
+  }),
 });
 export type User = z.infer<typeof User>;
 

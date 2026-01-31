@@ -4,6 +4,12 @@ import { services } from "../services";
 import { procedure, router } from "../trpc";
 
 export const routerCourse = router({
+  create: procedure
+    .input(Course)
+    .output(CourseId)
+    .mutation(({ input, ctx }) => {
+      return services.course.auth(ctx.user.email).createCourse(input);
+    }),
   get: procedure
     .input(CourseId)
     .output(Course)

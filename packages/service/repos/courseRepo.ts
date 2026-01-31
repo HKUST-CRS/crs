@@ -1,14 +1,34 @@
 import type { Collections } from "../db";
-import type { Course, CourseId, Role, User } from "../models";
+import {
+  type Course,
+  type CourseId,
+  Courses,
+  type Role,
+  type User,
+} from "../models";
 import { CourseNotFoundError } from "./error";
 
 export class CourseRepo {
   constructor(protected collections: Collections) {}
 
+  /**
+   * Creates a new course.
+   *
+   * @param course The course to create.
+   */
+  async createCourse(course: Course): Promise<void> {
+    await this.collections.courses.insertOne(course);
+  }
+
   async requireCourse(courseId: CourseId): Promise<Course> {
     const course = await this.collections.courses.findOne(courseId);
     if (!course) throw new CourseNotFoundError(courseId);
     return course;
+  }
+
+  async getCourses(): Promise<Course[]> {
+    const courses = await this.collections.courses.find({}).toArray();
+    return courses.sort(Courses.compare);
   }
 
   async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
@@ -26,7 +46,8 @@ export class CourseRepo {
       .find({
         $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
       })
-      .toArray();
+      .toArray()
+      .then((courses) => courses.sort(Courses.compare));
   }
 
   async updateSections(

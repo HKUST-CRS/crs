@@ -1,7 +1,9 @@
+import { deepEquals } from "bun";
 import {
   type Class,
   Classes,
   type CourseId,
+  Courses,
   type Enrollment,
   type Role,
   Roles,
@@ -9,7 +11,7 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole } from "./permission";
+import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -30,13 +32,36 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Synchronize the current user.
    *
-   * It updates the user's name according to the latest info.
+   * It updates the user's name according to the latest info. It updates the sudoers' enrollment
+   * invariant: all sudoers have the admin role in all courses.
    *
    * If the user does not exist, it creates the user record.
    */
   async sync(this: UserService<UserId>, name: string): Promise<void> {
     await this.repos.user.createUser(this.user);
     await this.repos.user.updateUserName(this.user, name);
+
+    const user = await this.getCurrentUser();
+    if (user.sudoer) {
+      for (const course of await this.repos.course.getCourses()) {
+        const oldEnrollment = user.enrollment.find(
+          (e) =>
+            Courses.id2str(e.course) === Courses.id2str(course) &&
+            e.role === "admin",
+        );
+        const newEnrollment = {
+          role: "admin",
+          course: Courses.toID(course),
+          section: "(as system admin)",
+        } satisfies Enrollment;
+        if (!deepEquals(oldEnrollment, newEnrollment)) {
+          if (oldEnrollment) {
+            await this.repos.user.deleteEnrollment(this.user, oldEnrollment);
+          }
+          await this.repos.user.createEnrollment(this.user, newEnrollment);
+        }
+      }
+    }
   }
 
   /**
@@ -44,6 +69,19 @@ export class UserService<TUser extends UserId | null = null> {
    */
   async getCurrentUser(this: UserService<UserId>): Promise<User> {
     return this.repos.user.requireUser(this.user);
+  }
+
+  /**
+   * Get all sudoers in the system.
+   *
+   * The current user must be a sudoer.
+   *
+   * @returns The list of sudoer users.
+   */
+  async getSudoers(this: UserService<UserId>): Promise<User[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertSudoer(user, "getting sudoers");
+    return this.repos.user.getSudoers();
   }
 
   /**

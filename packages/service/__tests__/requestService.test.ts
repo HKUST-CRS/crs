@@ -65,6 +65,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -114,6 +115,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -161,6 +163,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [instructor] });
 
@@ -210,6 +213,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -259,6 +263,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const observer: User = {
         email: "observer1@connect.ust.hk",
@@ -270,6 +275,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, observer] });
 
@@ -318,6 +324,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor1@ust.hk",
@@ -329,6 +336,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, instructor] });
 
@@ -377,6 +385,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const admin: User = {
         email: "admin1@ust.hk",
@@ -388,6 +397,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, admin] });
 
@@ -439,6 +449,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const otherStudent: User = {
         email: "student2@connect.ust.hk",
@@ -450,6 +461,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [requester, otherStudent] });
 
@@ -501,6 +513,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -536,6 +549,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -583,6 +597,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const observer: User = {
         email: "observer1@connect.ust.hk",
@@ -594,6 +609,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, observer] });
 
@@ -641,6 +657,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor1@ust.hk",
@@ -652,6 +669,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, instructor] });
 
@@ -699,6 +717,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const otherStudent: User = {
         email: "student3@connect.ust.hk",
@@ -710,6 +729,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [requester, otherStudent] });
 
@@ -757,6 +777,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const observer: User = {
         email: "observer2@connect.ust.hk",
@@ -768,6 +789,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [requester, observer] });
 
@@ -815,6 +837,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor2@ust.hk",
@@ -826,6 +849,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [requester, instructor] });
 
@@ -873,6 +897,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const admin: User = {
         email: "admin1@ust.hk",
@@ -884,6 +909,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, admin] });
 
@@ -931,6 +957,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student] });
 
@@ -983,6 +1010,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       const otherStudent: User = {
         email: "student2@connect.ust.hk",
@@ -994,6 +1022,7 @@ describe("RequestService", () => {
             section: "L2",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [dualRoleUser, otherStudent] });
 
@@ -1063,6 +1092,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor1@ust.hk",
@@ -1074,6 +1104,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, instructor] });
 
@@ -1127,6 +1158,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor1@ust.hk",
@@ -1138,6 +1170,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, instructor] });
 
@@ -1200,6 +1233,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const instructor: User = {
         email: "instructor1@ust.hk",
@@ -1211,6 +1245,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, instructor] });
 
@@ -1265,6 +1300,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       const admin: User = {
         email: "admin1@ust.hk",
@@ -1276,6 +1312,7 @@ describe("RequestService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(testConn, { users: [student, admin] });
 

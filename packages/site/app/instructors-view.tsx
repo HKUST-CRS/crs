@@ -1,14 +1,26 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Courses } from "service/models";
+import {
+  CourseForm,
+  type CourseFormSchema,
+} from "@/components/instructor/course-form";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
@@ -54,6 +66,31 @@ export default function InstructorsView() {
     }, [userQuery, requestsQuery, coursesQuery]),
   );
 
+  const createCourseMutation = useMutation(
+    trpc.course.create.mutationOptions(),
+  );
+  const [isCourseCreationOpen, setCourseCreationOpen] = useState(false);
+  const handleCreateCourse = (form: CourseFormSchema) => {
+    createCourseMutation.mutate(
+      {
+        code: form.code,
+        term: form.term,
+        title: form.title,
+        sections: {},
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      },
+      {
+        onSuccess: (cid) => {
+          router.push(`/instructor/admin/${Courses.id2str(cid)}`);
+        },
+      },
+    );
+  };
+
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
@@ -98,9 +135,15 @@ export default function InstructorsView() {
         )}
       </section>
       <section>
-        <p className="pb-4 font-medium text-sm leading-none">
-          Course Management
-        </p>
+        <div className="flex flex-row items-end justify-between pb-4">
+          <p className="font-medium text-sm leading-none">Course Management</p>
+          {userQuery.data?.sudoer && (
+            <Button onClick={() => setCourseCreationOpen(true)} size="sm">
+              <Plus className="mr-2 h-4 w-4" /> Create Course
+            </Button>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-4">
           {courses ? (
             courses.map((course) => {
@@ -122,6 +165,18 @@ export default function InstructorsView() {
             <Spinner variant="ellipsis" />
           )}
         </div>
+
+        <Dialog
+          open={isCourseCreationOpen}
+          onOpenChange={setCourseCreationOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Course</DialogTitle>
+            </DialogHeader>
+            <CourseForm onSubmit={handleCreateCourse} />
+          </DialogContent>
+        </Dialog>
       </section>
     </article>
   );

@@ -10,7 +10,7 @@ import {
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { CourseService } from "../lib";
-import { CoursePermissionError } from "../lib/error";
+import { CoursePermissionError, SudoerPermissionError } from "../lib/error";
 import type { Course, User } from "../models";
 import { createRepos } from "../repos";
 import { CourseNotFoundError, UserNotFoundError } from "../repos/error";
@@ -63,6 +63,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
 
       await insertData(conn, { users: [student], courses: [course] });
@@ -96,6 +97,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
 
       await insertData(conn, { users: [admin], courses: [course] });
@@ -141,6 +143,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student] });
 
@@ -167,6 +170,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student] });
 
@@ -202,6 +206,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -251,6 +256,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -282,6 +288,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -315,6 +322,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [instructor], courses: [course] });
 
@@ -353,6 +361,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -390,6 +399,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
@@ -428,6 +438,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [instructor], courses: [course] });
 
@@ -467,6 +478,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -506,6 +518,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
@@ -547,6 +560,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
@@ -590,6 +604,7 @@ describe("CourseService", () => {
             section: "L1",
           },
         ],
+        sudoer: false,
       };
       await insertData(conn, { users: [student], courses: [course] });
 
@@ -609,6 +624,65 @@ describe("CourseService", () => {
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+  });
+
+  describe("createCourse", () => {
+    test("sudoers should be able to create a course", async () => {
+      const sudoer: User = {
+        email: "sudoer1@ust.hk",
+        name: "sudoer1",
+        enrollment: [],
+        sudoer: true,
+      };
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      await insertData(conn, { users: [sudoer] });
+
+      const courseId = await courseService
+        .auth(sudoer.email)
+        .createCourse(course);
+      expect(courseId).toEqual({ code: course.code, term: course.term });
+
+      const fetchedCourse = await conn.collections.courses.findOne(courseId);
+      expect(fetchedCourse?.title).toBe(course.title);
+    });
+
+    test("non-sudoers should not be able to create a course", async () => {
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [],
+        sudoer: false,
+      };
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      await insertData(conn, { users: [admin] });
+
+      try {
+        await courseService.auth(admin.email).createCourse(course);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(SudoerPermissionError);
       }
     });
   });
