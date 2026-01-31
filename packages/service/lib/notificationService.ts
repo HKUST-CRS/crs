@@ -72,7 +72,10 @@ export class NotificationService {
     const student = await this.repos.user.requireUser(request.from);
 
     const instructorEmails = instructors.map((i) => i.email);
-    const instructorNames = instructors.map((i) => i.name).join(", ");
+    const instructorNames = instructors
+      .map((i) => i.name)
+      .filter((name) => name !== "")
+      .join(", ");
 
     const studentEmail = student.email;
     const studentName = student.name;
