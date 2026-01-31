@@ -7,7 +7,7 @@ import {
   expect,
   test,
 } from "bun:test";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { UserService } from "../lib";
 import {
@@ -22,17 +22,20 @@ import { clearData, insertData } from "./tests";
 
 describe("UserService", () => {
   let conn: DbConn;
-  let memoryServer: MongoMemoryServer;
+  let memoryServer: MongoMemoryReplSet;
   let userService: UserService;
 
   beforeAll(async () => {
-    memoryServer = await MongoMemoryServer.create();
+    memoryServer = await MongoMemoryReplSet.create({
+      replSet: { storageEngine: "wiredTiger" },
+    });
     conn = await DbConn.create(memoryServer.getUri());
     userService = new UserService(createRepos(conn.collections));
   });
 
   afterAll(async () => {
     await conn.close();
+    await memoryServer.stop();
   });
 
   beforeEach(async () => {

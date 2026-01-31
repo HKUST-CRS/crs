@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { Class } from "./course";
+import { compareString } from "../utils/comparison";
+import { Class, Courses } from "./course";
 
 export const Role = z.enum(["student", "instructor", "observer", "admin"]);
 export type Role = z.infer<typeof Role>;
@@ -28,3 +29,17 @@ export type User = z.infer<typeof User>;
 
 export const UserId = User.shape.email;
 export type UserId = z.infer<typeof UserId>;
+
+export namespace Enrollments {
+  export function compare(a: Enrollment, b: Enrollment): number {
+    const courseCompare = Courses.compare(a.course, b.course);
+    if (courseCompare !== 0) {
+      return courseCompare;
+    }
+    const sectionCompare = compareString(a.section, b.section);
+    if (sectionCompare !== 0) {
+      return sectionCompare;
+    }
+    return Roles.indexOf(a.role) - Roles.indexOf(b.role);
+  }
+}

@@ -7,7 +7,7 @@ import {
   expect,
   test,
 } from "bun:test";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { RequestService } from "../lib";
 import { ClassPermissionError } from "../lib/error";
@@ -21,17 +21,20 @@ import { clearData, insertData } from "./tests";
 
 describe("RequestService", () => {
   let testConn: DbConn;
-  let memoryServer: MongoMemoryServer;
+  let memoryServer: MongoMemoryReplSet;
   let requestService: RequestService;
 
   beforeAll(async () => {
-    memoryServer = await MongoMemoryServer.create();
+    memoryServer = await MongoMemoryReplSet.create({
+      replSet: { storageEngine: "wiredTiger" },
+    });
     testConn = await DbConn.create(memoryServer.getUri());
     requestService = new RequestService(createRepos(testConn.collections));
   });
 
   afterAll(async () => {
     await testConn.close();
+    await memoryServer.stop();
   });
 
   beforeEach(async () => {

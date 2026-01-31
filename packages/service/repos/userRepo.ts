@@ -2,8 +2,8 @@ import type { Collections } from "../db";
 import {
   type Class,
   type CourseId,
-  Courses,
   type Enrollment,
+  Enrollments,
   type Role,
   type User,
   type UserId,
@@ -100,31 +100,47 @@ export class UserRepo {
    * Create a role for the user in a class.
    */
   async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $addToSet: { enrollment } },
-    );
-    const user = await this.requireUser(uid);
-    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $set: { enrollment: user.enrollment } },
-    );
+    await this.collections.withTransaction(async (session) => {
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $addToSet: { enrollment } },
+        { session },
+      );
+      const user = await this.collections.users.findOne(
+        { email: uid },
+        { session },
+      );
+      if (!user) throw new UserNotFoundError(uid);
+      user.enrollment.sort(Enrollments.compare);
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $set: { enrollment: user.enrollment } },
+        { session },
+      );
+    });
   }
 
   /**
    * Delete a role for the user in a class.
    */
   async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $pull: { enrollment } },
-    );
-    const user = await this.requireUser(uid);
-    user.enrollment.sort((a, b) => Courses.compare(a.course, b.course));
-    await this.collections.users.updateOne(
-      { email: uid },
-      { $set: { enrollment: user.enrollment } },
-    );
+    await this.collections.withTransaction(async (session) => {
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $pull: { enrollment } },
+        { session },
+      );
+      const user = await this.collections.users.findOne(
+        { email: uid },
+        { session },
+      );
+      if (!user) throw new UserNotFoundError(uid);
+      user.enrollment.sort(Enrollments.compare);
+      await this.collections.users.updateOne(
+        { email: uid },
+        { $set: { enrollment: user.enrollment } },
+        { session },
+      );
+    });
   }
 }

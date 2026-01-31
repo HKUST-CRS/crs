@@ -7,7 +7,7 @@ import {
   expect,
   test,
 } from "bun:test";
-import { MongoMemoryServer } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import { CourseService } from "../lib";
 import { CoursePermissionError, SudoerPermissionError } from "../lib/error";
@@ -18,11 +18,13 @@ import { clearData, insertData } from "./tests";
 
 describe("CourseService", () => {
   let conn: DbConn;
-  let memoryServer: MongoMemoryServer;
+  let memoryServer: MongoMemoryReplSet;
   let courseService: CourseService;
 
   beforeAll(async () => {
-    memoryServer = await MongoMemoryServer.create();
+    memoryServer = await MongoMemoryReplSet.create({
+      replSet: { storageEngine: "wiredTiger" },
+    });
     conn = await DbConn.create(memoryServer.getUri());
     courseService = new CourseService(createRepos(conn.collections));
   });
