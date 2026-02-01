@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 import { DateTime } from "luxon";
 import type { Request, Response } from "service/models";
-import { DateTimeFormatter } from "@/lib/datetime";
+import { DateTimeFormatter } from "service/utils/datetime";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 
@@ -76,6 +76,12 @@ export const columns: ColumnDef<Request>[] = [
     accessorKey: "time",
     accessorFn: (row) =>
       DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter),
+    sortingFn: (rowA, rowB) => {
+      return DateTime.fromISO(rowA.original.timestamp) >
+        DateTime.fromISO(rowB.original.timestamp)
+        ? 1
+        : -1;
+    },
     header: ({ column }) => {
       return (
         <Button
