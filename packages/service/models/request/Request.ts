@@ -113,7 +113,6 @@ export namespace RequestSerialization {
       Reason: r.details.reason,
       Remarks: r.response?.remarks ?? "",
     }));
-    console.log(data);
     return Papa.unparse(data, {
       columns: COLUMNS,
     });
