@@ -7,13 +7,13 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
 import {
-  CourseForm,
-  type CourseFormSchema,
-} from "@/components/instructor/course-form";
+  CreateCourseForm,
+  type CreateCourseFormSchema,
+} from "@/components/instructor/create-course-form";
 import {
   ExportRequestsForm,
   type ExportRequestsFormSchema,
-} from "@/components/instructor/exprot-request-form";
+} from "@/components/instructor/export-requests-form";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
@@ -74,8 +74,11 @@ export default function InstructorsView() {
   // Export Requests (Dialog)
   const [isExportRequestsOpen, setExportRequestsOpen] = useState(false);
   const handleExportRequests = (form: ExportRequestsFormSchema) => {
+    const requestsToExport = (requests ?? []).filter(
+      (c) => Courses.id2str(c.class.course) === Courses.id2str(form.course),
+    );
     const csv = RequestSerialization.toCSV(
-      requests ?? [],
+      requestsToExport,
       window.location.origin,
     );
 
@@ -92,7 +95,7 @@ export default function InstructorsView() {
   const createCourseMutation = useMutation(
     trpc.course.create.mutationOptions(),
   );
-  const handleCreateCourse = (form: CourseFormSchema) => {
+  const handleCreateCourse = (form: CreateCourseFormSchema) => {
     createCourseMutation.mutate(
       {
         code: form.code,
@@ -210,7 +213,7 @@ export default function InstructorsView() {
             <DialogHeader>
               <DialogTitle>Create Course</DialogTitle>
             </DialogHeader>
-            <CourseForm onSubmit={handleCreateCourse} />
+            <CreateCourseForm onSubmit={handleCreateCourse} />
           </DialogContent>
         </Dialog>
       </section>
