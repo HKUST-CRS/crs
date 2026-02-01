@@ -77,10 +77,14 @@ export const columns: ColumnDef<Request>[] = [
     accessorFn: (row) =>
       DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter),
     sortingFn: (rowA, rowB) => {
-      return DateTime.fromISO(rowA.original.timestamp) >
-        DateTime.fromISO(rowB.original.timestamp)
-        ? 1
-        : -1;
+      const timeA = DateTime.fromISO(rowA.original.timestamp).toMillis();
+      const timeB = DateTime.fromISO(rowB.original.timestamp).toMillis();
+
+      if (timeA === timeB) {
+        return 0;
+      }
+
+      return timeA > timeB ? 1 : -1;
     },
     header: ({ column }) => {
       return (
