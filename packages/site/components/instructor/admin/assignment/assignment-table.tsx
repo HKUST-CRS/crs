@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import { DateTime, Duration } from "luxon";
 import { Course } from "service/models";
+import { DateTimeFormatter } from "service/utils/datetime";
 import z from "zod";
 import {
   Table,
@@ -17,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DateTimeFormatter } from "@/lib/datetime";
 
 export const AssignmentRow = z.object({
   code: Course.shape.assignments.keyType,
