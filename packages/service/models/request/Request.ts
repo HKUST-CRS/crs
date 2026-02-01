@@ -115,6 +115,7 @@ export namespace RequestSerialization {
     }));
     return Papa.unparse(data, {
       columns: COLUMNS,
+      escapeFormulae: true,
     });
   }
 }
