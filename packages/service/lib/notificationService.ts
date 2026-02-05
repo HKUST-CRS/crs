@@ -1,7 +1,7 @@
 import path from "node:path";
 import handlebars from "handlebars";
 import nodemailer from "nodemailer";
-import type { Request } from "../models";
+import { Classes, type Request } from "../models";
 import type { Repos } from "../repos";
 import { compareString } from "../utils/comparison";
 import { ResponseNotFoundError } from "./error";
@@ -41,18 +41,14 @@ export class NotificationService {
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-          auth: {
-            user: Bun.env.SMTP_USER,
-            pass: Bun.env.SMTP_PASS,
-          },
-        }),
+        auth: {
+          user: Bun.env.SMTP_USER,
+          pass: Bun.env.SMTP_PASS,
+        },
+      }),
       connectionTimeout: 5000,
     });
     this.baseUrl = Bun.env.BASE_URL;
-  }
-
-  private urlToRequest(rid: string): string {
-    return new URL(`/request/${rid}`, this.baseUrl).toString();
   }
 
   private urlToResponse(rid: string): string {
@@ -64,7 +60,7 @@ export class NotificationService {
    * @param request The request made.
    */
   async notifyNewRequest(request: Request) {
-    const subject = "New Request";
+    const subject = `New Request for ${Classes.format(request.class)}`;
 
     const student = await this.repos.user.requireUser(request.from);
     const studentName = student.name;
@@ -87,8 +83,7 @@ export class NotificationService {
     );
     const classObserverEmails = classObservers.map((i) => i.email);
 
-    const requestLink = this.urlToRequest(request.id);
-    const responseLink = this.urlToResponse(request.id);
+    const link = this.urlToResponse(request.id);
 
     await this.sendEmail(
       classInstructorEmails,
@@ -96,10 +91,10 @@ export class NotificationService {
       subject,
       "new_request.hbs",
       {
-        requestLink,
-        responseLink,
-        instructorNames: classInstructorNames,
         studentName,
+        instructorNames: classInstructorNames,
+        link,
+        className: Classes.format(request.class),
       },
     );
   }
@@ -112,7 +107,7 @@ export class NotificationService {
     if (!request.response) {
       throw new ResponseNotFoundError(request.id);
     }
-    const subject = "New Response";
+    const subject = `New Response for ${Classes.format(request.class)}`;
 
     const student = await this.repos.user.requireUser(request.from);
     const studentName = student.name;
@@ -132,7 +127,7 @@ export class NotificationService {
     );
     const classObserverEmails = classObservers.map((i) => i.email);
 
-    const responseLink = this.urlToResponse(request.id);
+    const link = this.urlToResponse(request.id);
 
     await this.sendEmail(
       [studentEmail],
@@ -140,11 +135,12 @@ export class NotificationService {
       subject,
       "new_response.hbs",
       {
-        responseLink,
-        decision: request.response.decision,
-        remarks: request.response.remarks,
         studentName,
         instructorName,
+        link,
+        className: Classes.format(request.class),
+        decision: request.response.decision,
+        remarks: request.response.remarks,
       },
     );
   }
