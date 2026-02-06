@@ -560,6 +560,89 @@ describe("UserService", () => {
         expect.arrayContaining([admin.email]),
       );
     });
+
+    test("user with enrollment section * should have full access to all sections", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "*",
+          },
+        ],
+        sudoer: false,
+      };
+      const studentL1: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      const studentL2: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L2",
+          },
+        ],
+        sudoer: false,
+      };
+
+      await insertData(conn, { users: [instructor, studentL1, studentL2] });
+
+      // Instructor in * should be able to see student in L1
+      const usersInL1 = await userService
+        .auth(instructor.email)
+        .getUsersInClass(
+          { course: { code: course.code, term: course.term }, section: "L1" },
+          "student",
+        );
+      expect(usersInL1).toHaveLength(1);
+      expect(usersInL1[0]?.email).toBe(studentL1.email);
+
+      // Instructor in * should be able to see student in L2
+      const usersInL2 = await userService
+        .auth(instructor.email)
+        .getUsersInClass(
+          { course: { code: course.code, term: course.term }, section: "L2" },
+          "student",
+        );
+      expect(usersInL2).toHaveLength(1);
+      expect(usersInL2[0]?.email).toBe(studentL2.email);
+
+      // Student in L1 should see instructor who is in *
+      const instructorsInL1 = await userService
+        .auth(studentL1.email)
+        .getUsersInClass(
+          { course: { code: course.code, term: course.term }, section: "L1" },
+          "instructor",
+        );
+      expect(instructorsInL1).toHaveLength(1);
+      expect(instructorsInL1[0]?.email).toBe(instructor.email);
+    });
   });
 
   describe("createEnrollment", () => {

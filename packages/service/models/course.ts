@@ -206,4 +206,11 @@ export namespace Classes {
   export function format(clazz: Class): string {
     return `${Courses.formatID(clazz.course)} ${clazz.section}`;
   }
+  export function compare(a: Class, b: Class): number {
+    const courseComp = Courses.compare(a.course, b.course);
+    if (courseComp !== 0) {
+      return courseComp;
+    }
+    return compareString(a.section, b.section);
+  }
 }

@@ -1088,6 +1088,97 @@ describe("RequestService", () => {
         .getRequestsAs(["student", "instructor"]);
       expect(requests.length).toEqual(2);
     });
+
+    test("should get all requests in course if instructor section is *", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor@ust.hk",
+        name: "instructor",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "*",
+          },
+        ],
+        sudoer: false,
+      };
+      const student1: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      const student2: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L2",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(testConn, { users: [instructor, student1, student2] });
+
+      const req1: RequestInit = {
+        type: "Swap Section",
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L1",
+        },
+        details: { reason: "1", proof: [] },
+        metadata: {
+          fromSection: "L1",
+          fromDate: "2025-11-25",
+          toSection: "L2",
+          toDate: "2025-11-26",
+        },
+      };
+
+      const req2: RequestInit = {
+        type: "Swap Section",
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L2",
+        },
+        details: { reason: "2", proof: [] },
+        metadata: {
+          fromSection: "L2",
+          fromDate: "2025-11-25",
+          toSection: "L1",
+          toDate: "2025-11-26",
+        },
+      };
+
+      await requestService.auth(student1.email).createRequest(req1);
+      await requestService.auth(student2.email).createRequest(req2);
+
+      const requests = await requestService
+        .auth(instructor.email)
+        .getRequestsAs(["instructor"]);
+
+      expect(requests.length).toEqual(2);
+    });
   });
 
   describe("createResponse", () => {

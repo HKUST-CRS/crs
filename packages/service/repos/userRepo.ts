@@ -1,7 +1,9 @@
 import type { Collections } from "../db";
 import {
   type Class,
+  Classes,
   type CourseId,
+  Courses,
   type Enrollment,
   Enrollments,
   type Role,
@@ -93,7 +95,7 @@ export class UserRepo {
           $elemMatch: {
             "course.code": clazz.course.code,
             "course.term": clazz.course.term,
-            section: clazz.section,
+            section: { $in: [clazz.section, "*"] },
             role,
           },
         },
@@ -102,6 +104,33 @@ export class UserRepo {
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
+  }
+
+  async getClasses(cid: CourseId): Promise<Class[]> {
+    const users = await this.collections.users
+      .find({
+        enrollment: {
+          $elemMatch: {
+            "course.code": cid.code,
+            "course.term": cid.term,
+          },
+        },
+      })
+      .toArray();
+    const classes = Object.fromEntries(
+      users.flatMap((user) =>
+        user.enrollment
+          .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+          .map((e) => [
+            Courses.id2str(cid),
+            {
+              course: cid,
+              section: e.section,
+            } satisfies Class,
+          ]),
+      ),
+    );
+    return Object.values(classes).sort(Classes.compare);
   }
 
   /**

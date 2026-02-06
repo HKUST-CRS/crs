@@ -34,6 +34,12 @@ export const routerUser = router({
     .query(({ input: { class: clazz, role }, ctx }) => {
       return services.user.auth(ctx.user.email).getUsersInClass(clazz, role);
     }),
+  getEnrollments: procedure
+    .input(z.array(Role))
+    .output(z.array(Enrollment))
+    .query(({ ctx, input }) => {
+      return services.user.auth(ctx.user.email).getEnrollments(input);
+    }),
   createEnrollment: procedure
     .input(
       z.object({
