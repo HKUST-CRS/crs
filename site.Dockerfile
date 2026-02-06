@@ -2,7 +2,7 @@
 # https://github.com/vercel/next.js/tree/canary/examples/with-docker
 
 # Use Bun's official image
-FROM oven/bun:1.3.7-alpine AS base
+FROM oven/bun:1.3.8-alpine AS base
 
 WORKDIR /app
 
