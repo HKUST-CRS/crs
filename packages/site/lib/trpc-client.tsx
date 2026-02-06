@@ -59,7 +59,7 @@ export function TRPCReactProvider(
       }
     }
     updateUrl();
-  });
+  }, []); // Run only once on mount
 
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
@@ -68,23 +68,26 @@ export function TRPCReactProvider(
   const queryClient = getQueryClient();
   const trpcClient = useMemo(
     () =>
-      createTRPCClient<AppRouter>({
-        links: [
-          httpBatchLink({
-            // transformer: superjson, <-- if you use a data transformer
-            url,
-            headers() {
-              return {
-                Authorization: authorization,
-              };
-            },
-          }),
-        ],
-      }),
+      url
+        ? createTRPCClient<AppRouter>({
+            links: [
+              httpBatchLink({
+                // transformer: superjson, <-- if you use a data transformer
+                url,
+                headers() {
+                  return {
+                    Authorization: authorization,
+                  };
+                },
+              }),
+            ],
+          })
+        : null,
     [url],
   );
 
-  if (session || path === "/login") {
+  // Only render the provider when we have both session/login path AND a valid tRPC client
+  if ((session || path === "/login") && trpcClient) {
     return (
       <QueryClientProvider client={queryClient}>
         <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
