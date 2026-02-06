@@ -51,22 +51,14 @@ export class RequestRepo {
         $or: classes.map((clazz) => {
           if (clazz.section === "*") {
             return {
-              class: {
-                course: {
-                  code: clazz.course.code,
-                  term: clazz.course.term,
-                },
-              },
+              "class.course.code": clazz.course.code,
+              "class.course.term": clazz.course.term,
             };
           }
           return {
-            class: {
-              course: {
-                code: clazz.course.code,
-                term: clazz.course.term,
-              },
-              section: clazz.section,
-            },
+            "class.course.code": clazz.course.code,
+            "class.course.term": clazz.course.term,
+            "class.section": clazz.section,
           };
         }),
       })
