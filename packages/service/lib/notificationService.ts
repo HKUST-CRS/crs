@@ -41,11 +41,11 @@ export class NotificationService {
       secure: Number(Bun.env.SMTP_PORT) === 465,
       ...(Bun.env.SMTP_USER &&
         Bun.env.SMTP_PASS && {
-        auth: {
-          user: Bun.env.SMTP_USER,
-          pass: Bun.env.SMTP_PASS,
-        },
-      }),
+          auth: {
+            user: Bun.env.SMTP_USER,
+            pass: Bun.env.SMTP_PASS,
+          },
+        }),
       connectionTimeout: 5000,
     });
     this.baseUrl = Bun.env.BASE_URL;
