@@ -11,7 +11,7 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
+import { assertClassRole, assertCourseRole, assertRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -67,10 +67,9 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Suggests a name for a user. The name is only updated if the current name does not exist.
    *
-   * The current user must have the "instructor" or "admin" role in any course that the target user
-   * has an enrollment in. This is to prevent students from suggesting names for other students in
-   * courses that they are not enrolled in.
+   * The current user must have the "instructor" or "admin" role in any course.
    *
+   * @param uid The user ID to suggest a name for.
    * @param name The name to suggest.
    */
   async suggestUserName(
@@ -79,18 +78,7 @@ export class UserService<TUser extends UserId | null = null> {
     name: string,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
-    const targetUser = await this.repos.user.requireUser(uid);
-    const targetEnrollments = targetUser.enrollment;
-
-    for (const enrollment of targetEnrollments) {
-      assertCourseRole(
-        user,
-        enrollment.course,
-        ["instructor", "admin"],
-        `suggesting name for user ${uid} in course ${Courses.id2str(enrollment.course)}`,
-      );
-    }
-
+    assertRole(user, ["instructor", "admin"], "suggesting a user name");
     await this.repos.user.suggestUserName(uid, name);
   }
 

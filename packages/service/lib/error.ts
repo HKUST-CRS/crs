@@ -8,6 +8,15 @@ import {
   type UserId,
 } from "../models";
 
+export class PermissionError extends Error {
+  constructor(uid: UserId, roles: Role[], operation: string) {
+    const roleStr =
+      roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
+    super(`User ${uid} does not have ${roleStr} for ${operation}.`);
+    this.name = "PermissionError";
+  }
+}
+
 export class CoursePermissionError extends Error {
   constructor(
     userId: UserId,
