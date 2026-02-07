@@ -1,17 +1,33 @@
 <!DOCTYPE html>
 <html>
-    <body>
-        <p>Dear {{studentName}},</p>
-        <p>You have received a new response for your request in the CSE Request System.</p>
 
-        <p>You may check the response at <a href="{{link}}">{{responseLink}}</a>.</p>
-        
-        <p>Decision: <b>{{decision}}</b></p>
+<body>
+    <p>
+        Dear {{studentName}},
+    </p>
+    <p>
+        You have received a new response to your request for the course {{className}} in the CSE Request System.
+    </p>
+    <p>
+        Decision: <b>{{decision}}</b>
+    </p>
+    <p>
+        Remarks from the instructor:
+    </p>
+    <p>
+        {{remarks}}
+    </p>
+    <p>
+        You may also view the request and the response at
+        <a href="{{link}}">{{link}}</a>
+    </p>
+    <p>
+        <i>This is a system generated email. Please do not reply.</i>
+    </p>
+    <p>
+        Best regards,<br />
+        CRS, on behalf of {{instructorName}}
+    </p>
+</body>
 
-        <p>Remarks from the instructor:</p>
-        <p>{{remarks}}</p>
-        
-        <p><i>This is a system generated email. Please do not reply.</i></p>
-        <p>Best regards,<br />CRS, on behalf of {{instructorName}}</p>
-    </body>
 </html>
