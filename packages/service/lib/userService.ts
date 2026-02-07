@@ -96,6 +96,13 @@ export class UserService<TUser extends UserId | null = null> {
     } else {
       // If no course context, check that the user has access to at least one course the target is enrolled in
       const targetEnrollments = targetUser.enrollment;
+
+      if (targetEnrollments.length === 0) {
+        throw new Error(
+          `Cannot suggest name for user ${uid}: user has no enrollments and no course context was provided`,
+        );
+      }
+
       let hasAccess = false;
       for (const enrollment of targetEnrollments) {
         try {
@@ -111,7 +118,7 @@ export class UserService<TUser extends UserId | null = null> {
           // Continue checking other enrollments
         }
       }
-      if (!hasAccess && targetEnrollments.length > 0) {
+      if (!hasAccess) {
         throw new Error(
           `User ${user.email} does not have instructor or admin access to any course that user ${uid} is enrolled in`,
         );
