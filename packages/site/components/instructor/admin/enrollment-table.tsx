@@ -10,12 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useState,
-} from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Courses, Enrollment, User } from "service/models";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -179,7 +174,7 @@ export const EnrollmentTable = forwardRef<
         setRowSelection({});
       },
     }),
-    [setRowSelection],
+    [],
   );
 
   return (
