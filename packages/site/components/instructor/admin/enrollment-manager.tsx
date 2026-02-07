@@ -66,7 +66,11 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     await Promise.all(
       data.map(async ({ uid, name, enrollment }) => {
         await createEnrollmentMutation.mutateAsync({ uid, enrollment });
-        await suggestUserNameMutation.mutateAsync({ uid, name });
+        await suggestUserNameMutation.mutateAsync({
+          uid,
+          name,
+          courseId: cid,
+        });
       }),
     );
     toast.success(`Successfully created ${data.length} enrollment(s).`);

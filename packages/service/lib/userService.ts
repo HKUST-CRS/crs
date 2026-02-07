@@ -67,28 +67,55 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Suggests a name for a user. The name is only updated if the current name does not exist.
    *
-   * The current user must have the "instructor" or "admin" role in any course that the target user
-   * has an enrollment in. This is to prevent students from suggesting names for other students in
-   * courses that they are not enrolled in.
+   * If a course is provided, the current user must have the "instructor" or "admin" role in that
+   * course. If no course is provided, the current user must have the "instructor" or "admin" role
+   * in at least one course that the target user has an enrollment in. This is to prevent students
+   * from suggesting names for other students in courses that they are not enrolled in.
    *
+   * @param uid The user ID to suggest a name for.
    * @param name The name to suggest.
+   * @param courseId Optional course context. If provided, authorization is checked only for this course.
    */
   async suggestUserName(
     this: UserService<UserId>,
     uid: UserId,
     name: string,
+    courseId?: CourseId,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     const targetUser = await this.repos.user.requireUser(uid);
-    const targetEnrollments = targetUser.enrollment;
 
-    for (const enrollment of targetEnrollments) {
+    if (courseId) {
+      // If course context is provided, only check authorization for that specific course
       assertCourseRole(
         user,
-        enrollment.course,
+        courseId,
         ["instructor", "admin"],
-        `suggesting name for user ${uid} in course ${Courses.id2str(enrollment.course)}`,
+        `suggesting name for user ${uid} in course ${Courses.id2str(courseId)}`,
       );
+    } else {
+      // If no course context, check that the user has access to at least one course the target is enrolled in
+      const targetEnrollments = targetUser.enrollment;
+      let hasAccess = false;
+      for (const enrollment of targetEnrollments) {
+        try {
+          assertCourseRole(
+            user,
+            enrollment.course,
+            ["instructor", "admin"],
+            `suggesting name for user ${uid}`,
+          );
+          hasAccess = true;
+          break;
+        } catch {
+          // Continue checking other enrollments
+        }
+      }
+      if (!hasAccess && targetEnrollments.length > 0) {
+        throw new Error(
+          `User ${user.email} does not have instructor or admin access to any course that user ${uid} is enrolled in`,
+        );
+      }
     }
 
     await this.repos.user.suggestUserName(uid, name);
