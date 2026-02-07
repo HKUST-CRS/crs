@@ -122,7 +122,7 @@ export function AddEnrollmentForm({
             />
             <FieldDescription>
               The roaster of the users to be enrolled. One email per line.
-              Optionaly, the name of the user can be included after the email,
+              Optionally, the name of the user can be included after the email,
               separated by a comma.
             </FieldDescription>
             <div className="max-h-32 overflow-y-auto">
