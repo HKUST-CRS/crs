@@ -51,7 +51,7 @@ export namespace RoasterParser {
    *
    * This function returns only the email and name of each user.
    *
-   * @param data The sheet data as a Blob.
+   * @param data The sheet data as an ArrayBuffer.
    *
    * @throws RoasterParserError if the sheet is invalid (e.g., no sheets, multiple sheets).
    * @throws z.ZodError if the parsed data does not conform to the expected format.
