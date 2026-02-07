@@ -13,7 +13,7 @@ import {
 import { UserNotFoundError } from "./error";
 
 export class UserRepo {
-  constructor(protected collections: Collections) {}
+  constructor(protected collections: Collections) { }
 
   async getUser(userId: UserId): Promise<User | null> {
     const user = await this.collections.users.findOne({ email: userId });
@@ -119,6 +119,11 @@ export class UserRepo {
     return users;
   }
 
+  /**
+   * Get all classes for a course. 
+   * 
+   * Special sections like * and parenthetical sections (e.g., "(...)") are excluded.
+   */
   async getClasses(cid: CourseId): Promise<Class[]> {
     const users = await this.collections.users
       .find({
@@ -134,6 +139,9 @@ export class UserRepo {
       users.flatMap((user) =>
         user.enrollment
           .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+          .filter(
+            (e) => e.section !== "*" && !e.section.match(/^(.*)$/),
+          )
           .map((e) => [
             Classes.id2str(e),
             {
