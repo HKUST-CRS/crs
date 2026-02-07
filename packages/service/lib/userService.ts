@@ -11,7 +11,7 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
+import { assertClassRole, assertCourseRole, assertRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -71,27 +71,14 @@ export class UserService<TUser extends UserId | null = null> {
    *
    * @param uid The user ID to suggest a name for.
    * @param name The name to suggest.
-   * @param courseId Optional course context (unused, kept for API compatibility).
    */
   async suggestUserName(
     this: UserService<UserId>,
     uid: UserId,
     name: string,
-    courseId?: CourseId,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
-
-    // Check that the current user has instructor or admin role in any course
-    const hasInstructorOrAdminRole = user.enrollment.some((e) =>
-      ["instructor", "admin"].includes(e.role),
-    );
-
-    if (!hasInstructorOrAdminRole) {
-      throw new Error(
-        "Insufficient permissions to suggest name for this user",
-      );
-    }
-
+    assertRole(user, ["instructor", "admin"], "suggesting a user name");
     await this.repos.user.suggestUserName(uid, name);
   }
 

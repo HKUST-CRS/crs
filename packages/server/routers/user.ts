@@ -39,14 +39,13 @@ export const routerUser = router({
       z.object({
         uid: UserId,
         name: z.string(),
-        courseId: CourseId.optional(),
       }),
     )
     .output(z.void())
     .mutation(({ ctx, input }) => {
       return services.user
         .auth(ctx.user.email)
-        .suggestUserName(input.uid, input.name, input.courseId);
+        .suggestUserName(input.uid, input.name);
     }),
   getEnrollments: procedure
     .input(z.array(Role))

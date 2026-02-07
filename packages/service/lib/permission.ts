@@ -2,8 +2,24 @@ import type { Class, Course, CourseId, Role, User } from "../models";
 import {
   ClassPermissionError,
   CoursePermissionError,
+  PermissionError,
   SudoerPermissionError,
 } from "./error";
+
+export function assertRole(
+  user: User,
+  roles: Role[],
+  op?: string,
+) {
+  const hasRole = user.enrollment.some((e) => roles.includes(e.role));
+  if (!hasRole) {
+    throw new PermissionError(
+      user.email,
+      roles,
+      op || "accessing something",
+    );
+  }  
+}
 
 /**
  * Asserts that the user has one of the specified roles in the given course.
