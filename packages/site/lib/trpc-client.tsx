@@ -50,8 +50,11 @@ export function TRPCReactProvider(
   const [urlError, setUrlError] = useState<Error | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
+  const MAX_RETRY_ATTEMPTS = 3;
+
   useEffect(() => {
     let isCancelled = false;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     async function updateUrl() {
       try {
@@ -67,12 +70,12 @@ export function TRPCReactProvider(
         if (!isCancelled) {
           setUrlError(e instanceof Error ? e : new Error(String(e)));
           // Retry with exponential backoff (max 3 retries)
-          if (retryCount < 3) {
-            const delay = Math.min(1000 * 2 ** retryCount, 8000);
+          if (retryCount < MAX_RETRY_ATTEMPTS) {
+            const delay = Math.min(1000 * 2 ** retryCount, 4000);
             console.log(
-              `Retrying in ${delay}ms... (attempt ${retryCount + 1}/3)`,
+              `Retrying in ${delay}ms... (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`,
             );
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
               if (!isCancelled) {
                 setRetryCount((count) => count + 1);
               }
@@ -85,6 +88,9 @@ export function TRPCReactProvider(
 
     return () => {
       isCancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, [retryCount]); // Re-run when retryCount changes
 
@@ -127,7 +133,11 @@ export function TRPCReactProvider(
   }
 
   // Show error state if URL fetch failed after all retries
-  if ((session || path === "/login") && urlError && retryCount >= 3) {
+  if (
+    (session || path === "/login") &&
+    urlError &&
+    retryCount >= MAX_RETRY_ATTEMPTS
+  ) {
     return (
       <div style={{ padding: "2rem", textAlign: "center" }}>
         <h2>Failed to connect to server</h2>
