@@ -63,11 +63,12 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
   const createEnrollments = async (
     data: { uid: string; name: string; enrollment: Enrollment }[],
   ) => {
-    const promises = data.flatMap(({ uid, name, enrollment }) => [
-      createEnrollmentMutation.mutateAsync({ uid, enrollment }),
-      suggestUserNameMutation.mutateAsync({ uid, name }),
-    ]);
-    await Promise.all(promises);
+    await Promise.all(
+      data.map(async ({ uid, name, enrollment }) => {
+        await createEnrollmentMutation.mutateAsync({ uid, enrollment });
+        await suggestUserNameMutation.mutateAsync({ uid, name });
+      }),
+    );
     toast.success(`Successfully created ${data.length} enrollment(s).`);
     refetch();
   };
