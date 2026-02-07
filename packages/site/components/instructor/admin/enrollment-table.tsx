@@ -10,7 +10,12 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { Courses, Enrollment, User } from "service/models";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -130,19 +135,20 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
 
 interface EnrollmentTableProps {
   enrollments: EnrollmentRow[];
-  rowSelection: Record<string, boolean>;
-  setRowSelection: Dispatch<SetStateAction<Record<string, boolean>>>;
   updateSelection: (es: EnrollmentRow[]) => void;
 }
 
-export function EnrollmentTable({
-  enrollments,
-  rowSelection,
-  setRowSelection,
-  updateSelection,
-}: EnrollmentTableProps) {
+export interface EnrollmentTableHandle {
+  clearTable: () => void;
+}
+
+export const EnrollmentTable = forwardRef<
+  EnrollmentTableHandle,
+  EnrollmentTableProps
+>(function EnrollmentTable({ enrollments, updateSelection }, ref) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string[]>([]);
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data: enrollments,
@@ -165,6 +171,16 @@ export function EnrollmentTable({
   useEffect(() => {
     updateSelection(table.getSelectedRowModel().rows.map((r) => r.original));
   }, [rowSelection]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      clearTable: () => {
+        setRowSelection({});
+      },
+    }),
+    [setRowSelection],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -228,4 +244,4 @@ export function EnrollmentTable({
       </div>
     </div>
   );
-}
+});
