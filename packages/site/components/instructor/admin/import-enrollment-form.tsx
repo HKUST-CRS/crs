@@ -129,7 +129,9 @@ export function ImportEnrollmentForm({
               onChange={async (e) => {
                 if (e.target.files) {
                   if (e.target.files.length !== 1) {
-                    throw new Error("Please upload exactly one file.");
+                    showError("Please upload exactly one file.");
+                    e.target.value = "";
+                    return;
                   }
                   field.onChange(e.target.files[0]);
                 }
