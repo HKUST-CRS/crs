@@ -135,7 +135,7 @@ export class UserRepo {
         user.enrollment
           .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
           .map((e) => [
-            Courses.id2str(cid),
+            Classes.id2str(e),
             {
               course: cid,
               section: e.section,
