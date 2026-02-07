@@ -99,9 +99,7 @@ export class UserService<TUser extends UserId | null = null> {
       const targetEnrollments = targetUser.enrollment;
 
       if (targetEnrollments.length === 0) {
-        throw new Error(
-          `Cannot suggest name for user ${uid}: user has no enrollments and no course context was provided`,
-        );
+        throw new Error("Cannot suggest name: user has no course enrollments");
       }
 
       let hasAccess = false;
@@ -124,7 +122,7 @@ export class UserService<TUser extends UserId | null = null> {
       }
       if (!hasAccess) {
         throw new Error(
-          `User ${user.email} does not have instructor or admin access to any course that user ${uid} is enrolled in`,
+          "Insufficient permissions to suggest name for this user",
         );
       }
     }
