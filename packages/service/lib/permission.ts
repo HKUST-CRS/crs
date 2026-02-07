@@ -6,19 +6,11 @@ import {
   SudoerPermissionError,
 } from "./error";
 
-export function assertRole(
-  user: User,
-  roles: Role[],
-  op?: string,
-) {
+export function assertRole(user: User, roles: Role[], op?: string) {
   const hasRole = user.enrollment.some((e) => roles.includes(e.role));
   if (!hasRole) {
-    throw new PermissionError(
-      user.email,
-      roles,
-      op || "accessing something",
-    );
-  }  
+    throw new PermissionError(user.email, roles, op || "accessing something");
+  }
 }
 
 /**

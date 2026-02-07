@@ -11,7 +11,12 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole, assertRole, assertSudoer } from "./permission";
+import {
+  assertClassRole,
+  assertCourseRole,
+  assertRole,
+  assertSudoer,
+} from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
