@@ -130,16 +130,18 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
 
 interface EnrollmentTableProps {
   enrollments: EnrollmentRow[];
+  selection: EnrollmentRow[];
   updateSelection: (es: EnrollmentRow[]) => void;
 }
 
 export function EnrollmentTable({
   enrollments,
+  selection,
   updateSelection,
 }: EnrollmentTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string[]>([]);
-  const [rowSelection, setRowSelection] = useState({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data: enrollments,
@@ -162,6 +164,12 @@ export function EnrollmentTable({
   useEffect(() => {
     updateSelection(table.getSelectedRowModel().rows.map((r) => r.original));
   }, [rowSelection]);
+
+  useEffect(() => {
+    if (selection.length === 0 && Object.keys(rowSelection).length > 0) {
+      setRowSelection({});
+    }
+  }, [selection, rowSelection]);
 
   return (
     <div className="flex flex-col gap-4">

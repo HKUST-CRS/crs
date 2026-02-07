@@ -137,6 +137,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
 
       <EnrollmentTable
         enrollments={enrollments}
+        selection={selection}
         updateSelection={setSelection}
       />
 
