@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RoasterParser } from "@/lib/roaster-parser";
-import { showError } from "@/lib/showError";
+import { showError, showErrorMessage } from "@/lib/showError";
 
 export const ImportEnrollmentFormSchema = z.object({
   roaster: z.file().min(1, "Roaster file is required."),
@@ -129,7 +129,7 @@ export function ImportEnrollmentForm({
               onChange={async (e) => {
                 if (e.target.files) {
                   if (e.target.files.length !== 1) {
-                    showError("Please upload exactly one file.");
+                    showErrorMessage("Please upload exactly one file.");
                     e.target.value = "";
                     return;
                   }
