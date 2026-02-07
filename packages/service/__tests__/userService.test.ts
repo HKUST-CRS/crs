@@ -13,6 +13,7 @@ import { UserService } from "../lib";
 import {
   ClassPermissionError,
   CoursePermissionError,
+  PermissionError,
   SudoerPermissionError,
 } from "../lib/error";
 import type { Course, User } from "../models";
@@ -233,7 +234,7 @@ describe("UserService", () => {
           .suggestUserName(target.email, "Target Name");
         expect.unreachable("should have thrown an error");
       } catch (error) {
-        expect(error).toBeInstanceOf(CoursePermissionError);
+        expect(error).toBeInstanceOf(PermissionError);
       }
     });
   });
