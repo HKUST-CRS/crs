@@ -68,26 +68,25 @@ export function TRPCReactProvider(
   const queryClient = getQueryClient();
   const trpcClient = useMemo(
     () =>
-      url
-        ? createTRPCClient<AppRouter>({
-            links: [
-              httpBatchLink({
-                // transformer: superjson, <-- if you use a data transformer
-                url,
-                headers() {
-                  return {
-                    Authorization: authorization,
-                  };
-                },
-              }),
-            ],
-          })
-        : null,
+      createTRPCClient<AppRouter>({
+        links: [
+          httpBatchLink({
+            // transformer: superjson, <-- if you use a data transformer
+            url,
+            headers() {
+              return {
+                Authorization: authorization,
+              };
+            },
+          }),
+        ],
+      }),
     [url],
   );
 
-  // Only render the provider when we have both session/login path AND a valid tRPC client
-  if ((session || path === "/login") && trpcClient) {
+  // Don't render children until we have a valid URL and session/login path
+  // This prevents components from trying to use tRPC client before it's properly initialized
+  if ((session || path === "/login") && url) {
     return (
       <QueryClientProvider client={queryClient}>
         <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
