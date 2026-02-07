@@ -55,7 +55,7 @@
   - `repos/` contains the repository layer for data access.
   - `services/`: contains the service layer for business logic.
   - `db/` contains database connection and setup logic.
-  - `__tests__/` contains the tests for the service package.
+  - `tests/` contains the tests for the service package.
 
 - **`packages/site`** (The View):
   - `app/`: Next.js App Router structure.
