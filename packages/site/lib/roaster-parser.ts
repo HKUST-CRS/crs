@@ -59,7 +59,7 @@ export namespace RoasterParser {
    * @return A list of users' metadata parsed from the sheet.
    */
   export function parseSheet(data: ArrayBuffer): Roaster {
-    const workbook = XLSX.read(data);
+    const workbook = XLSX.read(data, { type: "array" });
     if (workbook.SheetNames.length === 0) {
       throw new RoasterParserError("There is no sheet in the file.");
     }
