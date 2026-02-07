@@ -69,8 +69,6 @@ export namespace RoasterParser {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const json = XLSX.utils.sheet_to_json(sheet);
 
-    console.log("Parsed roaster JSON:", json);
-
     return Roaster.parse(
       json
         // biome-ignore lint/suspicious/noExplicitAny: zod verifies the type
