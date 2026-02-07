@@ -105,7 +105,7 @@ export function ImportEnrollmentForm({
   }, [roaster, error]);
 
   const handleSubmit = (data: ImportEnrollmentFormSchema) => {
-    if (roaster) {
+    if (roaster && roaster.length > 0) {
       onSubmit({
         roaster,
         section: data.section,
