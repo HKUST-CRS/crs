@@ -130,13 +130,13 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
 
 interface EnrollmentTableProps {
   enrollments: EnrollmentRow[];
-  selection: EnrollmentRow[];
+  clearSelectionToken: number;
   updateSelection: (es: EnrollmentRow[]) => void;
 }
 
 export function EnrollmentTable({
   enrollments,
-  selection,
+  clearSelectionToken,
   updateSelection,
 }: EnrollmentTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -160,16 +160,16 @@ export function EnrollmentTable({
     },
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection is the internal state for selection
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection drives selection updates
   useEffect(() => {
     updateSelection(table.getSelectedRowModel().rows.map((r) => r.original));
   }, [rowSelection]);
 
   useEffect(() => {
-    if (selection.length === 0 && Object.keys(rowSelection).length > 0) {
+    if (clearSelectionToken > 0) {
       setRowSelection({});
     }
-  }, [selection, rowSelection]);
+  }, [clearSelectionToken]);
 
   return (
     <div className="flex flex-col gap-4">

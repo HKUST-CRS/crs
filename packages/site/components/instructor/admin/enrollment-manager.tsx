@@ -49,6 +49,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
       return compareString(a.user.email, b.user.email);
     });
   const [selection, setSelection] = useState<typeof enrollments>([]);
+  const [clearSelectionToken, setClearSelectionToken] = useState(0);
 
   const createEnrollmentMutation = useMutation(
     trpc.user.createEnrollment.mutationOptions(),
@@ -110,6 +111,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     }));
     deleteEnrollments(es).then(() => {
       setSelection([]);
+      setClearSelectionToken((token) => token + 1);
     });
   };
 
@@ -137,7 +139,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
 
       <EnrollmentTable
         enrollments={enrollments}
-        selection={selection}
+        clearSelectionToken={clearSelectionToken}
         updateSelection={setSelection}
       />
 
