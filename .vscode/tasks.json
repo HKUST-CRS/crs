@@ -7,25 +7,37 @@
       "label": "Lint (Fix)",
       "type": "shell",
       "command": "bun run lint:fix",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "clear": true
+      }
     },
     {
       "label": "Lint (Fix, Unsafe)",
       "type": "shell",
       "command": "bun run lint:fix --unsafe",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "clear": true
+      }
     },
     {
       "label": "Dev",
       "type": "shell",
       "command": "bun run dev",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "clear": true
+      }
     },
     {
       "label": "Typecheck",
       "type": "shell",
       "command": "bun run typecheck",
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "clear": true
+      }
     },
     {
       "label": "Service: Test",
@@ -34,7 +46,10 @@
       "options": {
         "cwd": "${workspaceFolder}/packages/service"
       },
-      "problemMatcher": []
+      "problemMatcher": [],
+      "presentation": {
+        "clear": true
+      }
     }
   ]
 }
