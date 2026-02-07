@@ -11,6 +11,7 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
+import { CoursePermissionError } from "./error";
 import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
@@ -114,8 +115,11 @@ export class UserService<TUser extends UserId | null = null> {
           );
           hasAccess = true;
           break;
-        } catch {
-          // Continue checking other enrollments
+        } catch (error) {
+          // Only catch CoursePermissionError, continue checking other enrollments
+          if (!(error instanceof CoursePermissionError)) {
+            throw error;
+          }
         }
       }
       if (!hasAccess) {
