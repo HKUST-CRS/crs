@@ -11,7 +11,6 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { CoursePermissionError } from "./error";
 import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
@@ -68,14 +67,11 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Suggests a name for a user. The name is only updated if the current name does not exist.
    *
-   * If a course is provided, the current user must have the "instructor" or "admin" role in that
-   * course. If no course is provided, the current user must have the "instructor" or "admin" role
-   * in at least one course that the target user has an enrollment in. This is to prevent students
-   * from suggesting names for other students in courses that they are not enrolled in.
+   * The current user must have the "instructor" or "admin" role in any course.
    *
    * @param uid The user ID to suggest a name for.
    * @param name The name to suggest.
-   * @param courseId Optional course context. If provided, authorization is checked only for this course.
+   * @param courseId Optional course context (unused, kept for API compatibility).
    */
   async suggestUserName(
     this: UserService<UserId>,
@@ -84,49 +80,16 @@ export class UserService<TUser extends UserId | null = null> {
     courseId?: CourseId,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
-    const targetUser = await this.repos.user.requireUser(uid);
 
-    if (courseId) {
-      // If course context is provided, only check authorization for that specific course
-      assertCourseRole(
-        user,
-        courseId,
-        ["instructor", "admin"],
-        `suggesting name for user ${uid} in course ${Courses.id2str(courseId)}`,
+    // Check that the current user has instructor or admin role in any course
+    const hasInstructorOrAdminRole = user.enrollment.some((e) =>
+      ["instructor", "admin"].includes(e.role),
+    );
+
+    if (!hasInstructorOrAdminRole) {
+      throw new Error(
+        "Insufficient permissions to suggest name for this user",
       );
-    } else {
-      // If no course context, check that the user has access to at least one course the target is enrolled in
-      const targetEnrollments = targetUser.enrollment;
-
-      if (targetEnrollments.length === 0) {
-        throw new Error(
-          "Insufficient permissions to suggest name for this user",
-        );
-      }
-
-      let hasAccess = false;
-      for (const enrollment of targetEnrollments) {
-        try {
-          assertCourseRole(
-            user,
-            enrollment.course,
-            ["instructor", "admin"],
-            `suggesting name for user ${uid}`,
-          );
-          hasAccess = true;
-          break;
-        } catch (error) {
-          // Only catch CoursePermissionError, continue checking other enrollments
-          if (!(error instanceof CoursePermissionError)) {
-            throw error;
-          }
-        }
-      }
-      if (!hasAccess) {
-        throw new Error(
-          "Insufficient permissions to suggest name for this user",
-        );
-      }
     }
 
     await this.repos.user.suggestUserName(uid, name);
