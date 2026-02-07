@@ -65,6 +65,36 @@ export class UserService<TUser extends UserId | null = null> {
   }
 
   /**
+   * Suggests a name for a user. The name is only updated if the current name does not exist.
+   *
+   * The current user must have the "instructor" or "admin" role in any course that the target user
+   * has an enrollment in. This is to prevent students from suggesting names for other students in
+   * courses that they are not enrolled in.
+   *
+   * @param name The name to suggest.
+   */
+  async suggestUserName(
+    this: UserService<UserId>,
+    uid: UserId,
+    name: string,
+  ): Promise<void> {
+    const user = await this.repos.user.requireUser(this.user);
+    const targetUser = await this.repos.user.requireUser(uid);
+    const targetEnrollments = targetUser.enrollment;
+
+    for (const enrollment of targetEnrollments) {
+      assertCourseRole(
+        user,
+        enrollment.course,
+        ["instructor", "admin"],
+        `suggesting name for user ${uid} in course ${Courses.id2str(enrollment.course)}`,
+      );
+    }
+
+    await this.repos.user.suggestUserName(uid, name);
+  }
+
+  /**
    * Returns the current authenticated user.
    */
   async getCurrentUser(this: UserService<UserId>): Promise<User> {

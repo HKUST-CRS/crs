@@ -24,6 +24,10 @@ import {
   type AddEnrollmentSubmissionSchema,
 } from "./add-enrollment-form";
 import { EnrollmentTable } from "./enrollment-table";
+import {
+  ImportEnrollmentForm,
+  type ImportEnrollmentSubmissionSchema,
+} from "./import-enrollment-form";
 
 export function EnrollmentManager({ cid }: { cid: CourseId }) {
   const trpc = useTRPC();
@@ -49,20 +53,25 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
   const createEnrollmentMutation = useMutation(
     trpc.user.createEnrollment.mutationOptions(),
   );
+  const deleteEnrollmentMutation = useMutation(
+    trpc.user.deleteEnrollment.mutationOptions(),
+  );
+  const suggestUserNameMutation = useMutation(
+    trpc.user.suggestName.mutationOptions(),
+  );
+
   const createEnrollments = async (
-    data: { uid: string; enrollment: Enrollment }[],
+    data: { uid: string; name: string; enrollment: Enrollment }[],
   ) => {
-    const promises = data.map(({ uid, enrollment }) =>
+    const promises = data.flatMap(({ uid, name, enrollment }) => [
       createEnrollmentMutation.mutateAsync({ uid, enrollment }),
-    );
+      suggestUserNameMutation.mutateAsync({ uid, name }),
+    ]);
     await Promise.all(promises);
     toast.success(`Successfully created ${data.length} enrollment(s).`);
     refetch();
   };
 
-  const deleteEnrollmentMutation = useMutation(
-    trpc.user.deleteEnrollment.mutationOptions(),
-  );
   const deleteEnrollments = async (
     data: { uid: string; enrollment: Enrollment }[],
   ) => {
@@ -75,18 +84,22 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
   };
 
   const [isAddEnrollmentsOpen, setAddEnrollmentsOpen] = useState(false);
+  const [isImportEnrollmentsOpen, setImportEnrollmentsOpen] = useState(false);
 
-  const handleAdd = (data: AddEnrollmentSubmissionSchema) => {
-    const mutationData = data.emails.map((email) => {
+  const handleCreate = (
+    data: AddEnrollmentSubmissionSchema | ImportEnrollmentSubmissionSchema,
+  ) => {
+    const mutationData = data.roaster.map((row) => {
       const enrollment = {
         course: cid,
         section: data.section,
         role: data.role,
       } satisfies Enrollment;
-      return { uid: email, enrollment };
+      return { uid: row.email, name: row.name, enrollment };
     });
     createEnrollments(mutationData).then(() => {
       setAddEnrollmentsOpen(false);
+      setImportEnrollmentsOpen(false);
     });
   };
   const handleDelete = () => {
@@ -94,7 +107,9 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
       uid: s.user.email,
       enrollment: s.enrollment,
     }));
-    deleteEnrollments(es);
+    deleteEnrollments(es).then(() => {
+      setSelection([]);
+    });
   };
 
   return (
@@ -111,6 +126,9 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
             ? "Deleting..."
             : `Delete ${selection.length} Enrollment(s)`}
         </Button>
+        <Button onClick={() => setImportEnrollmentsOpen(true)}>
+          Import Enrollment(s)
+        </Button>
         <Button onClick={() => setAddEnrollmentsOpen(true)}>
           Add Enrollment(s)
         </Button>
@@ -123,7 +141,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
 
       <FieldDescription>
         You can import enrollments in bulk. You can delete enrollments by
-        filtering and selecting them in the table. Users who haven't yet logged
+        filtering and selecting them in the table. Users who haven't yet signed
         in to CRS for the first time will have their name blank.
       </FieldDescription>
 
@@ -132,7 +150,19 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
           <DialogHeader>
             <DialogTitle>Add Enrollments</DialogTitle>
           </DialogHeader>
-          <AddEnrollmentForm onSubmit={handleAdd} />
+          <AddEnrollmentForm onSubmit={handleCreate} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isImportEnrollmentsOpen}
+        onOpenChange={setImportEnrollmentsOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Enrollments</DialogTitle>
+          </DialogHeader>
+          <ImportEnrollmentForm onSubmit={handleCreate} />
         </DialogContent>
       </Dialog>
     </div>

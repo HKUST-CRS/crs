@@ -50,9 +50,22 @@ export class UserRepo {
     );
   }
 
+  /**
+   * Update the user's name.
+   */
   async updateUserName(userId: UserId, name: string): Promise<void> {
     await this.collections.users.updateOne(
       { email: userId },
+      { $set: { name } },
+    );
+  }
+
+  /**
+   * Update the user's name if there is no current name.
+   */
+  async suggestUserName(uid: UserId, name: string): Promise<void> {
+    await this.collections.users.updateOne(
+      { email: uid, name: "" },
       { $set: { name } },
     );
   }

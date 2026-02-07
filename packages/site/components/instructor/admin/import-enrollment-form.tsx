@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Role, Roles } from "service/models";
 import { z } from "zod";
@@ -19,25 +19,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { RoasterParser } from "@/lib/roaster-parser";
+import { showError } from "@/lib/showError";
 
-export const AddEnrollmentFormSchema = z.object({
-  roaster: z.string().min(1, "Roaster is required."),
+export const ImportEnrollmentFormSchema = z.object({
+  roaster: z.file().min(1, "Roaster file is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
 });
 
-export type AddEnrollmentFormSchema = z.infer<typeof AddEnrollmentFormSchema>;
+export type ImportEnrollmentFormSchema = z.infer<
+  typeof ImportEnrollmentFormSchema
+>;
 
-export const AddEnrollmentSubmissionSchema = z.object({
+export const ImportEnrollmentSubmissionSchema = z.object({
   roaster: RoasterParser.Roaster,
   section: z.string(),
   role: Role,
 });
 
-export type AddEnrollmentSubmissionSchema = z.infer<
-  typeof AddEnrollmentSubmissionSchema
+export type ImportEnrollmentSubmissionSchema = z.infer<
+  typeof ImportEnrollmentSubmissionSchema
 >;
 
 function toMessage(roaster: RoasterParser.Roaster) {
@@ -53,30 +55,47 @@ function toErrorMessage(error: z.ZodError) {
   return z.prettifyError(error);
 }
 
-export function AddEnrollmentForm({
+export function ImportEnrollmentForm({
   onSubmit,
 }: {
-  onSubmit: (v: AddEnrollmentSubmissionSchema) => void;
+  onSubmit: (v: ImportEnrollmentSubmissionSchema) => void;
 }) {
-  const form = useForm<AddEnrollmentFormSchema>({
-    resolver: zodResolver(AddEnrollmentFormSchema),
+  const form = useForm<ImportEnrollmentFormSchema>({
+    resolver: zodResolver(ImportEnrollmentFormSchema),
     defaultValues: {
-      roaster: "",
       section: "",
     },
   });
 
-  const roasterText = form.watch("roaster");
-  const [roaster, error] = useMemo(() => {
-    try {
-      return [RoasterParser.parseText(roasterText), null] as const;
-    } catch (e) {
-      if (e instanceof z.ZodError) {
-        return [null, e] as const;
+  const roasterFile = form.watch("roaster");
+  const [[roaster, error], setParseResult] = useState<
+    [RoasterParser.Roaster, null] | [null, z.ZodError]
+  >([[], null]);
+  useEffect(() => {
+    if (roasterFile) {
+      async function parse() {
+        try {
+          const data = await roasterFile.arrayBuffer();
+          setParseResult([RoasterParser.parseSheet(data), null] as const);
+        } catch (e) {
+          if (e instanceof z.ZodError) {
+            setParseResult([null, e]);
+          } else {
+            setParseResult([[], null]);
+          }
+          if (e instanceof Error) {
+            showError(e);
+          }
+          throw e;
+        }
       }
-      throw e;
+      parse();
+    } else {
+      setParseResult([[], null]);
     }
-  }, [roasterText]);
+  }, [roasterFile]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: IDK Biome
   const message = useMemo(() => {
     if (roaster) {
       return toMessage(roaster);
@@ -85,7 +104,7 @@ export function AddEnrollmentForm({
     }
   }, [roaster, error]);
 
-  const handleSubmit = (data: AddEnrollmentFormSchema) => {
+  const handleSubmit = (data: ImportEnrollmentFormSchema) => {
     if (roaster) {
       onSubmit({
         roaster,
@@ -106,24 +125,26 @@ export function AddEnrollmentForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel>Roaster</FieldLabel>
-            <Textarea
-              placeholder={
-                "example1@connect.ust.hk\n" +
-                "example2@connect.ust.hk\n" +
-                "example3@connect.ust.hk\n"
-              }
-              rows={10}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck="false"
-              className="max-h-32 font-mono"
-              {...field}
+            <Input
+              onChange={async (e) => {
+                if (e.target.files) {
+                  if (e.target.files.length !== 1) {
+                    throw new Error("Please upload exactly one file.");
+                  }
+                  field.onChange(e.target.files[0]);
+                }
+              }}
+              type="file"
+              accept={[
+                "text/csv",
+                "application/vnd.ms-excel",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+              ].join(",")}
             />
             <FieldDescription>
-              The roaster of the users to be enrolled. One email per line.
-              Optionaly, the name of the user can be included after the email,
-              separated by a comma.
+              Upload the roaster from SIS in CSV or Excel (XLS, XLSX) format.
+              The file should contain only one sheet, and the sheet should have
+              a header row with "Email Address" and optionally "Name" columns.
             </FieldDescription>
             <div className="max-h-32 overflow-y-auto">
               <FieldDescription className="whitespace-pre-wrap font-mono">
@@ -146,7 +167,7 @@ export function AddEnrollmentForm({
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
               section can only be responded by an instructor in the section.
-              Specifically, an asterisk (*) denotes all/any sections.
+              Specially, an asterisk (*) denotes all/any sections.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
