@@ -48,7 +48,6 @@ export function TRPCReactProvider(
 
   const [url, setUrl] = useState<string>("");
   useEffect(() => {
-    // Only fetch if URL is not already initialized
     if (url) return;
 
     async function updateUrl() {
@@ -62,7 +61,7 @@ export function TRPCReactProvider(
       }
     }
     updateUrl();
-  }); // Run on every render, but only fetch if url is empty
+  });
 
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
