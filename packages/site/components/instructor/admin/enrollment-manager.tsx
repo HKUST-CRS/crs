@@ -114,7 +114,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     }));
     deleteEnrollments(es).then(() => {
       setSelection([]);
-      tableRef.current?.clearTable();
+      tableRef.current?.clearSelection();
     });
   };
 

@@ -139,7 +139,7 @@ interface EnrollmentTableProps {
 }
 
 export interface EnrollmentTableHandle {
-  clearTable: () => void;
+  clearSelection: () => void;
 }
 
 export const EnrollmentTable = forwardRef<
@@ -175,7 +175,7 @@ export const EnrollmentTable = forwardRef<
   useImperativeHandle(
     ref,
     () => ({
-      clearTable: () => {
+      clearSelection: () => {
         setRowSelection({});
       },
     }),
