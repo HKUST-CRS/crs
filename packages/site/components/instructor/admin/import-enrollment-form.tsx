@@ -127,14 +127,22 @@ export function ImportEnrollmentForm({
             <FieldLabel>Roaster</FieldLabel>
             <Input
               onChange={async (e) => {
-                if (e.target.files) {
-                  if (e.target.files.length !== 1) {
-                    showErrorMessage("Please upload exactly one file.");
-                    e.target.value = "";
-                    return;
-                  }
-                  field.onChange(e.target.files[0]);
+                const files = e.target.files;
+
+                if (!files || files.length === 0) {
+                  field.onChange(undefined);
+                  e.target.value = "";
+                  return;
                 }
+
+                if (files.length !== 1) {
+                  showErrorMessage("Please upload exactly one file.");
+                  field.onChange(undefined);
+                  e.target.value = "";
+                  return;
+                }
+
+                field.onChange(files[0]);
               }}
               type="file"
               accept={[
