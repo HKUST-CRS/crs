@@ -40,7 +40,11 @@ export class RequestRepo {
     return requests;
   }
 
-  /** Get ALL requests in the specified classes */
+  /**
+   * Get all requests in the specified classes.
+   *
+   * If a class has section "*", all requests in the course are returned regardless of section.
+   */
   async getRequestsInClasses(classes: Array<Class>): Promise<Request[]> {
     if (classes.length === 0) {
       // Ensure that the $or array is non-empty.
@@ -48,14 +52,19 @@ export class RequestRepo {
     }
     const requests = await this.collections.requests
       .find({
-        $or: [
-          ...classes.map((clazz) => ({
-            class: {
-              course: clazz.course,
-              section: clazz.section,
-            },
-          })),
-        ],
+        $or: classes.map((clazz) => {
+          if (clazz.section === "*") {
+            return {
+              "class.course.code": clazz.course.code,
+              "class.course.term": clazz.course.term,
+            };
+          }
+          return {
+            "class.course.code": clazz.course.code,
+            "class.course.term": clazz.course.term,
+            "class.section": clazz.section,
+          };
+        }),
       })
       .sort({ timestamp: "descending" })
       .toArray();

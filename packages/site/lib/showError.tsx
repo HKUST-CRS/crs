@@ -35,3 +35,12 @@ export const showError = (error: Error) => {
     </>,
   );
 };
+
+export const showErrorMessage = (error: string) => {
+  toast.error(
+    <>
+      <p>{error}</p>
+      <p className="text-[0.875em]">Oops... Something went wrong.</p>
+    </>,
+  );
+};

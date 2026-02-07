@@ -1,16 +1,17 @@
-import {
-  type Class,
-  Classes,
-  type Course,
-  type CourseId,
-  type Role,
-  type User,
-} from "../models";
+import type { Class, Course, CourseId, Role, User } from "../models";
 import {
   ClassPermissionError,
   CoursePermissionError,
+  PermissionError,
   SudoerPermissionError,
 } from "./error";
+
+export function assertRole(user: User, roles: Role[], op?: string) {
+  const hasRole = user.enrollment.some((e) => roles.includes(e.role));
+  if (!hasRole) {
+    throw new PermissionError(user.email, roles, op || "accessing something");
+  }
+}
 
 /**
  * Asserts that the user has one of the specified roles in the given course.
@@ -47,6 +48,8 @@ export function assertCourseRole(
 /**
  * Asserts that the user has one of the specified roles in the given class.
  *
+ * Enrollments with section "*" match any section in the course.
+ *
  * @param user The user whose role is being checked.
  * @param clazz The class in which the role is being checked.
  * @param roles The roles to check for.
@@ -62,7 +65,10 @@ export function assertClassRole(
 ) {
   const hasRole = user.enrollment.some(
     (e) =>
-      Classes.id2str(e) === Classes.id2str(clazz) && roles.includes(e.role),
+      e.course.code === clazz.course.code &&
+      e.course.term === clazz.course.term &&
+      (e.section === clazz.section || e.section === "*") &&
+      roles.includes(e.role),
   );
   if (!hasRole) {
     throw new ClassPermissionError(

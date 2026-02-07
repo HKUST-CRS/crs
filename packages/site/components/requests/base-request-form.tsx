@@ -59,39 +59,29 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
 
   const trpc = useTRPC();
 
-  const userQuery = useQuery(trpc.user.get.queryOptions());
-  const user = userQuery.data;
-
-  const studentCoursesQuery = useQuery(
+  const enrollments = useQuery(
+    trpc.user.getEnrollments.queryOptions(["student"]),
+  ).data;
+  const courses = useQuery(
     trpc.course.getAllFromEnrollment.queryOptions(["student"]),
-  );
-  const studentCourses = useMemo(
-    () =>
-      studentCoursesQuery.data &&
-      keyBy(studentCoursesQuery.data, (c) => Courses.id2str(c)),
-    [studentCoursesQuery],
+  ).data;
+  const coursesMap = useMemo(
+    () => keyBy(courses ?? [], (c) => Courses.id2str(c)),
+    [courses],
   );
 
   const clazz = form.watch("class");
   const type = form.watch("type");
 
-  const courseQuery = useQuery(
-    // biome-ignore lint/style/noNonNullAssertion: enabled by clazz
-    // biome-ignore lint/suspicious/noNonNullAssertedOptionalChain: enabled by clazz
-    trpc.course.get.queryOptions(clazz?.course!, { enabled: !!clazz }),
-  );
-  const course = courseQuery.data;
+  const course = clazz && coursesMap?.[Courses.id2str(clazz.course)];
 
-  const instructorsQuery = useQuery(
+  const instructors = useQuery(
     trpc.user.getAllFromClass.queryOptions(
       // biome-ignore lint/style/noNonNullAssertion: enabled by clazz
       { class: clazz!, role: "instructor" },
       { enabled: !!clazz },
     ),
-  );
-  const instructors = instructorsQuery.data;
-
-  console.log({ instructors });
+  ).data;
 
   useEffect(() => {
     if (clazz && type) {
@@ -116,7 +106,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           render={({ field }) => (
             <FormItem className="col-span-6">
               <FormLabel>Class (Course & Section)</FormLabel>
-              {user && studentCourses ? (
+              {enrollments && courses ? (
                 <FormControl>
                   <Select
                     value={field.value && Classes.id2str(field.value)}
@@ -131,21 +121,19 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                       <SelectValue placeholder="Choose a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {user.enrollment
-                        .filter((e) => e.role === "student")
-                        .map((e) => {
-                          const c = studentCourses[Courses.id2str(e.course)];
-                          return (
-                            <SelectItem
-                              key={Classes.id2str(e)}
-                              value={Classes.id2str(e)}
-                            >
-                              <span>
-                                <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
-                              </span>
-                            </SelectItem>
-                          );
-                        })}
+                      {enrollments.map((e) => {
+                        const c = coursesMap[Courses.id2str(e.course)];
+                        return (
+                          <SelectItem
+                            key={Classes.id2str(e)}
+                            value={Classes.id2str(e)}
+                          >
+                            <span>
+                              <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </FormControl>
@@ -153,7 +141,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                 <Skeleton className="h-10" />
               )}
               <FormDescription>
-                The class (lecture) you want to make the request for.
+                The class you want to make the request for.
               </FormDescription>
               <FormMessage />
             </FormItem>

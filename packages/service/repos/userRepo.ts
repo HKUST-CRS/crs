@@ -1,7 +1,9 @@
 import type { Collections } from "../db";
 import {
   type Class,
+  Classes,
   type CourseId,
+  Courses,
   type Enrollment,
   Enrollments,
   type Role,
@@ -48,9 +50,22 @@ export class UserRepo {
     );
   }
 
+  /**
+   * Update the user's name.
+   */
   async updateUserName(userId: UserId, name: string): Promise<void> {
     await this.collections.users.updateOne(
       { email: userId },
+      { $set: { name } },
+    );
+  }
+
+  /**
+   * Update the user's name if there is no current name.
+   */
+  async suggestUserName(uid: UserId, name: string): Promise<void> {
+    await this.collections.users.updateOne(
+      { email: uid, name: "" },
       { $set: { name } },
     );
   }
@@ -86,6 +101,11 @@ export class UserRepo {
     return users;
   }
 
+  /**
+   * Get all users enrolled in the class with the specified role.
+   *
+   * Enrollments with section "*" are treated as belonging to every section in the course.
+   */
   async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
       .find({
@@ -93,7 +113,7 @@ export class UserRepo {
           $elemMatch: {
             "course.code": clazz.course.code,
             "course.term": clazz.course.term,
-            section: clazz.section,
+            section: { $in: [clazz.section, "*"] },
             role,
           },
         },
@@ -102,6 +122,39 @@ export class UserRepo {
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
     return users;
+  }
+
+  /**
+   * Get all classes for a course.
+   *
+   * Special sections like * and parenthetical sections (e.g., "(...)") are excluded.
+   */
+  async getClasses(cid: CourseId): Promise<Class[]> {
+    const users = await this.collections.users
+      .find({
+        enrollment: {
+          $elemMatch: {
+            "course.code": cid.code,
+            "course.term": cid.term,
+          },
+        },
+      })
+      .toArray();
+    const classes = Object.fromEntries(
+      users.flatMap((user) =>
+        user.enrollment
+          .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+          .filter((e) => e.section !== "*" && !e.section.match(/^\(.*\)$/))
+          .map((e) => [
+            Classes.id2str(e),
+            {
+              course: cid,
+              section: e.section,
+            } satisfies Class,
+          ]),
+      ),
+    );
+    return Object.values(classes).sort(Classes.compare);
   }
 
   /**
