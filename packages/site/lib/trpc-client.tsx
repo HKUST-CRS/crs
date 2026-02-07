@@ -66,27 +66,30 @@ export function TRPCReactProvider(
   //       suspend because React will throw away the client on the initial
   //       render if it suspends and there is no boundary
   const queryClient = getQueryClient();
-  const trpcClient = useMemo(
-    () =>
-      createTRPCClient<AppRouter>({
-        links: [
-          httpBatchLink({
-            // transformer: superjson, <-- if you use a data transformer
-            url,
-            headers() {
-              return {
-                Authorization: authorization,
-              };
-            },
-          }),
-        ],
-      }),
-    [url],
-  );
 
-  // Don't render children until we have a valid URL and session/login path
+  // Only create the tRPC client when we have a valid URL
+  // The authorization header is retrieved dynamically from the module-level variable
+  const trpcClient = useMemo(() => {
+    if (!url) return null;
+
+    return createTRPCClient<AppRouter>({
+      links: [
+        httpBatchLink({
+          // transformer: superjson, <-- if you use a data transformer
+          url,
+          headers() {
+            return {
+              Authorization: authorization,
+            };
+          },
+        }),
+      ],
+    });
+  }, [url]);
+
+  // Don't render children until we have a valid tRPC client and session/login path
   // This prevents components from trying to use tRPC client before it's properly initialized
-  if ((session || path === "/login") && url) {
+  if ((session || path === "/login") && trpcClient) {
     return (
       <QueryClientProvider client={queryClient}>
         <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
