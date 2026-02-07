@@ -47,52 +47,22 @@ export function TRPCReactProvider(
   }, [session]);
 
   const [url, setUrl] = useState<string>("");
-  const [urlError, setUrlError] = useState<Error | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
-
-  const MAX_RETRY_ATTEMPTS = 3;
-
   useEffect(() => {
-    let isCancelled = false;
-    let timeoutId: NodeJS.Timeout | null = null;
+    // Only fetch if URL is not already initialized
+    if (url) return;
 
     async function updateUrl() {
       try {
-        setUrlError(null);
         console.log("Fetching Client Server URL...");
         const url = await fetch("/api/url").then((r) => r.text());
-        if (!isCancelled) {
-          setUrl(url);
-          console.log(`Fetch Client Server URL: ${url}`);
-        }
+        setUrl(url);
+        console.log(`Fetch Client Server URL: ${url}`);
       } catch (e) {
         console.error("Failed to fetch Client Server URL.", e);
-        if (!isCancelled) {
-          setUrlError(e instanceof Error ? e : new Error(String(e)));
-          // Retry with exponential backoff (max 3 retries)
-          if (retryCount < MAX_RETRY_ATTEMPTS) {
-            const delay = Math.min(1000 * 2 ** retryCount, 4000);
-            console.log(
-              `Retrying in ${delay}ms... (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`,
-            );
-            timeoutId = setTimeout(() => {
-              if (!isCancelled) {
-                setRetryCount((count) => count + 1);
-              }
-            }, delay);
-          }
-        }
       }
     }
     updateUrl();
-
-    return () => {
-      isCancelled = true;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [retryCount]); // Re-run when retryCount changes
+  }); // Run on every render, but only fetch if url is empty
 
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
@@ -130,33 +100,7 @@ export function TRPCReactProvider(
         </TRPCProvider>
       </QueryClientProvider>
     );
+  } else {
+    return null;
   }
-
-  // Show error state if URL fetch failed after all retries
-  if (
-    (session || path === "/login") &&
-    urlError &&
-    retryCount >= MAX_RETRY_ATTEMPTS
-  ) {
-    return (
-      <div style={{ padding: "2rem", textAlign: "center" }}>
-        <h2>Failed to connect to server</h2>
-        <p style={{ color: "red" }}>{urlError.message}</p>
-        <button
-          type="button"
-          onClick={() => setRetryCount(0)}
-          style={{
-            padding: "0.5rem 1rem",
-            marginTop: "1rem",
-            cursor: "pointer",
-          }}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  // Loading state or not authorized
-  return null;
 }
