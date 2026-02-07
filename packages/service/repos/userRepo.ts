@@ -13,7 +13,7 @@ import {
 import { UserNotFoundError } from "./error";
 
 export class UserRepo {
-  constructor(protected collections: Collections) { }
+  constructor(protected collections: Collections) {}
 
   async getUser(userId: UserId): Promise<User | null> {
     const user = await this.collections.users.findOne({ email: userId });

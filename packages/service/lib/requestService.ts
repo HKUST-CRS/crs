@@ -55,9 +55,9 @@ export class RequestService<TUser extends UserId | null = null> {
    *
    * If the role is "student", this returns all requests made by the user.
    *
-  * If the role is "instructor" or "observer", this returns all requests for classes that the user
-  * is an instructor or observer of. Enrollments with section "*" include all sections in the
-  * course.
+   * If the role is "instructor" or "observer", this returns all requests for classes that the user
+   * is an instructor or observer of. Enrollments with section "*" include all sections in the
+   * course.
    *
    * If the role is "admin", this returns no requests.
    */
