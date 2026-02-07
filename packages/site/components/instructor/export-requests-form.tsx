@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { Controller, useForm } from "react-hook-form";
-import { CourseId, Courses } from "service/models";
+import { CourseID, Courses } from "service/models";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -24,7 +24,7 @@ import { useTRPC } from "@/lib/trpc-client";
 import { Skeleton } from "../ui/skeleton";
 
 export const ExportRequestsFormSchema = z.object({
-  course: CourseId,
+  course: CourseID,
 });
 
 export type ExportRequestsFormSchema = z.infer<typeof ExportRequestsFormSchema>;

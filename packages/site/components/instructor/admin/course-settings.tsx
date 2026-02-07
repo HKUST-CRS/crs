@@ -1,13 +1,13 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { CourseId } from "service/models";
+import type { CourseID } from "service/models";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc-client";
 import { AssignmentsConfig } from "./assignment/assignments-config";
 import { SectionsConfig } from "./section/sections-config";
 
-export function CourseSettings({ cid }: { cid: CourseId }) {
+export function CourseSettings({ cid }: { cid: CourseID }) {
   const trpc = useTRPC();
   const { data: course, refetch } = useQuery(trpc.course.get.queryOptions(cid));
 
@@ -33,13 +33,13 @@ export function CourseSettings({ cid }: { cid: CourseId }) {
       <SectionsConfig
         course={course}
         onUpdate={(sections) =>
-          updateSections.mutate({ courseId: cid, sections })
+          updateSections.mutate({ courseID: cid, sections })
         }
       />
       <AssignmentsConfig
         course={course}
         onUpdate={(assignments) => {
-          updateAssignments.mutate({ courseId: cid, assignments });
+          updateAssignments.mutate({ courseID: cid, assignments });
         }}
       />
     </div>

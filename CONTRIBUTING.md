@@ -6,5 +6,6 @@
 - Use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages.
   - This helps categorize commits and makes it easier to understand the project's history.
   - This also helps automate the release process and generate changelogs.
-- Lint and format the code before merging.
-  - Use the best tool: [ESLint](https://eslint.org/)!
+- Do lint and format the code before committing.
+- Do typecheck the code before committing.
+- Do run tests before committing.

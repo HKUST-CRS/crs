@@ -1,4 +1,4 @@
-import { RequestId } from "service/models";
+import { RequestID } from "service/models";
 import { ResponseInit } from "service/models/request/Response";
 import z from "zod";
 import { services } from "../services";
@@ -8,7 +8,7 @@ export const routerResponse = router({
   create: procedure
     .input(
       z.object({
-        id: RequestId,
+        id: RequestID,
         init: ResponseInit,
       }),
     )

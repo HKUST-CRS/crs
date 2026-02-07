@@ -1,15 +1,15 @@
 import type {
   Request,
-  RequestId,
+  RequestID,
   RequestInit,
   ResponseInit,
   Role,
-  UserId,
+  UserID,
 } from "../models";
 import type { Repos } from "../repos";
 import { assertClassRole } from "./permission";
 
-export class RequestService<TUser extends UserId | null = null> {
+export class RequestService<TUser extends UserID | null = null> {
   public user: TUser;
 
   constructor(repos: Repos);
@@ -33,18 +33,18 @@ export class RequestService<TUser extends UserId | null = null> {
    * class.
    */
   async getRequest(
-    this: RequestService<UserId>,
-    requestId: RequestId,
+    this: RequestService<UserID>,
+    requestID: RequestID,
   ): Promise<Request> {
     const user = await this.repos.user.requireUser(this.user);
-    const request = await this.repos.request.requireRequest(requestId);
+    const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
       // only the requester or instructors/observers in the class can view the request
       assertClassRole(
         user,
         request.class,
         ["instructor", "observer"],
-        `getting request ${requestId}`,
+        `getting request ${requestID}`,
       );
     }
     return request;
@@ -62,7 +62,7 @@ export class RequestService<TUser extends UserId | null = null> {
    * If the role is "admin", this returns no requests.
    */
   async getRequestsAs(
-    this: RequestService<UserId>,
+    this: RequestService<UserID>,
     roles: Role[],
   ): Promise<Request[]> {
     const user = await this.repos.user.requireUser(this.user);
@@ -93,7 +93,7 @@ export class RequestService<TUser extends UserId | null = null> {
    * @returns The ID of the created request.
    */
   async createRequest(
-    this: RequestService<UserId>,
+    this: RequestService<UserID>,
     data: RequestInit,
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
@@ -108,23 +108,23 @@ export class RequestService<TUser extends UserId | null = null> {
    * The user must be an instructor of the class that the request is for in order to create a
    * response to the request.
    *
-   * @param requestId The ID of the request to respond to.
+   * @param requestID The ID of the request to respond to.
    * @param response The response data.
    */
   async createResponse(
-    this: RequestService<UserId>,
-    requestId: RequestId,
+    this: RequestService<UserID>,
+    requestID: RequestID,
     response: ResponseInit,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
-    const request = await this.repos.request.requireRequest(requestId);
+    const request = await this.repos.request.requireRequest(requestID);
     // only instructors of the class can create responses
     assertClassRole(
       user,
       request.class,
       ["instructor"],
-      `creating response to request ${requestId}`,
+      `creating response to request ${requestID}`,
     );
-    await this.repos.request.createResponse(this.user, requestId, response);
+    await this.repos.request.createResponse(this.user, requestID, response);
   }
 }

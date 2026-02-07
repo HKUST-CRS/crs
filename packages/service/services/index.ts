@@ -1,8 +1,8 @@
 import type { Repos } from "../repos";
-import { CourseService } from "./courseService";
-import { NotificationService } from "./notificationService";
-import { RequestService } from "./requestService";
-import { UserService } from "./userService";
+import { CourseService } from "./ServiceCourse";
+import { NotificationService } from "./ServiceNotification";
+import { RequestService } from "./ServiceRequest";
+import { UserService } from "./ServiceUser";
 
 export interface Services {
   user: UserService;

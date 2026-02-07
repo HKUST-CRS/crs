@@ -1,24 +1,24 @@
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import ResponseDisplay from "./response-display";
+import RequestDisplay from "./request-display";
 
 export default async function ({
   params,
 }: {
-  params: Promise<{ requestId: string }>;
+  params: Promise<{ requestID: string }>;
 }) {
-  const requestId = (await params).requestId;
+  const requestID = (await params).requestID;
 
   return (
     <article className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4">
-      <Link href="/instructor" className="self-start">
+      <Link href="/" className="self-start">
         <Button variant="ghost" size="icon">
           <ChevronLeft className="size-6" />
         </Button>
       </Link>
-      <h3 className="typo-h3">Response</h3>
-      <ResponseDisplay requestId={requestId} />
+      <h3 className="typo-h3 text-center">Response</h3>
+      <RequestDisplay requestID={requestID} />
     </article>
   );
 }
