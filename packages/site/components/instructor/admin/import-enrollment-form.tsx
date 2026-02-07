@@ -169,7 +169,7 @@ export function ImportEnrollmentForm({
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
               section can only be responded by an instructor in the section.
-              Specially, an asterisk (*) denotes all/any sections.
+              Specifically, an asterisk (*) denotes all/any sections.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
