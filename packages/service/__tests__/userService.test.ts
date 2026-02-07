@@ -158,6 +158,86 @@ describe("UserService", () => {
     });
   });
 
+  describe("suggestUserName", () => {
+    test("instructors can suggest name for users in their course", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor, student] });
+
+      await userService
+        .auth(instructor.email)
+        .suggestUserName(student.email, "Student One");
+
+      const updatedStudent = await userService
+        .auth(student.email)
+        .getCurrentUser();
+      expect(updatedStudent.name).toBe("Student One");
+    });
+
+    test("should not overwrite existing user name", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "Existing Name",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor, student] });
+
+      await userService
+        .auth(instructor.email)
+        .suggestUserName(student.email, "New Name");
+
+      const updatedStudent = await userService
+        .auth(student.email)
+        .getCurrentUser();
+      expect(updatedStudent.name).toBe("Existing Name");
+    });
+
+    test("students cannot suggest names for users", async () => {
+      const courseId = { code: "COMP 1023", term: "2510" };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      const target: User = {
+        email: "student2@connect.ust.hk",
+        name: "",
+        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student, target] });
+
+      try {
+        await userService
+          .auth(student.email)
+          .suggestUserName(target.email, "Target Name");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+  });
+
   describe("getSudoers", () => {
     test("sudoers should be able to list sudoers", async () => {
       const sudoer: User = {
@@ -642,6 +722,88 @@ describe("UserService", () => {
         );
       expect(instructorsInL1).toHaveLength(1);
       expect(instructorsInL1[0]?.email).toBe(instructor.email);
+    });
+  });
+
+  describe("getEnrollments", () => {
+    test("should flatten section * into per-section enrollments", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "*",
+          },
+        ],
+        sudoer: false,
+      };
+      const studentL1: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      const studentL2: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L2",
+          },
+        ],
+        sudoer: false,
+      };
+      const admin: User = {
+        email: "admin1@ust.hk",
+        name: "admin1",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: course.code, term: course.term },
+            section: "(as system admin)",
+          },
+        ],
+        sudoer: false,
+      };
+
+      await insertData(conn, {
+        users: [instructor, studentL1, studentL2, admin],
+      });
+
+      const enrollments = await userService
+        .auth(instructor.email)
+        .getEnrollments(["instructor"]);
+
+      expect(enrollments).toHaveLength(2);
+      expect(enrollments.map((e) => e.section)).toEqual(
+        expect.arrayContaining(["L1", "L2"]),
+      );
+      expect(enrollments.map((e) => e.section)).not.toEqual(
+        expect.arrayContaining(["(as system admin)"]),
+      );
+      expect(enrollments.every((e) => e.role === "instructor")).toBe(true);
     });
   });
 

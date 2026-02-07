@@ -40,6 +40,8 @@ export function assertCourseRole(
 /**
  * Asserts that the user has one of the specified roles in the given class.
  *
+ * Enrollments with section "*" match any section in the course.
+ *
  * @param user The user whose role is being checked.
  * @param clazz The class in which the role is being checked.
  * @param roles The roles to check for.

@@ -101,6 +101,11 @@ export class UserRepo {
     return users;
   }
 
+  /**
+   * Get all users enrolled in the class with the specified role.
+   *
+   * Enrollments with section "*" are treated as belonging to every section in the course.
+   */
   async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
       .find({
@@ -120,8 +125,8 @@ export class UserRepo {
   }
 
   /**
-   * Get all classes for a course. 
-   * 
+   * Get all classes for a course.
+   *
    * Special sections like * and parenthetical sections (e.g., "(...)") are excluded.
    */
   async getClasses(cid: CourseId): Promise<Class[]> {
@@ -139,9 +144,7 @@ export class UserRepo {
       users.flatMap((user) =>
         user.enrollment
           .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
-          .filter(
-            (e) => e.section !== "*" && !e.section.match(/^(.*)$/),
-          )
+          .filter((e) => e.section !== "*" && !e.section.match(/^\(.*\)$/))
           .map((e) => [
             Classes.id2str(e),
             {

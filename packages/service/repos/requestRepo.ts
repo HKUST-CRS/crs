@@ -40,7 +40,11 @@ export class RequestRepo {
     return requests;
   }
 
-  /** Get all requests in the specified classes */
+  /**
+   * Get all requests in the specified classes.
+   *
+   * If a class has section "*", all requests in the course are returned regardless of section.
+   */
   async getRequestsInClasses(classes: Array<Class>): Promise<Request[]> {
     if (classes.length === 0) {
       // Ensure that the $or array is non-empty.
