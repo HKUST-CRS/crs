@@ -11,7 +11,12 @@ import {
   type UserId,
 } from "../models";
 import type { Repos } from "../repos";
-import { assertClassRole, assertCourseRole, assertSudoer } from "./permission";
+import {
+  assertClassRole,
+  assertCourseRole,
+  assertRole,
+  assertSudoer,
+} from "./permission";
 
 export class UserService<TUser extends UserId | null = null> {
   public user: TUser;
@@ -65,6 +70,24 @@ export class UserService<TUser extends UserId | null = null> {
   }
 
   /**
+   * Suggests a name for a user. The name is only updated if the current name does not exist.
+   *
+   * The current user must have the "instructor" or "admin" role in any course.
+   *
+   * @param uid The user ID to suggest a name for.
+   * @param name The name to suggest.
+   */
+  async suggestUserName(
+    this: UserService<UserId>,
+    uid: UserId,
+    name: string,
+  ): Promise<void> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertRole(user, ["instructor", "admin"], "suggesting a user name");
+    await this.repos.user.suggestUserName(uid, name);
+  }
+
+  /**
    * Returns the current authenticated user.
    */
   async getCurrentUser(this: UserService<UserId>): Promise<User> {
@@ -113,6 +136,8 @@ export class UserService<TUser extends UserId | null = null> {
    * in the class. If the target role is "instructor", "observer" or "admin", the current user must
    * have any role in the class.
    *
+   * If a user has a role in the class for section *, then they are always in the result.
+   *
    * @param clazz The class.
    * @param role The target role to filter by.
    * @returns The list of users in the class with the specified role.
@@ -147,6 +172,46 @@ export class UserService<TUser extends UserId | null = null> {
         return this.repos.user.getUsersInClass(clazz, role);
       }
     }
+  }
+
+  /**
+   * Gets all enrollments of the current user with specified roles.
+   *
+   * The enrollments of the section * is automatically flattened. That is, an enrollment in some
+   * course with section * is flattened into multiple enrollments, one for each section in the
+   * course with the specified roles. The sections in the course are obtained by looking at all
+   * enrollments of all users in the course.
+   *
+   * @param roles The roles to filter by.
+   */
+  async getEnrollments(
+    this: UserService<UserId>,
+    roles: Role[],
+  ): Promise<Enrollment[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    const enrollments = user.enrollment;
+
+    const flattenedEnrollments = (
+      await Promise.all(
+        enrollments.map(async (enrollment) => {
+          if (!roles.includes(enrollment.role)) {
+            return [];
+          }
+          if (enrollment.section !== "*") {
+            return [enrollment];
+          }
+          const classes = await this.repos.user.getClasses(enrollment.course);
+          return classes.map(
+            (clazz) =>
+              ({
+                ...clazz,
+                role: enrollment.role,
+              }) satisfies Enrollment,
+          );
+        }),
+      )
+    ).flat();
+    return flattenedEnrollments;
   }
 
   /**

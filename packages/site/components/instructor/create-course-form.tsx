@@ -17,21 +17,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const CourseFormSchema = z.object({
+export const CreateCourseFormSchema = z.object({
   code: z.string().regex(/^[A-Z]+ \d+$/, "Invalid code."),
   term: z.string().regex(/^\d\d[1234]0$/, "Invalid term."),
   title: z.string().min(1, "Required title."),
 });
 
-export type CourseFormSchema = z.infer<typeof CourseFormSchema>;
+export type CreateCourseFormSchema = z.infer<typeof CreateCourseFormSchema>;
 
-export function CourseForm({
+export function CreateCourseForm({
   onSubmit,
 }: {
-  onSubmit: (v: CourseFormSchema) => void;
+  onSubmit: (v: CreateCourseFormSchema) => void;
 }) {
-  const form = useForm<CourseFormSchema>({
-    resolver: zodResolver(CourseFormSchema),
+  const form = useForm<CreateCourseFormSchema>({
+    resolver: zodResolver(CreateCourseFormSchema),
     defaultValues: {
       code: "",
       term: "",

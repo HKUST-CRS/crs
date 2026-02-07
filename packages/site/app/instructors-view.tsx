@@ -1,15 +1,19 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowRightFromLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Courses } from "service/models";
+import { Courses, RequestSerialization } from "service/models";
 import {
-  CourseForm,
-  type CourseFormSchema,
-} from "@/components/instructor/course-form";
+  CreateCourseForm,
+  type CreateCourseFormSchema,
+} from "@/components/instructor/create-course-form";
+import {
+  ExportRequestsForm,
+  type ExportRequestsFormSchema,
+} from "@/components/instructor/export-requests-form";
 import { columns } from "@/components/requests/columns";
 import { DataTable } from "@/components/requests/data-table";
 import TextType from "@/components/TextType";
@@ -22,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { download } from "@/lib/download";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
 import {Button} from "@/components/ui/button";
@@ -72,11 +77,31 @@ export default function InstructorsView() {
     }, [userQuery, requestsQuery, coursesQuery]),
   );
 
+  // Export Requests (Dialog)
+  const [isExportRequestsOpen, setExportRequestsOpen] = useState(false);
+  const handleExportRequests = (form: ExportRequestsFormSchema) => {
+    const requestsToExport = (requests ?? []).filter(
+      (c) => Courses.id2str(c.class.course) === Courses.id2str(form.course),
+    );
+    const csv = RequestSerialization.toCSV(
+      requestsToExport,
+      window.location.origin,
+    );
+
+    download(
+      `${Courses.formatID(form.course)}-requests.csv`,
+      new Blob([csv], { type: "text/csv" }),
+    );
+
+    setExportRequestsOpen(false);
+  };
+
+  // Create Course (Dialog)
+  const [isCreateCourseOpen, setCreateCourseOpen] = useState(false);
   const createCourseMutation = useMutation(
     trpc.course.create.mutationOptions(),
   );
-  const [isCourseCreationOpen, setCourseCreationOpen] = useState(false);
-  const handleCreateCourse = (form: CourseFormSchema) => {
+  const handleCreateCourse = (form: CreateCourseFormSchema) => {
     createCourseMutation.mutate(
       {
         code: form.code,
@@ -136,9 +161,13 @@ export default function InstructorsView() {
         </div>
       </header>
       <section>
-        <p className="pb-4 font-medium text-sm leading-none">
-          Received Requests
-        </p>
+        <div className="flex flex-row items-end justify-between pb-4">
+          <p className="font-medium text-sm leading-none">Received Requests</p>
+          <Button onClick={() => setExportRequestsOpen(true)} size="sm">
+            <ArrowRightFromLine className="h-4 w-4" /> Export Requests
+          </Button>
+        </div>
+
         {requests ? (
           <DataTable
             columns={columns}
@@ -150,13 +179,25 @@ export default function InstructorsView() {
         ) : (
           <Spinner variant="ellipsis" />
         )}
+
+        <Dialog
+          open={isExportRequestsOpen}
+          onOpenChange={setExportRequestsOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Export Requests</DialogTitle>
+            </DialogHeader>
+            <ExportRequestsForm onSubmit={handleExportRequests} />
+          </DialogContent>
+        </Dialog>
       </section>
       <section>
         <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Course Management</p>
           {userQuery.data?.sudoer && (
-            <Button onClick={() => setCourseCreationOpen(true)} size="sm">
-              <Plus className="mr-2 h-4 w-4" /> Create Course
+            <Button onClick={() => setCreateCourseOpen(true)} size="sm">
+              <Plus className="h-4 w-4" /> Create Course
             </Button>
           )}
         </div>
@@ -183,15 +224,12 @@ export default function InstructorsView() {
           )}
         </div>
 
-        <Dialog
-          open={isCourseCreationOpen}
-          onOpenChange={setCourseCreationOpen}
-        >
+        <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Course</DialogTitle>
             </DialogHeader>
-            <CourseForm onSubmit={handleCreateCourse} />
+            <CreateCourseForm onSubmit={handleCreateCourse} />
           </DialogContent>
         </Dialog>
       </section>

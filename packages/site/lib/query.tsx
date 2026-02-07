@@ -1,5 +1,6 @@
 import {
   defaultShouldDehydrateQuery,
+  MutationCache,
   QueryCache,
   QueryClient,
 } from "@tanstack/react-query";
@@ -19,6 +20,11 @@ export function makeQueryClient() {
       },
     },
     queryCache: new QueryCache({
+      onError: (error) => {
+        showError(error);
+      },
+    }),
+    mutationCache: new MutationCache({
       onError: (error) => {
         showError(error);
       },
