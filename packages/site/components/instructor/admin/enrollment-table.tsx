@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { Courses, Enrollment, User } from "service/models";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -130,18 +130,19 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
 
 interface EnrollmentTableProps {
   enrollments: EnrollmentRow[];
-  clearSelectionToken: number;
+  rowSelection: Record<string, boolean>;
+  setRowSelection: Dispatch<SetStateAction<Record<string, boolean>>>;
   updateSelection: (es: EnrollmentRow[]) => void;
 }
 
 export function EnrollmentTable({
   enrollments,
-  clearSelectionToken,
+  rowSelection,
+  setRowSelection,
   updateSelection,
 }: EnrollmentTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string[]>([]);
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data: enrollments,
@@ -164,12 +165,6 @@ export function EnrollmentTable({
   useEffect(() => {
     updateSelection(table.getSelectedRowModel().rows.map((r) => r.original));
   }, [rowSelection]);
-
-  useEffect(() => {
-    if (clearSelectionToken > 0) {
-      setRowSelection({});
-    }
-  }, [clearSelectionToken]);
 
   return (
     <div className="flex flex-col gap-4">
