@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Class } from "../course";
-import { UserId } from "../user";
+import { UserID } from "../user";
 import type { RequestType } from "./RequestType";
 import { Response } from "./Response";
 
@@ -36,16 +36,16 @@ export const RequestDetailsProofAccept = [
   "text/plain",
 ];
 
-export const RequestId = z.string().meta({
+export const RequestID = z.string().meta({
   description:
     "The unique identifier for the request. " +
     "In the current implementation, this is the automatically generated MongoDB ObjectID.",
 });
-export type RequestId = z.infer<typeof RequestId>;
+export type RequestID = z.infer<typeof RequestID>;
 
 export const BaseRequest = z.object({
-  id: RequestId,
-  from: UserId,
+  id: RequestID,
+  from: UserID,
   class: Class,
   details: RequestDetails,
   timestamp: z.iso.datetime({ offset: true }),

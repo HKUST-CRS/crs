@@ -9,14 +9,14 @@ import {
 } from "bun:test";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import { RequestService } from "../lib";
-import { ClassPermissionError } from "../lib/error";
 import type { Course, RequestInit, ResponseInit, User } from "../models";
 import { createRepos } from "../repos";
 import {
   RequestNotFoundError,
   ResponseAlreadyExistsError,
 } from "../repos/error";
+import { RequestService } from "../services";
+import { ClassPermissionError } from "../services/error";
 import { clearData, insertData } from "./tests";
 
 describe("RequestService", () => {
@@ -238,13 +238,13 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(requestInit);
 
       const requestResult = await requestService
         .auth(student.email)
-        .getRequest(requestId);
+        .getRequest(requestID);
       expect(requestResult).toBeDefined();
     });
 
@@ -301,12 +301,12 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(request);
       const requestResult = await requestService
         .auth(observer.email)
-        .getRequest(requestId);
+        .getRequest(requestID);
       expect(requestResult).toBeDefined();
     });
 
@@ -363,12 +363,12 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(request);
       const requestResult = await requestService
         .auth(instructor.email)
-        .getRequest(requestId);
+        .getRequest(requestID);
       expect(requestResult).toBeDefined();
     });
 
@@ -425,12 +425,12 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(requestInit);
 
       try {
-        await requestService.auth(admin.email).getRequest(requestId);
+        await requestService.auth(admin.email).getRequest(requestID);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -490,12 +490,12 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(requester.email)
         .createRequest(request);
 
       try {
-        await requestService.auth(otherStudent.email).getRequest(requestId);
+        await requestService.auth(otherStudent.email).getRequest(requestID);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -1235,17 +1235,17 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(requestInit);
 
       const response: ResponseInit = { decision: "Approve", remarks: "^^" };
       await requestService
         .auth(instructor.email)
-        .createResponse(requestId, response);
+        .createResponse(requestID, response);
       const requestInDb = await requestService
         .auth(instructor.email)
-        .getRequest(requestId);
+        .getRequest(requestID);
       expect(requestInDb.response).toMatchObject(response);
     });
 
@@ -1302,16 +1302,16 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(request);
 
       const response: ResponseInit = { decision: "Approve", remarks: "^^" };
       await requestService
         .auth(instructor.email)
-        .createResponse(requestId, response);
+        .createResponse(requestID, response);
       try {
-        await requestService.auth(instructor.email).createResponse(requestId, {
+        await requestService.auth(instructor.email).createResponse(requestID, {
           ...response,
           decision: "Reject",
         });
@@ -1321,7 +1321,7 @@ describe("RequestService", () => {
       }
       const requestInDb = await requestService
         .auth(instructor.email)
-        .getRequest(requestId);
+        .getRequest(requestID);
       expect(requestInDb.response).toMatchObject(response);
     });
 
@@ -1378,7 +1378,7 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(request);
 
@@ -1386,7 +1386,7 @@ describe("RequestService", () => {
       try {
         await requestService
           .auth(student.email)
-          .createResponse(requestId, response);
+          .createResponse(requestID, response);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -1446,7 +1446,7 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      const requestId = await requestService
+      const requestID = await requestService
         .auth(student.email)
         .createRequest(requestInit);
 
@@ -1454,7 +1454,7 @@ describe("RequestService", () => {
       try {
         await requestService
           .auth(admin.email)
-          .createResponse(requestId, response);
+          .createResponse(requestID, response);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);

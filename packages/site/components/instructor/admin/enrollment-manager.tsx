@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import {
-  type CourseId,
+  type CourseID,
   Courses,
   type Enrollment,
   Enrollments,
@@ -32,7 +32,7 @@ import {
   type ImportEnrollmentSubmissionSchema,
 } from "./import-enrollment-form";
 
-export function EnrollmentManager({ cid }: { cid: CourseId }) {
+export function EnrollmentManager({ cid }: { cid: CourseID }) {
   const trpc = useTRPC();
 
   const { data: users, refetch } = useQuery(

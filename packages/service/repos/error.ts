@@ -1,29 +1,29 @@
-import type { CourseId, RequestId, UserId } from "../models";
+import type { CourseID, RequestID, UserID } from "../models";
 
 export class UserNotFoundError extends Error {
-  constructor(userId: UserId) {
-    super(`User ${userId} not found`);
+  constructor(userID: UserID) {
+    super(`User ${userID} not found`);
     this.name = "UserNotFoundError";
   }
 }
 
 export class CourseNotFoundError extends Error {
-  constructor(courseId: CourseId) {
-    super(`Course ${courseId.code} (${courseId.term}) not found`);
+  constructor(courseID: CourseID) {
+    super(`Course ${courseID.code} (${courseID.term}) not found`);
     this.name = "CourseNotFoundError";
   }
 }
 
 export class RequestNotFoundError extends Error {
-  constructor(requestId: RequestId) {
-    super(`Request ${requestId} not found`);
+  constructor(requestID: RequestID) {
+    super(`Request ${requestID} not found`);
     this.name = "RequestNotFoundError";
   }
 }
 
 export class ResponseAlreadyExistsError extends Error {
-  constructor(requestId: RequestId) {
-    super(`Request ${requestId} already has a response`);
+  constructor(requestID: RequestID) {
+    super(`Request ${requestID} already has a response`);
     this.name = "ResponseAlreadyExistsError";
   }
 }

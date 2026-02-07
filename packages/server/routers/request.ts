@@ -1,11 +1,11 @@
-import { Request, RequestId, RequestInit, Role } from "service/models";
+import { Request, RequestID, RequestInit, Role } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
 
 export const routerRequest = router({
   get: procedure
-    .input(RequestId)
+    .input(RequestID)
     .output(Request)
     .query(({ input, ctx }) => {
       return services.request.auth(ctx.user.email).getRequest(input);
@@ -18,7 +18,7 @@ export const routerRequest = router({
     }),
   create: procedure
     .input(RequestInit)
-    .output(RequestId)
+    .output(RequestID)
     .mutation(async ({ input, ctx }) => {
       const rid = await services.request
         .auth(ctx.user.email)

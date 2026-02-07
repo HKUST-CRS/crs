@@ -1,4 +1,4 @@
-import type { Class, Course, CourseId, Role, User } from "../models";
+import type { Class, Course, CourseID, Role, User } from "../models";
 import {
   ClassPermissionError,
   CoursePermissionError,
@@ -25,7 +25,7 @@ export function assertRole(user: User, roles: Role[], op?: string) {
  */
 export function assertCourseRole(
   user: User,
-  course: Course | CourseId,
+  course: Course | CourseID,
   roles: Role[],
   op?: string,
 ) {

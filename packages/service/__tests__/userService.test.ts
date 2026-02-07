@@ -9,16 +9,16 @@ import {
 } from "bun:test";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import { UserService } from "../lib";
+import type { Course, User } from "../models";
+import { createRepos } from "../repos";
+import { UserNotFoundError } from "../repos/error";
+import { UserService } from "../services";
 import {
   ClassPermissionError,
   CoursePermissionError,
   PermissionError,
   SudoerPermissionError,
-} from "../lib/error";
-import type { Course, User } from "../models";
-import { createRepos } from "../repos";
-import { UserNotFoundError } from "../repos/error";
+} from "../services/error";
 import { clearData, insertData } from "./tests";
 
 describe("UserService", () => {
@@ -161,17 +161,17 @@ describe("UserService", () => {
 
   describe("suggestUserName", () => {
     test("instructors can suggest name for users in their course", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const instructor: User = {
         email: "instructor1@ust.hk",
         name: "instructor1",
-        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+        enrollment: [{ role: "instructor", course: courseID, section: "L1" }],
         sudoer: false,
       };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [instructor, student] });
@@ -187,17 +187,17 @@ describe("UserService", () => {
     });
 
     test("should not overwrite existing user name", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const instructor: User = {
         email: "instructor1@ust.hk",
         name: "instructor1",
-        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+        enrollment: [{ role: "instructor", course: courseID, section: "L1" }],
         sudoer: false,
       };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "Existing Name",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [instructor, student] });
@@ -213,17 +213,17 @@ describe("UserService", () => {
     });
 
     test("students cannot suggest names for users", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       const target: User = {
         email: "student2@connect.ust.hk",
         name: "",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [student, target] });
@@ -290,41 +290,41 @@ describe("UserService", () => {
 
   describe("getUsersInCourse", () => {
     test("admins should be able to view users in a course", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const admin: User = {
         email: "admin1@ust.hk",
         name: "admin1",
-        enrollment: [{ role: "admin", course: courseId, section: "L1" }],
+        enrollment: [{ role: "admin", course: courseID, section: "L1" }],
         sudoer: false,
       };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [admin, student] });
 
       const users = await userService
         .auth(admin.email)
-        .getUsersInCourse(courseId);
+        .getUsersInCourse(courseID);
       expect(users.map((u) => u.email)).toEqual(
         expect.arrayContaining([student.email]),
       );
     });
 
     test("students should not be able to view users in a course", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [student] });
 
       try {
-        await userService.auth(student.email).getUsersInCourse(courseId);
+        await userService.auth(student.email).getUsersInCourse(courseID);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
@@ -810,11 +810,11 @@ describe("UserService", () => {
 
   describe("createEnrollment", () => {
     test("admins should be able to create enrollment for new user", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const admin: User = {
         email: "admin1@ust.hk",
         name: "admin1",
-        enrollment: [{ role: "admin", course: courseId, section: "L1" }],
+        enrollment: [{ role: "admin", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [admin] });
@@ -823,7 +823,7 @@ describe("UserService", () => {
         .auth(admin.email)
         .createEnrollment("new@connect.ust.hk", {
           role: "student",
-          course: courseId,
+          course: courseID,
           section: "L1",
         });
 
@@ -832,17 +832,17 @@ describe("UserService", () => {
         .getCurrentUser();
       expect(createdUser.enrollment).toEqual(
         expect.arrayContaining([
-          { role: "student", course: courseId, section: "L1" },
+          { role: "student", course: courseID, section: "L1" },
         ]),
       );
     });
 
     test("students should not be able to create enrollment", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [student] });
@@ -852,7 +852,7 @@ describe("UserService", () => {
           .auth(student.email)
           .createEnrollment("new@connect.ust.hk", {
             role: "student",
-            course: courseId,
+            course: courseID,
             section: "L1",
           });
         expect.unreachable("should have thrown an error");
@@ -864,24 +864,24 @@ describe("UserService", () => {
 
   describe("deleteEnrollment", () => {
     test("instructors should be able to delete enrollment", async () => {
-      const courseId = { code: "COMP 1023", term: "2510" };
+      const courseID = { code: "COMP 1023", term: "2510" };
       const instructor: User = {
         email: "instructor1@ust.hk",
         name: "instructor1",
-        enrollment: [{ role: "instructor", course: courseId, section: "L1" }],
+        enrollment: [{ role: "instructor", course: courseID, section: "L1" }],
         sudoer: false,
       };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
-        enrollment: [{ role: "student", course: courseId, section: "L1" }],
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
         sudoer: false,
       };
       await insertData(conn, { users: [instructor, student] });
 
       await userService.auth(instructor.email).deleteEnrollment(student.email, {
         role: "student",
-        course: courseId,
+        course: courseID,
         section: "L1",
       });
 

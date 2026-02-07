@@ -1,7 +1,7 @@
 import type { Collections } from "../db";
-import { CourseRepo } from "./courseRepo";
-import { RequestRepo } from "./requestRepo";
-import { UserRepo } from "./userRepo";
+import { CourseRepo } from "./RepoCourse";
+import { RequestRepo } from "./RepoRequest";
+import { UserRepo } from "./RepoUser";
 
 export interface Repos {
   user: UserRepo;

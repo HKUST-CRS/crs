@@ -1,5 +1,5 @@
 import type { Collections } from "../db";
-import type { Course, CourseId, Role, User } from "../models";
+import type { Course, CourseID, Role, User } from "../models";
 import { sortRecord } from "../utils/comparison";
 import { CourseNotFoundError } from "./error";
 
@@ -15,9 +15,9 @@ export class CourseRepo {
     await this.collections.courses.insertOne(course);
   }
 
-  async requireCourse(courseId: CourseId): Promise<Course> {
-    const course = await this.collections.courses.findOne(courseId);
-    if (!course) throw new CourseNotFoundError(courseId);
+  async requireCourse(courseID: CourseID): Promise<Course> {
+    const course = await this.collections.courses.findOne(courseID);
+    if (!course) throw new CourseNotFoundError(courseID);
     return course;
   }
 
@@ -30,19 +30,19 @@ export class CourseRepo {
   }
 
   async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
-    const courseIds = user.enrollment
+    const courseIDs = user.enrollment
       .filter((e) => roles.includes(e.role))
       .map((e) => ({
         code: e.course.code,
         term: e.course.term,
       }));
     // MongoDB throws an error when $or receives an empty array
-    if (courseIds.length === 0) {
+    if (courseIDs.length === 0) {
       return [];
     }
     return await this.collections.courses
       .find({
-        $or: courseIds.map((id) => ({ code: id.code, term: id.term })),
+        $or: courseIDs.map((id) => ({ code: id.code, term: id.term })),
       })
       .sort({ code: "ascending", term: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
@@ -50,13 +50,13 @@ export class CourseRepo {
   }
 
   async updateSections(
-    courseId: CourseId,
+    courseID: CourseID,
     sections: Course["sections"],
   ): Promise<void> {
     sections = sortRecord(sections);
     await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
+      // cannot use courseID directly, in case of extra fields
+      { code: courseID.code, term: courseID.term },
       {
         $set: { sections },
       },
@@ -64,13 +64,13 @@ export class CourseRepo {
   }
 
   async updateAssignments(
-    courseId: CourseId,
+    courseID: CourseID,
     assignments: Course["assignments"],
   ): Promise<void> {
     assignments = sortRecord(assignments);
     await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
+      // cannot use courseID directly, in case of extra fields
+      { code: courseID.code, term: courseID.term },
       {
         $set: { assignments },
       },
@@ -78,12 +78,12 @@ export class CourseRepo {
   }
 
   async updateEffectiveRequestTypes(
-    courseId: CourseId,
+    courseID: CourseID,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
     await this.collections.courses.updateOne(
-      // cannot use courseId directly, in case of extra fields
-      { code: courseId.code, term: courseId.term },
+      // cannot use courseID directly, in case of extra fields
+      { code: courseID.code, term: courseID.term },
       {
         $set: { effectiveRequestTypes },
       },

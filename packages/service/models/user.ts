@@ -27,8 +27,8 @@ export const User = z.object({
 });
 export type User = z.infer<typeof User>;
 
-export const UserId = User.shape.email;
-export type UserId = z.infer<typeof UserId>;
+export const UserID = User.shape.email;
+export type UserID = z.infer<typeof UserID>;
 
 export namespace Enrollments {
   export function compare(a: Enrollment, b: Enrollment): number {

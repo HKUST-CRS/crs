@@ -58,10 +58,10 @@ export const Course = z
     description: "An *offering* of a course in a specific term.",
   });
 
-export const CourseId = Course.pick({ code: true, term: true });
+export const CourseID = Course.pick({ code: true, term: true });
 
 export type Course = z.infer<typeof Course>;
-export type CourseId = z.infer<typeof CourseId>;
+export type CourseID = z.infer<typeof CourseID>;
 
 export namespace Terms {
   export function formatTerm(term: string) {
@@ -136,22 +136,22 @@ export namespace Terms {
 }
 
 export namespace Courses {
-  export function id2str(courseId: CourseId): string {
-    return `${courseId.code} @ ${courseId.term}`;
+  export function id2str(courseID: CourseID): string {
+    return `${courseID.code} @ ${courseID.term}`;
   }
-  export function str2id(courseIdStr: string): CourseId {
-    const [code, term] = courseIdStr.split(" @ ");
+  export function str2id(courseIDStr: string): CourseID {
+    const [code, term] = courseIDStr.split(" @ ");
     if (code && term) {
       return {
         code,
         term,
       };
     } else {
-      throw new Error(`Illegal course ID string: ${courseIdStr}`);
+      throw new Error(`Illegal course ID string: ${courseIDStr}`);
     }
   }
 
-  export function formatID(cid: CourseId): string {
+  export function formatID(cid: CourseID): string {
     return `${cid.code} (${Terms.formatTerm(cid.term)})`;
   }
 
@@ -159,27 +159,27 @@ export namespace Courses {
     return `${course.code} (${Terms.formatTerm(course.term)})`;
   }
 
-  export function toID(course: Course): CourseId {
+  export function toID(course: Course): CourseID {
     return {
       code: course.code,
       term: course.term,
     };
   }
 
-  export function compare(a: CourseId, b: CourseId): number {
+  export function compare(a: CourseID, b: CourseID): number {
     return compareString(Courses.id2str(a), Courses.id2str(b));
   }
 }
 
-export const SectionId = z.string().meta({
+export const SectionID = z.string().meta({
   description: "The section code.",
   examples: ["L1", "L01", "T1", "LA1"],
 });
 
 export const Class = z
   .object({
-    course: CourseId,
-    section: SectionId,
+    course: CourseID,
+    section: SectionID,
   })
   .meta({
     description:
