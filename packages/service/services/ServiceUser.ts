@@ -2,13 +2,13 @@ import { deepEquals } from "bun";
 import {
   type Class,
   Classes,
-  type CourseId,
+  type CourseID,
   Courses,
   type Enrollment,
   type Role,
   Roles,
   type User,
-  type UserId,
+  type UserID,
 } from "../models";
 import type { Repos } from "../repos";
 import {
@@ -18,7 +18,7 @@ import {
   assertSudoer,
 } from "./permission";
 
-export class UserService<TUser extends UserId | null = null> {
+export class UserService<TUser extends UserID | null = null> {
   public user: TUser;
 
   constructor(repos: Repos);
@@ -42,7 +42,7 @@ export class UserService<TUser extends UserId | null = null> {
    *
    * If the user does not exist, it creates the user record.
    */
-  async sync(this: UserService<UserId>, name: string): Promise<void> {
+  async sync(this: UserService<UserID>, name: string): Promise<void> {
     await this.repos.user.createUser(this.user);
     await this.repos.user.updateUserName(this.user, name);
 
@@ -78,8 +78,8 @@ export class UserService<TUser extends UserId | null = null> {
    * @param name The name to suggest.
    */
   async suggestUserName(
-    this: UserService<UserId>,
-    uid: UserId,
+    this: UserService<UserID>,
+    uid: UserID,
     name: string,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
@@ -90,7 +90,7 @@ export class UserService<TUser extends UserId | null = null> {
   /**
    * Returns the current authenticated user.
    */
-  async getCurrentUser(this: UserService<UserId>): Promise<User> {
+  async getCurrentUser(this: UserService<UserID>): Promise<User> {
     return this.repos.user.requireUser(this.user);
   }
 
@@ -101,7 +101,7 @@ export class UserService<TUser extends UserId | null = null> {
    *
    * @returns The list of sudoer users.
    */
-  async getSudoers(this: UserService<UserId>): Promise<User[]> {
+  async getSudoers(this: UserService<UserID>): Promise<User[]> {
     const user = await this.repos.user.requireUser(this.user);
     assertSudoer(user, "getting sudoers");
     return this.repos.user.getSudoers();
@@ -112,21 +112,21 @@ export class UserService<TUser extends UserId | null = null> {
    *
    * The current user must have the "instructor" role or the "admin" role in the course.
    *
-   * @param courseId The course ID.
+   * @param courseID The course ID.
    * @returns The list of users in the course.
    */
   async getUsersInCourse(
-    this: UserService<UserId>,
-    courseId: CourseId,
+    this: UserService<UserID>,
+    courseID: CourseID,
   ): Promise<User[]> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
-      courseId,
+      courseID,
       ["instructor", "admin"],
-      `getting users in course ${courseId.code} (${courseId.term})`,
+      `getting users in course ${courseID.code} (${courseID.term})`,
     );
-    return this.repos.user.getUsersInCourse(courseId);
+    return this.repos.user.getUsersInCourse(courseID);
   }
 
   /**
@@ -143,7 +143,7 @@ export class UserService<TUser extends UserId | null = null> {
    * @returns The list of users in the class with the specified role.
    */
   async getUsersInClass(
-    this: UserService<UserId>,
+    this: UserService<UserID>,
     clazz: Class,
     role: Role,
   ): Promise<User[]> {
@@ -185,7 +185,7 @@ export class UserService<TUser extends UserId | null = null> {
    * @param roles The roles to filter by.
    */
   async getEnrollments(
-    this: UserService<UserId>,
+    this: UserService<UserID>,
     roles: Role[],
   ): Promise<Enrollment[]> {
     const user = await this.repos.user.requireUser(this.user);
@@ -225,8 +225,8 @@ export class UserService<TUser extends UserId | null = null> {
    * @param enrollment The enrollment to create.
    */
   async createEnrollment(
-    this: UserService<UserId>,
-    uid: UserId,
+    this: UserService<UserID>,
+    uid: UserID,
     enrollment: Enrollment,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
@@ -250,8 +250,8 @@ export class UserService<TUser extends UserId | null = null> {
    * @param enrollment The enrollment to delete.
    */
   async deleteEnrollment(
-    this: UserService<UserId>,
-    uid: UserId,
+    this: UserService<UserID>,
+    uid: UserID,
     enrollment: Enrollment,
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);

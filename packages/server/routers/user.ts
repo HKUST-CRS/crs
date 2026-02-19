@@ -1,10 +1,10 @@
 import {
   Class,
-  CourseId,
+  CourseID,
   Enrollment,
   Role,
   User,
-  UserId,
+  UserID,
 } from "service/models";
 import z from "zod";
 import { services } from "../services";
@@ -18,7 +18,7 @@ export const routerUser = router({
       return services.user.auth(ctx.user.email).getCurrentUser();
     }),
   getAllFromCourse: procedure
-    .input(CourseId)
+    .input(CourseID)
     .output(z.array(User))
     .query(({ ctx, input }) => {
       return services.user.auth(ctx.user.email).getUsersInCourse(input);
@@ -37,7 +37,7 @@ export const routerUser = router({
   suggestName: procedure
     .input(
       z.object({
-        uid: UserId,
+        uid: UserID,
         name: z.string(),
       }),
     )
@@ -56,7 +56,7 @@ export const routerUser = router({
   createEnrollment: procedure
     .input(
       z.object({
-        uid: UserId,
+        uid: UserID,
         enrollment: Enrollment,
       }),
     )
@@ -68,7 +68,7 @@ export const routerUser = router({
   deleteEnrollment: procedure
     .input(
       z.object({
-        uid: UserId,
+        uid: UserID,
         enrollment: Enrollment,
       }),
     )

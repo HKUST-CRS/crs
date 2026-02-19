@@ -2,27 +2,27 @@ import type { Collections } from "../db";
 import {
   type Class,
   Classes,
-  type CourseId,
+  type CourseID,
   Courses,
   type Enrollment,
   Enrollments,
   type Role,
   type User,
-  type UserId,
+  type UserID,
 } from "../models";
 import { UserNotFoundError } from "./error";
 
 export class UserRepo {
   constructor(protected collections: Collections) {}
 
-  async getUser(userId: UserId): Promise<User | null> {
-    const user = await this.collections.users.findOne({ email: userId });
+  async getUser(userID: UserID): Promise<User | null> {
+    const user = await this.collections.users.findOne({ email: userID });
     return user;
   }
 
-  async requireUser(userId: UserId): Promise<User> {
-    const user = await this.getUser(userId);
-    if (!user) throw new UserNotFoundError(userId);
+  async requireUser(userID: UserID): Promise<User> {
+    const user = await this.getUser(userID);
+    if (!user) throw new UserNotFoundError(userID);
     return user;
   }
 
@@ -31,14 +31,14 @@ export class UserRepo {
    *
    * The user's name is initialized as an empty string, and enrollment as an empty array.
    */
-  async createUser(userId: UserId): Promise<void> {
+  async createUser(userID: UserID): Promise<void> {
     await this.collections.users.updateOne(
       {
-        email: userId,
+        email: userID,
       },
       {
         $setOnInsert: {
-          email: userId,
+          email: userID,
           name: "",
           enrollment: [],
           sudoer: false,
@@ -53,9 +53,9 @@ export class UserRepo {
   /**
    * Update the user's name.
    */
-  async updateUserName(userId: UserId, name: string): Promise<void> {
+  async updateUserName(userID: UserID, name: string): Promise<void> {
     await this.collections.users.updateOne(
-      { email: userId },
+      { email: userID },
       { $set: { name } },
     );
   }
@@ -63,7 +63,7 @@ export class UserRepo {
   /**
    * Update the user's name if there is no current name.
    */
-  async suggestUserName(uid: UserId, name: string): Promise<void> {
+  async suggestUserName(uid: UserID, name: string): Promise<void> {
     await this.collections.users.updateOne(
       { email: uid, name: "" },
       { $set: { name } },
@@ -85,13 +85,13 @@ export class UserRepo {
   /**
    * Get all users enrolled in the course.
    */
-  async getUsersInCourse(courseId: CourseId): Promise<User[]> {
+  async getUsersInCourse(courseID: CourseID): Promise<User[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
           $elemMatch: {
-            "course.code": courseId.code,
-            "course.term": courseId.term,
+            "course.code": courseID.code,
+            "course.term": courseID.term,
           },
         },
       })
@@ -129,7 +129,7 @@ export class UserRepo {
    *
    * Special sections like * and parenthetical sections (e.g., "(...)") are excluded.
    */
-  async getClasses(cid: CourseId): Promise<Class[]> {
+  async getClasses(cid: CourseID): Promise<Class[]> {
     const users = await this.collections.users
       .find({
         enrollment: {
@@ -160,7 +160,7 @@ export class UserRepo {
   /**
    * Create a role for the user in a class.
    */
-  async createEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+  async createEnrollment(uid: UserID, enrollment: Enrollment): Promise<void> {
     await this.collections.withTransaction(async (session) => {
       await this.collections.users.updateOne(
         { email: uid },
@@ -184,7 +184,7 @@ export class UserRepo {
   /**
    * Delete a role for the user in a class.
    */
-  async deleteEnrollment(uid: UserId, enrollment: Enrollment): Promise<void> {
+  async deleteEnrollment(uid: UserID, enrollment: Enrollment): Promise<void> {
     await this.collections.withTransaction(async (session) => {
       await this.collections.users.updateOne(
         { email: uid },

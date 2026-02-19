@@ -1,15 +1,15 @@
 import {
   type Course,
-  type CourseId,
+  type CourseID,
   Courses,
   type Role,
   Roles,
-  type UserId,
+  type UserID,
 } from "../models";
 import type { Repos } from "../repos";
 import { assertCourseRole, assertSudoer } from "./permission";
 
-export class CourseService<TUser extends UserId | null = null> {
+export class CourseService<TUser extends UserID | null = null> {
   public user: TUser;
 
   constructor(repos: Repos);
@@ -36,9 +36,9 @@ export class CourseService<TUser extends UserId | null = null> {
    * @param course The course to create.
    */
   async createCourse(
-    this: CourseService<UserId>,
+    this: CourseService<UserID>,
     course: Course,
-  ): Promise<CourseId> {
+  ): Promise<CourseID> {
     const user = await this.repos.user.requireUser(this.user);
     assertSudoer(user, `creating a new course ${Courses.formatCourse(course)}`);
     await this.repos.course.createCourse(course);
@@ -50,21 +50,21 @@ export class CourseService<TUser extends UserId | null = null> {
    *
    * The current user must have any role in the course.
    *
-   * @param courseId The ID of the course to get.
+   * @param courseID The ID of the course to get.
    * @returns The course.
    */
   async getCourse(
-    this: CourseService<UserId>,
-    courseId: CourseId,
+    this: CourseService<UserID>,
+    courseID: CourseID,
   ): Promise<Course> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
-      courseId,
+      courseID,
       Roles,
-      `accessing course ${Courses.formatID(courseId)}`,
+      `accessing course ${Courses.formatID(courseID)}`,
     );
-    return this.repos.course.requireCourse(courseId);
+    return this.repos.course.requireCourse(courseID);
   }
 
   /**
@@ -73,7 +73,7 @@ export class CourseService<TUser extends UserId | null = null> {
    * @returns The list of courses.
    */
   async getCoursesFromEnrollment(
-    this: CourseService<UserId>,
+    this: CourseService<UserID>,
     roles: Role[],
   ): Promise<Course[]> {
     const user = await this.repos.user.requireUser(this.user);
@@ -85,22 +85,22 @@ export class CourseService<TUser extends UserId | null = null> {
    *
    * The current user must be an instructor or admin in the course.
    *
-   * @param courseId The ID of the course to update.
+   * @param courseID The ID of the course to update.
    * @param sections The new sections of the course.
    */
   async updateSections(
-    this: CourseService<UserId>,
-    courseId: CourseId,
+    this: CourseService<UserID>,
+    courseID: CourseID,
     sections: Course["sections"],
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
-      courseId,
+      courseID,
       ["instructor", "admin"],
-      `updating sections of course ${Courses.formatID(courseId)}`,
+      `updating sections of course ${Courses.formatID(courseID)}`,
     );
-    await this.repos.course.updateSections(courseId, sections);
+    await this.repos.course.updateSections(courseID, sections);
   }
 
   /**
@@ -108,44 +108,44 @@ export class CourseService<TUser extends UserId | null = null> {
    *
    * The current user must be an instructor or admin in the course.
    *
-   * @param courseId The ID of the course to update.
+   * @param courseID The ID of the course to update.
    * @param assignments The new assignments of the course.
    */
   async updateAssignments(
-    this: CourseService<UserId>,
-    courseId: CourseId,
+    this: CourseService<UserID>,
+    courseID: CourseID,
     assignments: Course["assignments"],
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
-      courseId,
+      courseID,
       ["instructor", "admin"],
-      `updating assignments of course ${Courses.formatID(courseId)}`,
+      `updating assignments of course ${Courses.formatID(courseID)}`,
     );
-    await this.repos.course.updateAssignments(courseId, assignments);
+    await this.repos.course.updateAssignments(courseID, assignments);
   }
 
   /**
    * Updates the effective request types of a course.
    *
-   * @param courseId The ID of the course to update.
+   * @param courseID The ID of the course to update.
    * @param effectiveRequestTypes The new effective request types of the course.
    */
   async updateEffectiveRequestTypes(
-    this: CourseService<UserId>,
-    courseId: CourseId,
+    this: CourseService<UserID>,
+    courseID: CourseID,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
-      courseId,
+      courseID,
       ["instructor", "admin"],
-      `updating effective request types of course ${Courses.formatID(courseId)}`,
+      `updating effective request types of course ${Courses.formatID(courseID)}`,
     );
     await this.repos.course.updateEffectiveRequestTypes(
-      courseId,
+      courseID,
       effectiveRequestTypes,
     );
   }

@@ -5,13 +5,13 @@ import ResponseForm from "@/components/requests/response-form";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 
-export default function ResponseDisplay({ requestId }: { requestId: string }) {
+export default function ResponseDisplay({ requestID }: { requestID: string }) {
   const trpc = useTRPC();
-  const requestQuery = useQuery(trpc.request.get.queryOptions(requestId));
+  const requestQuery = useQuery(trpc.request.get.queryOptions(requestID));
   if (requestQuery.error) {
     console.error({
       error: requestQuery.error,
-      requestId,
+      requestID,
     });
     return null;
   }

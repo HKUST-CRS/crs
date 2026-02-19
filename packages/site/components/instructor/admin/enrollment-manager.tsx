@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
-  type CourseId,
+  type CourseID,
   Courses,
   type Enrollment,
   Enrollments,
@@ -23,13 +23,16 @@ import {
   AddEnrollmentForm,
   type AddEnrollmentSubmissionSchema,
 } from "./add-enrollment-form";
-import { EnrollmentTable } from "./enrollment-table";
+import {
+  EnrollmentTable,
+  type EnrollmentTableHandle,
+} from "./enrollment-table";
 import {
   ImportEnrollmentForm,
   type ImportEnrollmentSubmissionSchema,
 } from "./import-enrollment-form";
 
-export function EnrollmentManager({ cid }: { cid: CourseId }) {
+export function EnrollmentManager({ cid }: { cid: CourseID }) {
   const trpc = useTRPC();
 
   const { data: users, refetch } = useQuery(
@@ -49,6 +52,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
       return compareString(a.user.email, b.user.email);
     });
   const [selection, setSelection] = useState<typeof enrollments>([]);
+  const tableRef = useRef<EnrollmentTableHandle>(null);
 
   const createEnrollmentMutation = useMutation(
     trpc.user.createEnrollment.mutationOptions(),
@@ -110,6 +114,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
     }));
     deleteEnrollments(es).then(() => {
       setSelection([]);
+      tableRef.current?.clearSelection();
     });
   };
 
@@ -138,6 +143,7 @@ export function EnrollmentManager({ cid }: { cid: CourseId }) {
       <EnrollmentTable
         enrollments={enrollments}
         updateSelection={setSelection}
+        ref={tableRef}
       />
 
       <FieldDescription>

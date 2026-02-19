@@ -1,11 +1,11 @@
 import z from "zod";
-import { UserId } from "../user";
+import { UserID } from "../user";
 
 export const ResponseDecision = z.literal(["Approve", "Reject"]);
 export type ResponseDecision = z.infer<typeof ResponseDecision>;
 
 export const Response = z.object({
-  from: UserId,
+  from: UserID,
   timestamp: z.iso.datetime({ offset: true }),
   remarks: z.string(),
   decision: ResponseDecision,

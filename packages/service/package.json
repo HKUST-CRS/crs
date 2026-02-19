@@ -6,8 +6,8 @@
   "scripts": {
     "lint": "bunx --bun biome check",
     "lint:fix": "bunx --bun biome check --write",
-    "test": "bun run typecheck && bun test --preload ./__tests__/setup.ts",
-    "test:coverage": "bun test --coverage --preload ./__tests__/setup.ts",
+    "test": "bun run typecheck && bun test --preload ./tests/setup.ts",
+    "test:coverage": "bun test --coverage --preload ./tests/setup.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

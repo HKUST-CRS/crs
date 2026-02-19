@@ -9,11 +9,14 @@ import {
 } from "bun:test";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import { CourseService } from "../lib";
-import { CoursePermissionError, SudoerPermissionError } from "../lib/error";
 import type { Course, User } from "../models";
 import { createRepos } from "../repos";
 import { CourseNotFoundError, UserNotFoundError } from "../repos/error";
+import { CourseService } from "../services";
+import {
+  CoursePermissionError,
+  SudoerPermissionError,
+} from "../services/error";
 import { clearData, insertData } from "./tests";
 
 describe("CourseService", () => {
@@ -71,11 +74,11 @@ describe("CourseService", () => {
 
       await insertData(conn, { users: [student], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const courseResult = await courseService
         .auth(student.email)
-        .getCourse(courseId);
-      expect(courseResult.code).toEqual(courseId.code);
+        .getCourse(courseID);
+      expect(courseResult.code).toEqual(courseID.code);
     });
 
     test("admins should be able to get course by id", async () => {
@@ -106,11 +109,11 @@ describe("CourseService", () => {
 
       await insertData(conn, { users: [admin], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const courseResult = await courseService
         .auth(admin.email)
-        .getCourse(courseId);
-      expect(courseResult.code).toEqual(courseId.code);
+        .getCourse(courseID);
+      expect(courseResult.code).toEqual(courseID.code);
     });
 
     test("should throw user not found error when user does not exist", async () => {
@@ -164,14 +167,14 @@ describe("CourseService", () => {
     });
 
     test("should throw error when course does not exist but user is enrolled", async () => {
-      const courseId = { code: "NONEXIST", term: "2510" };
+      const courseID = { code: "NONEXIST", term: "2510" };
       const student: User = {
         email: "student1@connect.ust.hk",
         name: "student1",
         enrollment: [
           {
             role: "student",
-            course: courseId,
+            course: courseID,
             section: "L1",
           },
         ],
@@ -180,7 +183,7 @@ describe("CourseService", () => {
       await insertData(conn, { users: [student] });
 
       try {
-        await courseService.auth(student.email).getCourse(courseId);
+        await courseService.auth(student.email).getCourse(courseID);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CourseNotFoundError);
@@ -335,14 +338,14 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [instructor], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       await courseService
         .auth(instructor.email)
-        .updateSections(courseId, newSections);
+        .updateSections(courseID, newSections);
       const updatedCourse = await courseService
         .auth(instructor.email)
-        .getCourse(courseId);
+        .getCourse(courseID);
       expect(Object.keys(updatedCourse.sections).length).toBe(
         Object.keys(course.sections).length + 1,
       );
@@ -375,12 +378,12 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [student], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       try {
         await courseService
           .auth(student.email)
-          .updateSections(courseId, newSections);
+          .updateSections(courseID, newSections);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
@@ -414,14 +417,14 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newSections = { ...course.sections, L3: { schedule: [] } };
       await courseService
         .auth(admin.email)
-        .updateSections(courseId, newSections);
+        .updateSections(courseID, newSections);
       const updatedCourse = await courseService
         .auth(admin.email)
-        .getCourse(courseId);
+        .getCourse(courseID);
       expect(Object.keys(updatedCourse.sections)).toContain("L3");
     });
   });
@@ -454,7 +457,7 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [instructor], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newRequestTypes = {
         "Swap Section": false,
         "Absent from Section": true,
@@ -462,10 +465,10 @@ describe("CourseService", () => {
       };
       await courseService
         .auth(instructor.email)
-        .updateEffectiveRequestTypes(courseId, newRequestTypes);
+        .updateEffectiveRequestTypes(courseID, newRequestTypes);
       const updatedCourse = await courseService
         .auth(instructor.email)
-        .getCourse(courseId);
+        .getCourse(courseID);
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
     });
 
@@ -538,7 +541,7 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newRequestTypes = {
         "Swap Section": false,
         "Absent from Section": true,
@@ -546,10 +549,10 @@ describe("CourseService", () => {
       };
       await courseService
         .auth(admin.email)
-        .updateEffectiveRequestTypes(courseId, newRequestTypes);
+        .updateEffectiveRequestTypes(courseID, newRequestTypes);
       const updatedCourse = await courseService
         .auth(admin.email)
-        .getCourse(courseId);
+        .getCourse(courseID);
       expect(updatedCourse.effectiveRequestTypes).toEqual(newRequestTypes);
     });
   });
@@ -582,7 +585,7 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [admin], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newAssignments = {
         Lab1: {
           name: "Lab 1",
@@ -593,10 +596,10 @@ describe("CourseService", () => {
 
       await courseService
         .auth(admin.email)
-        .updateAssignments(courseId, newAssignments);
+        .updateAssignments(courseID, newAssignments);
       const updatedCourse = await courseService
         .auth(admin.email)
-        .getCourse(courseId);
+        .getCourse(courseID);
       expect(updatedCourse.assignments).toEqual(newAssignments);
     });
 
@@ -627,7 +630,7 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [student], courses: [course] });
 
-      const courseId = { code: course.code, term: course.term };
+      const courseID = { code: course.code, term: course.term };
       const newAssignments = {
         Lab1: {
           name: "Lab 1",
@@ -639,7 +642,7 @@ describe("CourseService", () => {
       try {
         await courseService
           .auth(student.email)
-          .updateAssignments(courseId, newAssignments);
+          .updateAssignments(courseID, newAssignments);
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(CoursePermissionError);
@@ -669,12 +672,12 @@ describe("CourseService", () => {
       };
       await insertData(conn, { users: [sudoer] });
 
-      const courseId = await courseService
+      const courseID = await courseService
         .auth(sudoer.email)
         .createCourse(course);
-      expect(courseId).toEqual({ code: course.code, term: course.term });
+      expect(courseID).toEqual({ code: course.code, term: course.term });
 
-      const fetchedCourse = await conn.collections.courses.findOne(courseId);
+      const fetchedCourse = await conn.collections.courses.findOne(courseID);
       expect(fetchedCourse?.title).toBe(course.title);
     });
 

@@ -10,7 +10,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import { useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { Courses, Enrollment, User } from "service/models";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -133,13 +133,17 @@ interface EnrollmentTableProps {
   updateSelection: (es: EnrollmentRow[]) => void;
 }
 
-export function EnrollmentTable({
-  enrollments,
-  updateSelection,
-}: EnrollmentTableProps) {
+export interface EnrollmentTableHandle {
+  clearSelection: () => void;
+}
+
+export const EnrollmentTable = forwardRef<
+  EnrollmentTableHandle,
+  EnrollmentTableProps
+>(function EnrollmentTable({ enrollments, updateSelection }, ref) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState<string[]>([]);
-  const [rowSelection, setRowSelection] = useState({});
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const table = useReactTable({
     data: enrollments,
@@ -158,10 +162,20 @@ export function EnrollmentTable({
     },
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection is the internal state for selection
+  // biome-ignore lint/correctness/useExhaustiveDependencies: rowSelection drives selection updates
   useEffect(() => {
     updateSelection(table.getSelectedRowModel().rows.map((r) => r.original));
   }, [rowSelection]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      clearSelection: () => {
+        setRowSelection({});
+      },
+    }),
+    [],
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -225,4 +239,4 @@ export function EnrollmentTable({
       </div>
     </div>
   );
-}
+});
