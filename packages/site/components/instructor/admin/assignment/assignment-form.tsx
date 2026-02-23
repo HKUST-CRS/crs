@@ -98,49 +98,50 @@ export function AssignmentForm({
                 <Calendar
                   mode="single"
                   selected={DateTime.fromISO(field.value).toJSDate()}
-                  defaultMonth={field.value ? DateTime.fromISO(field.value).toJSDate() : new Date()}
+                  defaultMonth={
+                    field.value
+                      ? DateTime.fromISO(field.value).toJSDate()
+                      : new Date()
+                  }
                   onSelect={(date) => {
                     if (date) {
                       const updated = DateTime.fromJSDate(date).set({
-                              year: date.getFullYear(),
-                              month: date.getMonth() + 1,
-                              day: date.getDate()
-                            });
-                      field.onChange(
-                        updated.toISO()
-                      );
+                        year: date.getFullYear(),
+                        month: date.getMonth() + 1,
+                        day: date.getDate(),
+                      });
+                      field.onChange(updated.toISO());
                     }
                   }}
                   className="rounded-lg border shadow-sm"
                 />
               </PopoverContent>
             </Popover>
-            <Input 
-                  type="time" 
-                  step={60 * 10}
-                  disabled={!field.value}
-                  value={DateTime.fromISO(field.value).toFormat("HH:mm")}
-                  onChange={(e) => {
-                      if (field.value){
-                        const [hour, minute] = e.target.value.split(":").map(str => Number(str));
-                        const updated = DateTime.fromISO(field.value).set({
-                          hour: hour,
-                          minute: minute,
-                          second: 59,
-                          millisecond: 999,
-                        });
-                        field.onChange(
-                          updated.toISO()
-                        );
-                      }
-                    }
-                  }
-              />
+            <Input
+              type="time"
+              step={60 * 10}
+              disabled={!field.value}
+              value={DateTime.fromISO(field.value).toFormat("HH:mm")}
+              onChange={(e) => {
+                if (field.value) {
+                  const [hour, minute] = e.target.value
+                    .split(":")
+                    .map((str) => Number(str));
+                  const updated = DateTime.fromISO(field.value).set({
+                    hour: hour,
+                    minute: minute,
+                    second: 59,
+                    millisecond: 999,
+                  });
+                  field.onChange(updated.toISO());
+                }
+              }}
+            />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
       />
-      
+
       <Controller
         name="maxExtension"
         control={form.control}
@@ -149,10 +150,7 @@ export function AssignmentForm({
             <FieldLabel>Latest Due Date after Extension</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button 
-                    variant="outline"
-                    disabled={!due_valid}
-                >
+                <Button variant="outline" disabled={!due_valid}>
                   <CalendarIcon />
                   {field.value && due_valid ? (
                     due
@@ -164,28 +162,31 @@ export function AssignmentForm({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={due
-                      .plus(Duration.fromISO(field.value))
-                      .toJSDate()}
-                    disabled={date => DateTime.fromJSDate(date).startOf("day") < due.startOf("day")}
-                    defaultMonth={field.value ? due.plus(Duration.fromISO(field.value)).toJSDate() : new Date()}
-                    onSelect={(date) => {
-                      if (date && due_valid) {
-                        const extensionDateTime = DateTime.fromJSDate(date).set({
-                          hour: due.hour,
-                          minute: due.minute,
-                          second: due.second,
-                          millisecond: due.millisecond,
-                        });
-                        field.onChange(
-                          extensionDateTime.diff(due).toISO()
-                        );
-                      }
-                    }}
-                    className="rounded-lg border shadow-sm"
-                  />
+                <Calendar
+                  mode="single"
+                  selected={due.plus(Duration.fromISO(field.value)).toJSDate()}
+                  disabled={(date) =>
+                    DateTime.fromJSDate(date).startOf("day") <
+                    due.startOf("day")
+                  }
+                  defaultMonth={
+                    field.value
+                      ? due.plus(Duration.fromISO(field.value)).toJSDate()
+                      : new Date()
+                  }
+                  onSelect={(date) => {
+                    if (date && due_valid) {
+                      const extensionDateTime = DateTime.fromJSDate(date).set({
+                        hour: due.hour,
+                        minute: due.minute,
+                        second: due.second,
+                        millisecond: due.millisecond,
+                      });
+                      field.onChange(extensionDateTime.diff(due).toISO());
+                    }
+                  }}
+                  className="rounded-lg border shadow-sm"
+                />
               </PopoverContent>
             </Popover>
             <FieldError errors={[fieldState.error]} />
