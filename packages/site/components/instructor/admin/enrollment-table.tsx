@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { Courses, Enrollment, User } from "service/models";
+import { Enrollment, User } from "service/models";
 import z from "zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -84,21 +84,6 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
     },
   },
   {
-    id: "r.enrollment.course",
-    accessorFn: (r) => Courses.formatID(r.enrollment.course),
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Course
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
-      );
-    },
-  },
-  {
     accessorKey: "enrollment.section",
     header: ({ column }) => {
       return (
@@ -113,7 +98,11 @@ export const columns: ColumnDef<EnrollmentRow>[] = [
     },
   },
   {
-    accessorKey: "enrollment.role",
+    id: "enrollment.role",
+    accessorFn: (row) =>
+      row.user.sudoer && row.enrollment.role === "admin"
+        ? "system admin"
+        : row.enrollment.role,
     header: ({ column }) => {
       return (
         <Button

@@ -5,8 +5,7 @@ import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
-import { columns } from "@/components/requests/columns";
-import { DataTable } from "@/components/requests/data-table";
+import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -84,8 +83,7 @@ export default function StudentsView() {
       <section>
         <p className="pb-4 font-medium text-sm leading-none">My Requests</p>
         {requests ? (
-          <DataTable
-            columns={columns}
+          <RequestTable
             data={requests}
             onClick={(request) => {
               router.push(`/request/${request.id}`);

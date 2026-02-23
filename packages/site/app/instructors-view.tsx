@@ -14,8 +14,7 @@ import {
   ExportRequestsForm,
   type ExportRequestsFormSchema,
 } from "@/components/instructor/export-requests-form";
-import { columns } from "@/components/requests/columns";
-import { DataTable } from "@/components/requests/data-table";
+import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -153,8 +152,7 @@ export default function InstructorsView() {
         </div>
 
         {requests ? (
-          <DataTable
-            columns={columns}
+          <RequestTable
             data={requests}
             onClick={(request) => {
               router.push(`/response/${request.id}`);
