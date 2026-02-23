@@ -18,7 +18,7 @@ export default function StudentsView() {
 
   const trpc = useTRPC();
 
-  const userQuery = useQuery(trpc.user.get.queryOptions());
+  const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(

@@ -47,7 +47,7 @@ describe("UserService", () => {
     await clearData(conn);
   });
 
-  describe("getUser", () => {
+  describe("getCurrentUser", () => {
     test("should get user by email", async () => {
       const user: User = {
         email: "student1@connect.ust.hk",
@@ -63,6 +63,92 @@ describe("UserService", () => {
     test("should throw user not found error when user does not exist", async () => {
       try {
         await userService.auth("dne@dne.com").getCurrentUser();
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(UserNotFoundError);
+      }
+    });
+  });
+
+  describe("getUser", () => {
+    test("users should be able to get themselves", async () => {
+      const user: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [user] });
+
+      const fetchedUser = await userService
+        .auth(user.email)
+        .getUser(user.email);
+      expect(fetchedUser).toEqual(user);
+    });
+
+    test("instructors should be able to get users in the same course", async () => {
+      const courseID = { code: "COMP 1023", term: "2510" };
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [{ role: "instructor", course: courseID, section: "L1" }],
+        sudoer: false,
+      };
+      const student: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseID, section: "L2" }],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor, student] });
+
+      const fetchedUser = await userService
+        .auth(instructor.email)
+        .getUser(student.email);
+      expect(fetchedUser).toEqual(student);
+    });
+
+    test("students should not be able to get other users", async () => {
+      const courseID = { code: "COMP 1023", term: "2510" };
+      const student1: User = {
+        email: "student1@connect.ust.hk",
+        name: "student1",
+        enrollment: [{ role: "student", course: courseID, section: "L1" }],
+        sudoer: false,
+      };
+      const student2: User = {
+        email: "student2@connect.ust.hk",
+        name: "student2",
+        enrollment: [{ role: "student", course: courseID, section: "L2" }],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [student1, student2] });
+
+      try {
+        await userService.auth(student1.email).getUser(student2.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("should throw user not found error when target user does not exist", async () => {
+      const instructor: User = {
+        email: "instructor1@ust.hk",
+        name: "instructor1",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: "COMP 1023", term: "2510" },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(conn, { users: [instructor] });
+
+      try {
+        await userService.auth(instructor.email).getUser("dne@connect.ust.hk");
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(UserNotFoundError);

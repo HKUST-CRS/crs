@@ -21,24 +21,37 @@ export class CoursePermissionError extends Error {
   constructor(
     userID: UserID,
     roles: Role[],
-    courseID: CourseID,
+    courses: CourseID[],
     operation: string,
   ) {
     const roleStr =
-      roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
+      roles.length > 0 ? `role(s) ${roles.join("/")}` : "any role";
+    const coursesStr =
+      courses.length > 0
+        ? `courses ${courses.map(Courses.formatID).join(", ")}`
+        : "no courses (internal error!)";
     super(
-      `User ${userID} does not have ${roleStr} in course ${Courses.formatID(courseID)} for ${operation}.`,
+      `User ${userID} does not have ${roleStr} in ${coursesStr} for ${operation}.`,
     );
     this.name = "CoursePermissionError";
   }
 }
 
 export class ClassPermissionError extends Error {
-  constructor(userID: UserID, roles: Role[], clazz: Class, operation: string) {
+  constructor(
+    userID: UserID,
+    roles: Role[],
+    classes: Class[],
+    operation: string,
+  ) {
     const roleStr =
-      roles.length > 0 ? `the role ${roles.join("/")}` : "any role";
+      roles.length > 0 ? `role(s) ${roles.join("/")}` : "any role";
+    const classesStr =
+      classes.length > 0
+        ? `classes ${classes.map(Classes.format).join(", ")}`
+        : "no classes (internal error!)";
     super(
-      `User ${userID} does not have ${roleStr} in class ${Classes.format(clazz)} for ${operation}.`,
+      `User ${userID} does not have ${roleStr} in ${classesStr} for ${operation}.`,
     );
     this.name = "ClassPermissionError";
   }

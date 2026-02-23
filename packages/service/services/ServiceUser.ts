@@ -88,6 +88,32 @@ export class UserService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Gets a user by their user ID.
+   *
+   * The current user must have an instructor, observer, or admin role in one
+   * course that the target user is in. Alternatively, the current user should
+   * be the target user themselves.
+   *
+   * @param uid The user ID.
+   * @return The user with the given user ID.
+   */
+  async getUser(this: UserService<UserID>, uid: UserID): Promise<User> {
+    const user = await this.repos.user.requireUser(this.user);
+    const target = await this.repos.user.requireUser(uid);
+
+    if (user.email !== uid) {
+      assertCourseRole(
+        user,
+        target.enrollment.map((e) => e.course),
+        ["instructor", "observer", "admin"],
+        `getting user ${uid}`,
+      );
+    }
+
+    return target;
+  }
+
+  /**
    * Returns the current authenticated user.
    */
   async getCurrentUser(this: UserService<UserID>): Promise<User> {
