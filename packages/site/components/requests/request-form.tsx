@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { isEqual } from "es-toolkit";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Request } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
@@ -53,14 +53,18 @@ export default function RequestForm(props: RequestFormProps) {
   );
   const [meta, setMeta] = useState<MetaFormSchema | null>(null);
 
+  const submitting = useRef(false);
+
   async function onSubmit(meta: MetaFormSchema) {
+    if (submitting.current) return;
+    submitting.current = true;
+
     console.log({ message: "Submit Request", meta, base });
 
     async function mutate(): Promise<string> {
       if (!base) {
         throw new Error("base is undefined");
       }
-      setMeta(meta);
       switch (meta.type) {
         case "Swap Section": {
           return await createRequest.mutateAsync({
@@ -95,7 +99,13 @@ export default function RequestForm(props: RequestFormProps) {
         router.replace(`/request/${id}`);
         return "Request submitted successfully!";
       },
-      error: (err) => `Cannot submit the request: ${err.message}`,
+      error: (err) => {
+        submitting.current = false;
+        return `Cannot submit the request: ${err.message}`;
+      },
+      // For success, the router routes to the request page, so submitting state
+      // is not relevant anymore. For error, we want to reset the submitting
+      // state to allow the user to try submitting again.
     });
   }
 
@@ -117,7 +127,10 @@ export default function RequestForm(props: RequestFormProps) {
               base={base}
               default={defMeta ?? defProps}
               viewonly={viewonly}
-              onSubmit={onSubmit}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
             />
           );
         }
@@ -137,7 +150,10 @@ export default function RequestForm(props: RequestFormProps) {
               base={base}
               default={defMeta ?? defProps}
               viewonly={viewonly}
-              onSubmit={onSubmit}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
             />
           );
         }
@@ -157,7 +173,10 @@ export default function RequestForm(props: RequestFormProps) {
               base={base}
               default={defMeta ?? defProps}
               viewonly={viewonly}
-              onSubmit={onSubmit}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
             />
           );
         }
@@ -172,6 +191,10 @@ export default function RequestForm(props: RequestFormProps) {
     >
       <BaseRequestForm
         onSubmit={(data) => {
+          // The condition is to avoid an infinite loop of update. The
+          // BaseRequestForm calls onSubmit as soon as the user fills the form.
+          // Setting the base state with filled data causes BaseRequestForm to
+          // call onSubmit again, causing an infinite loop.
           if (!isEqual(data, base)) {
             setBase(data);
           }

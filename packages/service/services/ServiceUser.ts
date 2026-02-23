@@ -57,7 +57,7 @@ export class UserService<TUser extends UserID | null = null> {
         const newEnrollment = {
           role: "admin",
           course: Courses.toID(course),
-          section: "(as system admin)",
+          section: "*",
         } satisfies Enrollment;
         if (!deepEquals(oldEnrollment, newEnrollment)) {
           if (oldEnrollment) {
@@ -85,6 +85,32 @@ export class UserService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     assertRole(user, ["instructor", "admin"], "suggesting a user name");
     await this.repos.user.suggestUserName(uid, name);
+  }
+
+  /**
+   * Gets a user by their user ID.
+   *
+   * The current user must have an instructor, observer, or admin role in one
+   * course that the target user is in. Alternatively, the current user should
+   * be the target user themselves.
+   *
+   * @param uid The user ID.
+   * @return The user with the given user ID.
+   */
+  async getUser(this: UserService<UserID>, uid: UserID): Promise<User> {
+    const user = await this.repos.user.requireUser(this.user);
+    const target = await this.repos.user.requireUser(uid);
+
+    if (user.email !== uid) {
+      assertCourseRole(
+        user,
+        target.enrollment.map((e) => e.course),
+        ["instructor", "observer", "admin"],
+        `getting user ${uid}`,
+      );
+    }
+
+    return target;
   }
 
   /**

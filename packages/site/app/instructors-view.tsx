@@ -14,9 +14,9 @@ import {
   ExportRequestsForm,
   type ExportRequestsFormSchema,
 } from "@/components/instructor/export-requests-form";
-import { columns } from "@/components/requests/columns";
-import { DataTable } from "@/components/requests/data-table";
+import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -41,7 +41,7 @@ export default function InstructorsView() {
 
   const trpc = useTRPC();
 
-  const userQuery = useQuery(trpc.user.get.queryOptions());
+  const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
@@ -125,6 +125,7 @@ export default function InstructorsView() {
 
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+      <ThemeToggleButton />
       <header className="text-center">
 
         <Button
@@ -169,8 +170,7 @@ export default function InstructorsView() {
         </div>
 
         {requests ? (
-          <DataTable
-            columns={columns}
+          <RequestTable
             data={requests}
             onClick={(request) => {
               router.push(`/response/${request.id}`);

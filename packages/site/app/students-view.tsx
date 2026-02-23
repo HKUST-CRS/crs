@@ -1,19 +1,19 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { FilePlus } from "lucide-react";
+import { FilePlus, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { columns } from "@/components/requests/columns";
-import { DataTable } from "@/components/requests/data-table";
+import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
+import { DYK } from "./dyk";
 import { useTheme } from "./ThemeProvider";
-import { Sun, Moon } from "lucide-react"; 
 
 export default function StudentsView() {
   const { isDark, handleThemeChange } = useTheme();
@@ -22,7 +22,7 @@ export default function StudentsView() {
 
   const trpc = useTRPC();
 
-  const userQuery = useQuery(trpc.user.get.queryOptions());
+  const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
@@ -51,20 +51,22 @@ export default function StudentsView() {
     }, [userQuery, requestsQuery]),
   );
 
-  
-
-
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+      <ThemeToggleButton />
+      <DYK />
       <header className="text-center">
-
         <Button
           className="absolute right-4 top-4 md:right-8 md:top-8"
           variant="outline"
           size="sm"
           onClick={() => handleThemeChange()}
         >
-          {isDark ? <Sun className="text-yellow-500" /> : <Moon className="text-blue-750" />}
+          {isDark ? (
+            <Sun className="text-yellow-500" />
+          ) : (
+            <Moon className="text-blue-750" />
+          )}
         </Button>
 
         <h1>CRS</h1>
@@ -101,8 +103,7 @@ export default function StudentsView() {
       <section>
         <p className="pb-4 font-medium text-sm leading-none">My Requests</p>
         {requests ? (
-          <DataTable
-            columns={columns}
+          <RequestTable
             data={requests}
             onClick={(request) => {
               router.push(`/request/${request.id}`);

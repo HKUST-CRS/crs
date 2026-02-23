@@ -13,7 +13,7 @@ import { useTRPC } from "./trpc-client";
 export const useRoleRedirection = (f: (rs: Set<Role>) => string | null) => {
   const trpc = useTRPC();
 
-  const { data: user } = useQuery(trpc.user.get.queryOptions());
+  const { data: user } = useQuery(trpc.user.getCurrent.queryOptions());
 
   const router = useRouter();
   useEffect(() => {

@@ -3,10 +3,17 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
-import { keyBy } from "es-toolkit";
+import { keyBy, uniqBy } from "es-toolkit";
 import { type FC, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { Class, Classes, Courses, Requests, RequestType } from "service/models";
+import {
+  Class,
+  Classes,
+  Courses,
+  Requests,
+  RequestType,
+  Roles,
+} from "service/models";
 import z from "zod";
 import {
   Form,
@@ -59,11 +66,16 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
 
   const trpc = useTRPC();
 
+  // If viewonly, the user is potentially viewing a request from other users (as
+  // course instructor/observer). So for the Course & Section field to show the
+  // correct option, it has to load all courses that the user is in.
   const enrollments = useQuery(
-    trpc.user.getEnrollments.queryOptions(["student"]),
+    trpc.user.getEnrollments.queryOptions(viewonly ? Roles : ["student"]),
   ).data;
   const courses = useQuery(
-    trpc.course.getAllFromEnrollment.queryOptions(["student"]),
+    trpc.course.getAllFromEnrollment.queryOptions(
+      viewonly ? Roles : ["student"],
+    ),
   ).data;
   const coursesMap = useMemo(
     () => keyBy(courses ?? [], (c) => Courses.id2str(c)),
@@ -121,7 +133,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                       <SelectValue placeholder="Choose a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {enrollments.map((e) => {
+                      {uniqBy(enrollments, Classes.id2str).map((e) => {
                         const c = coursesMap[Courses.id2str(e.course)];
                         return (
                           <SelectItem
