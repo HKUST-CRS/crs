@@ -1,73 +1,61 @@
 "use client";
 
 import {
+  ThemeProvider as NextThemesProvider,
+  useTheme as useNextTheme,
+} from "next-themes";
+import {
+  type ComponentProps,
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
-  useEffect,
-  useState,
+  useMemo,
 } from "react";
 
-const ThemeContext = createContext<any>(null);
+type ThemeContextValue = {
+  isDark: boolean;
+  handleThemeChange: () => void;
+};
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [isDark, setIsDark] = useState(false);
+const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-  // Prevent FOUC by applying theme before rendering
-  const blockingStatusScript = `
-    (function() {
-        const savedTheme = localStorage.getItem('theme');
-        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
-        document.documentElement.classList.add('dark');
-        } else {
-        document.documentElement.classList.remove('dark');
-        }
-    })()
-        `;
+function ThemeContextBridge({ children }: { children: ReactNode }) {
+  const { resolvedTheme, setTheme } = useNextTheme();
 
-  const handleThemeChange = (fromListener = false, eMatches?: boolean) => {
-    const root = document.documentElement;
-    if (fromListener) {
-      if (eMatches) {
-        root.classList.add("dark");
-        setIsDark(true);
-      } else {
-        root.classList.remove("dark");
-        setIsDark(false);
-      }
-    } else {
-      if (isDark) {
-        root.classList.remove("dark");
-        setIsDark(false);
-        console.log();
-      } else {
-        root.classList.add("dark");
-        setIsDark(true);
-      }
-    }
-  };
+  const isDark = resolvedTheme === "dark";
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const handleThemeChange = useCallback(() => {
+    setTheme(isDark ? "light" : "dark");
+  }, [isDark, setTheme]);
 
-    handleThemeChange(true, mediaQuery.matches);
-
-    const handleChange = (e: MediaQueryListEvent) => {
-      handleThemeChange(true, e.matches);
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [handleThemeChange]);
+  const value = useMemo(
+    () => ({
+      isDark,
+      handleThemeChange,
+    }),
+    [isDark, handleThemeChange],
+  );
 
   return (
-    <ThemeContext.Provider value={{ isDark, handleThemeChange }}>
-      <script dangerouslySetInnerHTML={{ __html: blockingStatusScript }} />
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
   );
 }
 
-export const useTheme = () => useContext(ThemeContext);
+type ThemeProviderProps = ComponentProps<typeof NextThemesProvider>;
+
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return (
+    <NextThemesProvider {...props}>
+      <ThemeContextBridge>{children}</ThemeContextBridge>
+    </NextThemesProvider>
+  );
+}
+
+export const useTheme = () => {
+  const context = useContext(ThemeContext);
+  if (!context) {
+    throw new Error("useTheme must be used within ThemeProvider");
+  }
+  return context;
+};

@@ -145,24 +145,24 @@ const columns: ColumnDef<Request>[] = [
       return response ? (
         response.decision === "Approve" ? (
           <span>
-            <span className="text-green-800">Approve</span>{" "}
+            <span className="text-green-800 dark:text-green-400">Approve</span>{" "}
             <span>({response.from})</span>
           </span>
         ) : response.decision === "Reject" ? (
           <span>
-            <span className="text-red-800">Reject</span>{" "}
+            <span className="text-red-800 dark:text-red-400">Reject</span>{" "}
             <span>({response.from})</span>
           </span>
         ) : (
           <span>
-            <span className="text-yellow-800">
+            <span className="text-yellow-800 dark:text-yellow-400">
               Unknown ({response.decision})
             </span>{" "}
             <span>({response.from})</span>
           </span>
         )
       ) : (
-        <span className="text-yellow-800">Pending</span>
+        <span className="text-yellow-800 dark:text-yellow-400">Pending</span>
       );
     },
     sortingFn: (rowA, rowB) => {
