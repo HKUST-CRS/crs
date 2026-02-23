@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { TRPCReactProvider } from "@/lib/trpc-client";
 import { ThemeProvider } from "./ThemeProvider";
 
@@ -38,6 +39,7 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
+              <ThemeToggleButton />
               {children}
               <Toaster position="top-center" richColors />
             </ThemeProvider>

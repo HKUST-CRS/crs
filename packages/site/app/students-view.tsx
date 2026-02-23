@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
 import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
-import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
@@ -50,7 +49,6 @@ export default function StudentsView() {
 
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
-      <ThemeToggleButton />
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>
