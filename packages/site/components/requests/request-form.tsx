@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import clsx from "clsx";
 import { isEqual } from "es-toolkit";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Request } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
@@ -53,20 +53,17 @@ export default function RequestForm(props: RequestFormProps) {
   );
   const [meta, setMeta] = useState<MetaFormSchema | null>(null);
 
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = useRef(false);
 
   async function onSubmit(meta: MetaFormSchema) {
-    if (submitting) return;
+    if (submitting.current) return;
+    submitting.current = true;
 
     console.log({ message: "Submit Request", meta, base });
-    setSubmitting(true);
 
     async function mutate(): Promise<string> {
       if (!base) {
         throw new Error("base is undefined");
-      }
-      if (!meta) {
-        throw new Error("meta is undefined");
       }
       switch (meta.type) {
         case "Swap Section": {
@@ -103,7 +100,7 @@ export default function RequestForm(props: RequestFormProps) {
         return "Request submitted successfully!";
       },
       error: (err) => {
-        setSubmitting(false);
+        submitting.current = false;
         return `Cannot submit the request: ${err.message}`;
       },
       // For success, the router routes to the request page, so submitting state
