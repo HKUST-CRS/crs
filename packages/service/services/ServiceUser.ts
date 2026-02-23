@@ -57,7 +57,7 @@ export class UserService<TUser extends UserID | null = null> {
         const newEnrollment = {
           role: "admin",
           course: Courses.toID(course),
-          section: "(as system admin)",
+          section: "*",
         } satisfies Enrollment;
         if (!deepEquals(oldEnrollment, newEnrollment)) {
           if (oldEnrollment) {

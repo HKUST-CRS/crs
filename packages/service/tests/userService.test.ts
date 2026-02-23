@@ -225,12 +225,12 @@ describe("UserService", () => {
           {
             role: "admin",
             course: { code: courseA.code, term: courseA.term },
-            section: "(as system admin)",
+            section: "*",
           },
           {
             role: "admin",
             course: { code: courseB.code, term: courseB.term },
-            section: "(as system admin)",
+            section: "*",
           },
         ]),
       );
@@ -869,7 +869,7 @@ describe("UserService", () => {
           {
             role: "admin",
             course: { code: course.code, term: course.term },
-            section: "(as system admin)",
+            section: "*",
           },
         ],
         sudoer: false,
@@ -888,7 +888,7 @@ describe("UserService", () => {
         expect.arrayContaining(["L1", "L2"]),
       );
       expect(enrollments.map((e) => e.section)).not.toEqual(
-        expect.arrayContaining(["(as system admin)"]),
+        expect.arrayContaining(["*"]),
       );
       expect(enrollments.every((e) => e.role === "instructor")).toBe(true);
     });
