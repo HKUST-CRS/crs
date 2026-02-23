@@ -12,6 +12,12 @@ import { procedure, router } from "../trpc";
 
 export const routerUser = router({
   get: procedure
+    .input(UserID)
+    .output(User)
+    .query(({ ctx, input }) => {
+      return services.user.auth(ctx.user.email).getUser(input);
+    }),
+  getCurrent: procedure
     .input(z.void())
     .output(User)
     .query(({ ctx }) => {

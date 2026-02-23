@@ -1,4 +1,4 @@
-import type { Class, Course, CourseID, Role, User } from "../models";
+import type { Class, CourseID, Role, User } from "../models";
 import {
   ClassPermissionError,
   CoursePermissionError,
@@ -14,67 +14,77 @@ export function assertRole(user: User, roles: Role[], op?: string) {
 }
 
 /**
- * Asserts that the user has one of the specified roles in the given course.
+ * Asserts that the user has one of the specified roles in one of the given
+ * courses.
  *
  * @param user The user whose role is being checked.
- * @param course The course in which the role is being checked.
+ * @param courses The courses in which the role is being checked.
  * @param roles The roles to check for.
  * @param op The operation being performed (used for error messages).
  *
- * @throws CoursePermissionError if the user does not have the required role in the course.
+ * @throws CoursePermissionError if the user does not have the required role in
+ * one of the courses.
  */
 export function assertCourseRole(
   user: User,
-  course: Course | CourseID,
+  courses: CourseID | CourseID[],
   roles: Role[],
   op?: string,
 ) {
+  if (!Array.isArray(courses))
+    return assertCourseRole(user, [courses], roles, op);
   const hasRole = user.enrollment.some(
     (e) =>
-      e.course.code === course.code &&
-      e.course.term === course.term &&
-      roles.includes(e.role),
+      courses.some(
+        (c) => c.code === e.course.code && c.term === e.course.term,
+      ) && roles.includes(e.role),
   );
   if (!hasRole) {
     throw new CoursePermissionError(
       user.email,
       roles,
-      course,
+      courses,
       op || "accessing the course",
     );
   }
 }
 
 /**
- * Asserts that the user has one of the specified roles in the given class.
+ * Asserts that the user has one of the specified roles in one of the given
+ * classes.
  *
  * Enrollments with section "*" match any section in the course.
  *
  * @param user The user whose role is being checked.
- * @param clazz The class in which the role is being checked.
+ * @param classes The class in which the role is being checked.
  * @param roles The roles to check for.
  * @param op The operation being performed (used for error messages).
  *
- * @throws ClassPermissionError if the user does not have the required role in the class.
+ * @throws ClassPermissionError if the user does not have the required role in
+ * one of the classes.
  */
 export function assertClassRole(
   user: User,
-  clazz: Class,
+  classes: Class | Class[],
   roles: Role[],
   op?: string,
 ) {
+  if (!Array.isArray(classes))
+    return assertClassRole(user, [classes], roles, op);
   const hasRole = user.enrollment.some(
     (e) =>
-      e.course.code === clazz.course.code &&
-      e.course.term === clazz.course.term &&
-      (e.section === clazz.section || e.section === "*") &&
-      roles.includes(e.role),
+      classes.some(
+        (c) =>
+          e.course.code === c.course.code &&
+          e.course.term === c.course.term &&
+          (e.section === c.section || e.section === "*"),
+      ) && roles.includes(e.role),
   );
   if (!hasRole) {
     throw new ClassPermissionError(
       user.email,
       roles,
-      clazz,
+      classes,
       op || "accessing the class",
     );
   }

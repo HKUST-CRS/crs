@@ -1,8 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import clsx from "clsx";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { type Request, Response, ResponseDecision } from "service/models";
@@ -27,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/lib/trpc-client";
+import { Skeleton } from "../ui/skeleton";
 import RequestForm from "./request-form";
 
 export const ResponseFormSchema = Response.omit({
@@ -53,6 +53,9 @@ export default function ResponseForm(props: ResponseFormProps) {
   });
 
   const trpc = useTRPC();
+
+  const user = useQuery(trpc.user.get.queryOptions(props.request.from)).data;
+
   const createResponse = useMutation(trpc.response.create.mutationOptions());
 
   const handleSubmit = useCallback(
@@ -104,12 +107,35 @@ export default function ResponseForm(props: ResponseFormProps) {
 
   return (
     <Form {...form}>
-      <Wrapper className={clsx("grid grid-cols-12 gap-x-8 gap-y-4")}>
-        <RequestForm
-          default={request}
-          viewonly
-          className="col-span-full mb-4"
-        />
+      <Wrapper className="grid grid-cols-12 gap-x-8 gap-y-4">
+        <RequestForm default={request} viewonly className="col-span-full" />
+
+        <hr className="col-span-full mb-2" />
+
+        {/* Student */}
+        <FormItem className="col-span-full row-span-2">
+          <FormLabel>Student Info</FormLabel>
+          <FormControl>
+            {user ? (
+              <div className="flex gap-2">
+                <span>{user.name}</span>
+                <span>
+                  (
+                  <a href={`mailto:${user.email}`}>
+                    <u>{user.email}</u>
+                  </a>
+                  )
+                </span>
+              </div>
+            ) : (
+              <Skeleton className="h-6" />
+            )}
+          </FormControl>
+          <FormDescription>
+            The information of the student who submitted the request.
+          </FormDescription>
+          <FormMessage />
+        </FormItem>
 
         <FormField
           name="remarks"

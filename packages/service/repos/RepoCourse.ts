@@ -42,6 +42,9 @@ export class CourseRepo {
     }
     return await this.collections.courses
       .find({
+        // TODO: This $or query is unsafe. This silently fails if a course is
+        // not found in the database instead of throwing an error. We should
+        // verify that all courseIDs exist.
         $or: courseIDs.map((id) => ({ code: id.code, term: id.term })),
       })
       .sort({ code: "ascending", term: "ascending" })
