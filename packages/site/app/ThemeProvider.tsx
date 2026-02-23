@@ -14,7 +14,7 @@ import {
 } from "react";
 
 type ThemeContextValue = {
-  isDark: boolean;
+  theme: string;
   handleThemeChange: () => void;
 };
 
@@ -22,19 +22,18 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function ThemeContextBridge({ children }: { children: ReactNode }) {
   const { resolvedTheme, setTheme } = useNextTheme();
-
-  const isDark = resolvedTheme === "dark";
+  const theme = resolvedTheme ?? "system";
 
   const handleThemeChange = useCallback(() => {
-    setTheme(isDark ? "light" : "dark");
-  }, [isDark, setTheme]);
+    setTheme(theme === "dark" ? "light" : "dark");
+  }, [theme, setTheme]);
 
   const value = useMemo(
     () => ({
-      isDark,
+      theme,
       handleThemeChange,
     }),
-    [isDark, handleThemeChange],
+    [theme, handleThemeChange],
   );
 
   return (

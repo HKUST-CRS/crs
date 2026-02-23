@@ -173,9 +173,13 @@ export default function ResponseForm(props: ResponseFormProps) {
                       <SelectItem key={v} value={v}>
                         <b>
                           {v === "Approve" ? (
-                            <span className="text-green-800 dark:text-green-400">{v}</span>
+                            <span className="text-green-800 dark:text-green-400">
+                              {v}
+                            </span>
                           ) : v === "Reject" ? (
-                            <span className="text-red-800 dark:text-red-400">{v}</span>
+                            <span className="text-red-800 dark:text-red-400">
+                              {v}
+                            </span>
                           ) : (
                             v
                           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { FilePlus, Moon, Sun } from "lucide-react";
+import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
@@ -13,11 +13,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
 import { DYK } from "./dyk";
-import { useTheme } from "./ThemeProvider";
 
 export default function StudentsView() {
-  const { isDark, handleThemeChange } = useTheme();
-
   const router = useRouter();
 
   const trpc = useTRPC();
@@ -56,19 +53,6 @@ export default function StudentsView() {
       <ThemeToggleButton />
       <DYK />
       <header className="text-center">
-        <Button
-          className="absolute top-4 right-4 md:top-8 md:right-8"
-          variant="outline"
-          size="sm"
-          onClick={() => handleThemeChange()}
-        >
-          {isDark ? (
-            <Sun className="text-yellow-500" />
-          ) : (
-            <Moon className="text-blue-750" />
-          )}
-        </Button>
-
         <h1>CRS</h1>
         <TextType
           text="CSE Request System"
