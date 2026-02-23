@@ -167,7 +167,7 @@ const columns: ColumnDef<Request>[] = [
     },
     sortingFn: (rowA, rowB) => {
       function toStatus(r: Response | null) {
-        return r ? (r.decision ? "approved" : "rejected") : "pending";
+        return r?.decision ?? "pending";
       }
       return toStatus(rowA.original.response) > toStatus(rowB.original.response)
         ? 1
