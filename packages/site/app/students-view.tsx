@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FilePlus, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
@@ -57,7 +57,7 @@ export default function StudentsView() {
       <DYK />
       <header className="text-center">
         <Button
-          className="absolute right-4 top-4 md:right-8 md:top-8"
+          className="absolute top-4 right-4 md:top-8 md:right-8"
           variant="outline"
           size="sm"
           onClick={() => handleThemeChange()}

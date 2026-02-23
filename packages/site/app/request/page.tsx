@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, Moon, Sun } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
