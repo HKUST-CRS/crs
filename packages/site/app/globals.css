@@ -74,6 +74,10 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+.dark input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
