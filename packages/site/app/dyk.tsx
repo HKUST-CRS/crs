@@ -8,6 +8,7 @@ const url = {
   team: "https://github.com/HKUST-CRS/reports",
   desmond: "https://www.cse.ust.hk/~desmond/",
   psetup: "https://myaccount.ust.hk/psetup/connect/",
+  discord: "https://discord.gg/D5Ht35RW6B",
 };
 
 const facts = [
@@ -24,6 +25,13 @@ const facts = [
       <u>a team of HKUST students</u>
     </a>
     .
+  </>,
+  <>
+    There is a{" "}
+    <a href={url.discord}>
+      <u>Discord server</u>
+    </a>{" "}
+    for CRS users and developers!
   </>,
   <>
     CRS is an Independent Work project supervised by{" "}
