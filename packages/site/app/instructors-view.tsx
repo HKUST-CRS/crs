@@ -16,6 +16,7 @@ import {
 } from "@/components/instructor/export-requests-form";
 import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -118,6 +119,7 @@ export default function InstructorsView() {
 
   return (
     <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+      <ThemeToggleButton />
       <header className="text-center">
         <h1>CRS</h1>
         <TextType

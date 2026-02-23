@@ -2,12 +2,14 @@
 
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { Button } from "@/components/ui/button";
 import RequestForm from "../../components/requests/request-form";
 
 export default function Home() {
   return (
     <article className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4">
+      <ThemeToggleButton />
       <Link href="/" className="self-start">
         <Button variant="ghost" size="icon">
           <ChevronLeft className="size-6" />
