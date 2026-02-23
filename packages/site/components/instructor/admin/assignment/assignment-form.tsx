@@ -83,60 +83,63 @@ export function AssignmentForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel>Due Date</FieldLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline">
-                  <CalendarIcon />
-                  {field.value ? (
-                    DateTime.fromISO(field.value).toFormat("MMMM dd, yyyy")
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={DateTime.fromISO(field.value).toJSDate()}
-                  defaultMonth={
-                    field.value
-                      ? DateTime.fromISO(field.value).toJSDate()
-                      : new Date()
-                  }
-                  onSelect={(date) => {
-                    if (date) {
-                      const updated = DateTime.fromJSDate(date).set({
-                        year: date.getFullYear(),
-                        month: date.getMonth() + 1,
-                        day: date.getDate(),
-                      });
-                      field.onChange(updated.toISO());
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="flex-1">
+                    <CalendarIcon />
+                    {field.value ? (
+                      DateTime.fromISO(field.value).toFormat("MMMM dd, yyyy")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={DateTime.fromISO(field.value).toJSDate()}
+                    defaultMonth={
+                      field.value
+                        ? DateTime.fromISO(field.value).toJSDate()
+                        : new Date()
                     }
-                  }}
-                  className="rounded-lg border shadow-sm"
-                />
-              </PopoverContent>
-            </Popover>
-            <Input
-              type="time"
-              step={60 * 10}
-              disabled={!field.value}
-              value={DateTime.fromISO(field.value).toFormat("HH:mm")}
-              onChange={(e) => {
-                if (field.value) {
-                  const [hour, minute] = e.target.value
-                    .split(":")
-                    .map((str) => Number(str));
-                  const updated = DateTime.fromISO(field.value).set({
-                    hour: hour,
-                    minute: minute,
-                    second: 59,
-                    millisecond: 999,
-                  });
-                  field.onChange(updated.toISO());
-                }
-              }}
-            />
+                    onSelect={(date) => {
+                      if (date) {
+                        const updated = DateTime.fromJSDate(date).set({
+                          year: date.getFullYear(),
+                          month: date.getMonth() + 1,
+                          day: date.getDate(),
+                        });
+                        field.onChange(updated.toISO());
+                      }
+                    }}
+                    className="rounded-lg border shadow-sm"
+                  />
+                </PopoverContent>
+              </Popover>
+              <Input
+                type="time"
+                step={60 * 10}
+                disabled={!field.value}
+                value={DateTime.fromISO(field.value).toFormat("HH:mm")}
+                onChange={(e) => {
+                  if (field.value) {
+                    const [hour, minute] = e.target.value
+                      .split(":")
+                      .map((str) => Number(str));
+                    const updated = DateTime.fromISO(field.value).set({
+                      hour: hour,
+                      minute: minute,
+                      second: 59,
+                      millisecond: 999,
+                    });
+                    field.onChange(updated.toISO());
+                  }
+                }}
+                className="w-min"
+              />
+            </div>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
