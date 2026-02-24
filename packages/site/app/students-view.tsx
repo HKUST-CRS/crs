@@ -12,6 +12,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
 import { DYK } from "./dyk";
+import posthog from "posthog-js";
 
 export default function StudentsView() {
   const router = useRouter();
@@ -77,7 +78,10 @@ export default function StudentsView() {
       </header>
       <section className="mx-auto">
         <Link href="/request">
-          <Button className="cursor-pointer">
+          <Button
+            className="cursor-pointer"
+            onClick={() => posthog.capture("new_request_clicked")}
+          >
             <FilePlus /> New Request
           </Button>
         </Link>
@@ -88,6 +92,11 @@ export default function StudentsView() {
           <RequestTable
             data={requests}
             onClick={(request) => {
+              posthog.capture("request_table_row_clicked", {
+                request_id: request.id,
+                request_type: request.type,
+                view: "student",
+              });
               router.push(`/request/${request.id}`);
             }}
           />

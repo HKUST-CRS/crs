@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { type Request, Response, ResponseDecision } from "service/models";
 import { toast } from "sonner";
 import type z from "zod";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -73,11 +74,23 @@ export default function ResponseForm(props: ResponseFormProps) {
             id: request.id,
             data,
           });
+          posthog.capture("response_submitted", {
+            request_id: request.id,
+            request_type: request.type,
+            decision: data.decision,
+          });
           onSubmit();
           return "Response submitted successfully!";
         },
-        error: (err) =>
-          `Failed to submit response: ${err?.message ?? String(err)}`,
+        error: (err) => {
+          posthog.capture("response_submission_failed", {
+            request_id: request.id,
+            request_type: request.type,
+            error_message: err?.message ?? String(err),
+          });
+          posthog.captureException(err);
+          return `Failed to submit response: ${err?.message ?? String(err)}`;
+        },
       });
     },
     [createResponse, request.id, onSubmit],

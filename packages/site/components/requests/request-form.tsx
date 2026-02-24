@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import type { Request } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
+import posthog from "posthog-js";
 import { useTRPC } from "@/lib/trpc-client";
 import {
   BaseRequestForm,
@@ -96,11 +97,20 @@ export default function RequestForm(props: RequestFormProps) {
       loading: "Submitting the request...",
       success: (id) => {
         console.log({ message: "Submitted Request", id });
+        posthog.capture("request_submitted", {
+          request_id: id,
+          request_type: meta.type,
+        });
         router.replace(`/request/${id}`);
         return "Request submitted successfully!";
       },
       error: (err) => {
         submitting.current = false;
+        posthog.capture("request_submission_failed", {
+          request_type: meta.type,
+          error_message: err?.message ?? String(err),
+        });
+        posthog.captureException(err);
         return `Cannot submit the request: ${err.message}`;
       },
       // For success, the router routes to the request page, so submitting state

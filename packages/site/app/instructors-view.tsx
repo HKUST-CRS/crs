@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
+import posthog from "posthog-js";
 import {
   CreateCourseForm,
   type CreateCourseFormSchema,
@@ -86,6 +87,11 @@ export default function InstructorsView() {
       new Blob([csv], { type: "text/csv" }),
     );
 
+    posthog.capture("requests_exported", {
+      course_id: Courses.id2str(form.course),
+      request_count: requestsToExport.length,
+    });
+
     setExportRequestsOpen(false);
   };
 
@@ -110,6 +116,12 @@ export default function InstructorsView() {
       },
       {
         onSuccess: (cid) => {
+          posthog.capture("course_created", {
+            course_id: Courses.id2str(cid),
+            course_code: form.code,
+            course_term: form.term,
+            course_title: form.title,
+          });
           router.push(`/instructor/admin/${Courses.id2str(cid)}`);
         },
       },
@@ -155,6 +167,11 @@ export default function InstructorsView() {
           <RequestTable
             data={requests}
             onClick={(request) => {
+              posthog.capture("request_table_row_clicked", {
+                request_id: request.id,
+                request_type: request.type,
+                view: "instructor",
+              });
               router.push(`/response/${request.id}`);
             }}
           />

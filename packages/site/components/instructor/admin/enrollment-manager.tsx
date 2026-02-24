@@ -10,6 +10,7 @@ import {
 } from "service/models";
 import { compareString } from "service/utils/comparison";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -73,6 +74,12 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
         await suggestUserNameMutation.mutateAsync({ uid, name });
       }),
     );
+    posthog.capture("enrollment_added", {
+      course_id: Courses.id2str(cid),
+      enrollment_count: data.length,
+      role: data[0]?.enrollment.role,
+      section: data[0]?.enrollment.section,
+    });
     toast.success(`Successfully created ${data.length} enrollment(s).`);
     refetch();
   };
