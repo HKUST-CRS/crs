@@ -51,6 +51,7 @@ export const BaseRequest = z.object({
   timestamp: z.iso.datetime({ offset: true }),
   response: z.union([Response, z.null()]),
 });
+export type BaseRequest = z.infer<typeof BaseRequest>;
 
 /**
  * A constructor function to create specific request types with associated metadata.

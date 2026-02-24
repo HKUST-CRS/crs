@@ -1,8 +1,18 @@
 import path from "node:path";
-import handlebars from "handlebars";
+import { evaluate } from "@mdx-js/mdx";
 import nodemailer from "nodemailer";
-import { Classes, type Request } from "../models";
+import { createElement } from "react";
+import * as runtime from "react/jsx-runtime";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  Classes,
+  type Request,
+  type RequestDetails,
+  type User,
+} from "../models";
+import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
+import { formatRequest } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
 import { ResponseNotFoundError } from "./error";
 
@@ -27,7 +37,7 @@ export class NotificationService {
         );
       } else {
         console.warn(
-          "SMTP configuration is incomplete. Emails are suppressed.",
+          "SMTP configuration is incomplete. Emails are printed to the console.",
         );
         this.transporter = null;
         this.baseUrl = "https://crs.cse.ust.hk";
@@ -60,42 +70,77 @@ export class NotificationService {
    * @param request The request made.
    */
   async notifyNewRequest(request: Request) {
-    const subject = `New Request for ${Classes.format(request.class)}`;
+    const subject = `Request - ${Classes.format(request.class)}`;
 
     const student = await this.repos.user.requireUser(request.from);
-    const studentName = student.name;
-    const studentEmail = student.email;
-
-    const classInstructors = await this.repos.user.getUsersInClass(
+    const instructors = await this.repos.user.getUsersInClass(
       request.class,
       "instructor",
     );
-    const classInstructorEmails = classInstructors.map((i) => i.email);
-    const classInstructorNames = classInstructors
-      .map((i) => i.name)
-      .filter((name) => name !== "")
-      .sort(compareString)
-      .join(", ");
-
-    const classObservers = await this.repos.user.getUsersInClass(
+    const observers = await this.repos.user.getUsersInClass(
       request.class,
       "observer",
     );
-    const classObserverEmails = classObservers.map((i) => i.email);
 
-    const link = this.urlToResponse(request.id);
+    const content = await this.renderNewRequest(request, {
+      student,
+      instructors,
+    });
 
     await this.sendEmail(
-      classInstructorEmails,
-      [studentEmail, ...classObserverEmails],
+      instructors.map((i) => i.email),
+      [student.email, ...observers.map((i) => i.email)],
       subject,
-      "new_request.hbs",
-      {
-        studentName,
-        instructorNames: classInstructorNames,
-        link,
-        className: Classes.format(request.class),
-      },
+      content,
+      request.details.proof ?? [],
+    );
+  }
+
+  private async renderNewRequest(
+    request: Request,
+    {
+      student,
+      instructors,
+    }: {
+      student: User;
+      instructors: User[];
+    },
+  ): Promise<string> {
+    const StudentLine = (() => {
+      if (student.name) {
+        return student.name;
+      } else {
+        return "Student";
+      }
+    })();
+    const InstructorLine = (() => {
+      const is = instructors.map((i) => i.name).filter((name) => name !== "");
+      if (is.length === 0) {
+        return "Course Instructors";
+      } else {
+        return is.sort(compareString).join(", ");
+      }
+    })();
+    const Link = this.urlToResponse(request.id);
+    const Summary = formatRequest(request, {
+      student,
+      instructors,
+    });
+
+    const templatePath = path.join(this.templateDir, "new_request.mdx");
+    const templateFile = Bun.file(templatePath);
+
+    const module = await evaluate(await templateFile.text(), runtime);
+
+    return renderToStaticMarkup(
+      createElement(module.default, {
+        StudentLine,
+        InstructorLine,
+        Link,
+        Summary,
+        ID: request.id,
+        Sig: await Signature.sign(request),
+      }),
     );
   }
 
@@ -107,68 +152,102 @@ export class NotificationService {
     if (!request.response) {
       throw new ResponseNotFoundError(request.id);
     }
-    const subject = `New Response for ${Classes.format(request.class)}`;
+    const subject = `Response - ${Classes.format(request.class)}`;
 
     const student = await this.repos.user.requireUser(request.from);
-    const studentName = student.name;
-    const studentEmail = student.email;
-
-    const instructor = await this.repos.user.requireUser(request.response.from);
-    const instructorName = instructor.name;
-
-    const classInstructors = await this.repos.user.getUsersInClass(
+    const instructors = await this.repos.user.getUsersInClass(
       request.class,
       "instructor",
     );
-    const classInstructorEmails = classInstructors.map((i) => i.email);
-    const classObservers = await this.repos.user.getUsersInClass(
+    const observers = await this.repos.user.getUsersInClass(
       request.class,
       "observer",
     );
-    const classObserverEmails = classObservers.map((i) => i.email);
 
-    const link = this.urlToResponse(request.id);
+    const content = await this.renderNewResponse(request, {
+      student,
+      instructors,
+    });
 
     await this.sendEmail(
-      [studentEmail],
-      [...classInstructorEmails, ...classObserverEmails],
+      [student.email],
+      [...instructors.map((i) => i.email), ...observers.map((i) => i.email)],
       subject,
-      "new_response.hbs",
-      {
-        studentName,
-        instructorName,
-        link,
-        className: Classes.format(request.class),
-        decision: request.response.decision,
-        remarks: request.response.remarks,
-      },
+      content,
+      request.details.proof ?? [],
     );
   }
 
-  private async renderTemplate(
-    templateName: string,
-    context: Record<string, string>,
+  private async renderNewResponse(
+    request: Request,
+    {
+      student,
+      instructors,
+    }: {
+      student: User;
+      instructors: User[];
+    },
   ): Promise<string> {
-    const templatePath = path.join(this.templateDir, templateName);
+    const response = request.response;
+    if (!response) {
+      throw new ResponseNotFoundError(request.id);
+    }
+    const StudentLine = (() => {
+      if (student.name) {
+        return student.name;
+      } else {
+        return "Student";
+      }
+    })();
+    const InstructorLine = (() => {
+      const is = instructors.map((i) => i.name).filter((name) => name !== "");
+      if (is.length === 0) {
+        return "Course Instructors";
+      } else {
+        return is.sort(compareString).join(", ");
+      }
+    })();
+    const Link = this.urlToResponse(request.id);
+    const Summary = formatRequest(request, {
+      student,
+      instructors,
+    });
+
+    const templatePath = path.join(this.templateDir, "new_response.mdx");
     const templateFile = Bun.file(templatePath);
-    const source = await templateFile.text();
-    const template = handlebars.compile(source);
-    return template(context);
+
+    const module = await evaluate(await templateFile.text(), runtime);
+
+    return renderToStaticMarkup(
+      createElement(module.default, {
+        StudentLine,
+        InstructorLine,
+        Link,
+        Summary,
+        ID: request.id,
+        Sig: await Signature.sign(request),
+      }),
+    );
   }
 
   private async sendEmail(
     to: string[],
     cc: string[],
     subject: string,
-    templateName: string,
-    context: Record<string, string>,
+    content: string,
+    attachments: NonNullable<RequestDetails["proof"]>,
   ): Promise<void> {
-    const html = await this.renderTemplate(templateName, context);
     if (!this.transporter) {
       console.warn(
         "Email sending is suppressed due to incomplete SMTP configuration.",
       );
-      console.warn("Sending", { to, cc, subject }, "with content", "\n", html);
+      console.warn(
+        "Sending",
+        { to, cc, subject },
+        "with content",
+        "\n",
+        content,
+      );
       return;
     }
     await this.transporter.sendMail({
@@ -177,7 +256,12 @@ export class NotificationService {
       to,
       cc,
       subject,
-      html,
+      html: content,
+      attachments: attachments.map((f) => ({
+        filename: f.name,
+        content: f.content,
+        encoding: "base64",
+      })),
     });
   }
 }
