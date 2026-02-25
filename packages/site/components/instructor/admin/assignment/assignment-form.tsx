@@ -102,14 +102,22 @@ export function AssignmentForm({
                     defaultMonth={
                       field.value
                         ? DateTime.fromISO(field.value).toJSDate()
-                        : new Date()
+                        : DateTime.now().toJSDate()
                     }
                     onSelect={(date) => {
                       if (date) {
+                        const currentValue = field.value
+                          ? DateTime.fromISO(field.value)
+                          : DateTime.now();
+
                         const updated = DateTime.fromJSDate(date).set({
                           year: date.getFullYear(),
                           month: date.getMonth() + 1,
                           day: date.getDate(),
+                          hour: currentValue.hour,
+                          minute: currentValue.minute,
+                          second: currentValue.second,
+                          millisecond: currentValue.millisecond,
                         });
                         field.onChange(updated.toISO());
                       }
@@ -176,7 +184,7 @@ export function AssignmentForm({
                       defaultMonth={
                         field.value
                           ? due.plus(Duration.fromISO(field.value)).toJSDate()
-                          : new Date()
+                          :  DateTime.now().toJSDate()
                       }
                       onSelect={(date) => {
                         if (date && dueValid) {
