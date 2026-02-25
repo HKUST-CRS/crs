@@ -126,6 +126,7 @@ export function AssignmentForm({
                         field.onChange(updated.toISO());
                       }
                     }}
+                    captionLayout="dropdown"
                     className="rounded-lg border shadow-sm"
                   />
                 </PopoverContent>
@@ -205,6 +206,7 @@ export function AssignmentForm({
                         field.onChange(extensionDateTime.diff(due).toISO());
                       }
                     }}
+                    captionLayout="dropdown"
                     className="rounded-lg border shadow-sm"
                   />
                 )}
