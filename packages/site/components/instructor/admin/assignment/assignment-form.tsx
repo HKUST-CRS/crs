@@ -173,33 +173,37 @@ export function AssignmentForm({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                 {dueValid &&
-                    (<Calendar
-                      mode="single"
-                      selected={due.plus(Duration.fromISO(field.value)).toJSDate()}
-                      disabled={(date) =>
-                        DateTime.fromJSDate(date).startOf("day") <
-                        due.startOf("day")
-                      }
-                      defaultMonth={
-                        field.value
-                          ? due.plus(Duration.fromISO(field.value)).toJSDate()
-                          :  DateTime.now().toJSDate()
-                      }
-                      onSelect={(date) => {
-                        if (date && dueValid) {
-                          const extensionDateTime = DateTime.fromJSDate(date).set({
+                {dueValid && (
+                  <Calendar
+                    mode="single"
+                    selected={due
+                      .plus(Duration.fromISO(field.value))
+                      .toJSDate()}
+                    disabled={(date) =>
+                      DateTime.fromJSDate(date).startOf("day") <
+                      due.startOf("day")
+                    }
+                    defaultMonth={
+                      field.value
+                        ? due.plus(Duration.fromISO(field.value)).toJSDate()
+                        : DateTime.now().toJSDate()
+                    }
+                    onSelect={(date) => {
+                      if (date && dueValid) {
+                        const extensionDateTime = DateTime.fromJSDate(date).set(
+                          {
                             hour: due.hour,
                             minute: due.minute,
                             second: due.second,
                             millisecond: due.millisecond,
-                          });
-                          field.onChange(extensionDateTime.diff(due).toISO());
-                        }
-                      }}
-                      className="rounded-lg border shadow-sm"
-                    />)
-                  }
+                          },
+                        );
+                        field.onChange(extensionDateTime.diff(due).toISO());
+                      }
+                    }}
+                    className="rounded-lg border shadow-sm"
+                  />
+                )}
               </PopoverContent>
             </Popover>
             <FieldError errors={[fieldState.error]} />
