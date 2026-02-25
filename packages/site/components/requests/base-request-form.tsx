@@ -133,19 +133,32 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                       <SelectValue placeholder="Choose a class" />
                     </SelectTrigger>
                     <SelectContent>
-                      {uniqBy(enrollments, Classes.id2str).map((e) => {
-                        const c = coursesMap[Courses.id2str(e.course)];
-                        return (
-                          <SelectItem
-                            key={Classes.id2str(e)}
-                            value={Classes.id2str(e)}
-                          >
-                            <span>
-                              <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
+                      {(() => {
+                        const classes = uniqBy(enrollments, Classes.id2str);
+                        if (classes.length) {
+                          return classes.map((e) => {
+                            const c = coursesMap[Courses.id2str(e.course)];
+                            return (
+                              <SelectItem
+                                key={Classes.id2str(e)}
+                                value={Classes.id2str(e)}
+                              >
+                                <span>
+                                  <b>{c.code}</b> - {c.title} (
+                                  <b>{e.section}</b>)
+                                </span>
+                              </SelectItem>
+                            );
+                          });
+                        } else {
+                          return (
+                            <SelectItem value="placeholder" disabled>
+                              You are not enrolled in any class. Please contact
+                              your class instructor for assistance.
+                            </SelectItem>
+                          );
+                        }
+                      })()}
                     </SelectContent>
                   </Select>
                 </FormControl>
