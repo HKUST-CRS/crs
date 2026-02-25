@@ -103,13 +103,16 @@ export const DeadlineExtensionRequestForm: FC<
   return (
     <Form {...form}>
       <Wrapper
-        className={clsx("grid grid-cols-12 gap-x-8 gap-y-4", props.className)}
+        className={clsx(
+          "grid grid-cols-6 gap-x-8 gap-y-4 md:grid-cols-12",
+          props.className,
+        )}
       >
         <FormField
           name="meta.assignment"
           control={form.control}
           render={({ field }) => (
-            <FormItem className="col-span-8">
+            <FormItem className="col-span-6 md:col-span-8">
               <FormLabel>Assignment</FormLabel>
               <FormControl>
                 <Select
@@ -144,7 +147,7 @@ export const DeadlineExtensionRequestForm: FC<
           name="meta.deadline"
           control={form.control}
           render={({ field }) => (
-            <FormItem className="col-span-4">
+            <FormItem className="col-span-6 md:col-span-4">
               <FormLabel>New Deadline</FormLabel>
               <FormControl>
                 <Popover>

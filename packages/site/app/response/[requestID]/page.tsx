@@ -11,7 +11,7 @@ export default async function ({
   const requestID = (await params).requestID;
 
   return (
-    <article className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4">
+    <article className="mx-auto mb-10 flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4 md:mb-0">
       <Link href="/instructor" className="self-start">
         <Button variant="ghost" size="icon">
           <ChevronLeft className="size-6" />

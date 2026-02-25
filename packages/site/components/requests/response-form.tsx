@@ -107,7 +107,7 @@ export default function ResponseForm(props: ResponseFormProps) {
 
   return (
     <Form {...form}>
-      <Wrapper className="grid grid-cols-12 gap-x-8 gap-y-4">
+      <Wrapper className="grid grid-cols-6 gap-x-8 gap-y-4 md:grid-cols-12">
         <RequestForm default={request} viewonly className="col-span-full" />
 
         <hr className="col-span-full mb-2" />
