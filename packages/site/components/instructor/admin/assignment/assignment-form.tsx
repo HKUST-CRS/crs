@@ -46,7 +46,7 @@ export function AssignmentForm({
   });
 
   const due = DateTime.fromISO(form.watch("due"));
-  const due_valid = due.isValid;
+  const dueValid = due.isValid;
 
   return (
     <form
@@ -153,9 +153,9 @@ export function AssignmentForm({
             <FieldLabel>Latest Due Date after Extension</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" disabled={!due_valid}>
+                <Button variant="outline" disabled={!dueValid}>
                   <CalendarIcon />
-                  {field.value && due_valid ? (
+                  {field.value && dueValid ? (
                     due
                       .plus(Duration.fromISO(field.value))
                       .toFormat(DateTimeFormatter)
@@ -165,7 +165,7 @@ export function AssignmentForm({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                 {due_valid &&
+                 {dueValid &&
                     (<Calendar
                       mode="single"
                       selected={due.plus(Duration.fromISO(field.value)).toJSDate()}
@@ -179,7 +179,7 @@ export function AssignmentForm({
                           : new Date()
                       }
                       onSelect={(date) => {
-                        if (date && due_valid) {
+                        if (date && dueValid) {
                           const extensionDateTime = DateTime.fromJSDate(date).set({
                             hour: due.hour,
                             minute: due.minute,
