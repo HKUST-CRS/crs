@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarIcon } from "lucide-react";
 import { DateTime, Duration } from "luxon";
 import { Controller, useForm } from "react-hook-form";
-import { DateTimeFormatter } from "service/utils/datetime";
+import { DateFormatter, DateTimeFormatter, TimeFormatter } from "service/utils/datetime";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -89,7 +89,7 @@ export function AssignmentForm({
                   <Button variant="outline" className="flex-1">
                     <CalendarIcon />
                     {field.value ? (
-                      DateTime.fromISO(field.value).toFormat("MMMM dd, yyyy")
+                      DateTime.fromISO(field.value).toFormat(DateFormatter)
                     ) : (
                       <span>Pick a date</span>
                     )}
@@ -130,7 +130,7 @@ export function AssignmentForm({
                 type="time"
                 step={60 * 10}
                 disabled={!field.value}
-                value={DateTime.fromISO(field.value).toFormat("HH:mm")}
+                value={DateTime.fromISO(field.value).toFormat(TimeFormatter)}
                 onChange={(e) => {
                   if (field.value) {
                     const [hour, minute] = e.target.value
