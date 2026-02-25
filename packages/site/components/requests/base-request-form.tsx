@@ -144,7 +144,8 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                                 value={Classes.id2str(e)}
                               >
                                 <span>
-                                  <b>{c.code}</b> - {c.title} (<b>{e.section}</b>)
+                                  <b>{c.code}</b> - {c.title} (
+                                  <b>{e.section}</b>)
                                 </span>
                               </SelectItem>
                             );
