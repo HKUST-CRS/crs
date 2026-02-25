@@ -107,7 +107,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
     <Form {...form}>
       <Wrapper
         className={clsx(
-          "grid grid-cols-12 items-start gap-x-8 gap-y-4",
+          "grid grid-cols-6 items-start gap-x-8 gap-y-4 md:grid-cols-12",
           props.className,
         )}
       >

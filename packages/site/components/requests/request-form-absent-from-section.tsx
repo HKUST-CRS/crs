@@ -114,7 +114,7 @@ export const AbsentFromSectionRequestForm: FC<
     <Form {...form}>
       <Wrapper
         className={clsx(
-          "grid grid-cols-12 gap-x-8 gap-y-4",
+          "grid grid-cols-6 gap-x-8 gap-y-4 md:grid-cols-12",
           viewonly && "pointer-events-none",
           props.className,
         )}
