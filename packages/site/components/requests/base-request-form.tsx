@@ -161,7 +161,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
         />
 
         {/* Instructor */}
-        <FormItem className="col-span-6 row-span-3">
+        <FormItem className="col-span-6 md:row-span-3">
           <FormLabel>Instructor</FormLabel>
           <FormControl>
             {instructors ? (
