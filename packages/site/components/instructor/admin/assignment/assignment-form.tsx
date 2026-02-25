@@ -108,7 +108,7 @@ export function AssignmentForm({
                       if (date) {
                         const currentValue = field.value
                           ? DateTime.fromISO(field.value)
-                          : DateTime.now();
+                          : DateTime.now().endOf("day");
 
                         const updated = DateTime.fromJSDate(date).set({
                           year: date.getFullYear(),
