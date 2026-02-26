@@ -3,7 +3,7 @@ import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone"
 import * as jose from "jose";
 
 function EntraIDIssuer(tid: string) {
-  return `https://login.microsoftonline.com/${tid}/v2.0`;
+  return `https://sts.windows.net/${tid}/`;
 }
 
 function JWKS(tid: string) {
@@ -11,22 +11,21 @@ function JWKS(tid: string) {
 }
 
 // * Refer to .env.example for information on the environment variables.
-const ID = Bun.env.MICROSOFT_ENTRA_ID_CLIENT_ID;
-if (!ID) {
-  throw new Error("Missing env MICROSOFT_ENTRA_ID_CLIENT_ID");
+const CLIENT_ID = Bun.env.CLIENT_ID;
+if (!CLIENT_ID) {
+  throw new Error("Missing env CLIENT_ID");
 }
-const UST_HK_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_UST_HK_TENANT_ID;
+const UST_HK_TENANT_ID = Bun.env.UST_HK_TENANT_ID;
 if (!UST_HK_TENANT_ID) {
-  throw new Error("Missing env MICROSOFT_ENTRA_ID_UST_HK_TENANT_ID");
+  throw new Error("Missing env UST_HK_TENANT_ID");
 }
-const CONNECT_UST_HK_TENANT_ID =
-  Bun.env.MICROSOFT_ENTRA_ID_CONNECT_UST_HK_TENANT_ID;
+const CONNECT_UST_HK_TENANT_ID = Bun.env.CONNECT_UST_HK_TENANT_ID;
 if (!CONNECT_UST_HK_TENANT_ID) {
-  throw new Error("Missing env MICROSOFT_ENTRA_ID_CONNECT_UST_HK_TENANT_ID");
+  throw new Error("Missing env CONNECT_UST_HK_TENANT_ID");
 }
-const DEBUG_TENANT_ID = Bun.env.MICROSOFT_ENTRA_ID_DEBUG_TENANT_ID;
+const DEBUG_TENANT_ID = Bun.env.DEBUG_TENANT_ID;
 if (!DEBUG_TENANT_ID) {
-  throw new Error("Missing env MICROSOFT_ENTRA_ID_DEBUG_TENANT_ID");
+  throw new Error("Missing env DEBUG_TENANT_ID");
 }
 
 const Verification = {
@@ -64,41 +63,38 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
     }
     const token = authHeader.replace(/^Bearer /, "");
     try {
-      const { email } = jose.decodeJwt(token);
-      if (!email || typeof email !== "string") {
+      const { upn } = jose.decodeJwt(token);
+      if (!upn || typeof upn !== "string") {
         throw new TRPCError({
           code: "UNAUTHORIZED",
-          message: "Malformed JWT (missing email claim)",
+          message: "Malformed JWT (missing or malformed upn claim)",
         });
       }
-      const [, domain] = email.split("@");
-      if (!domain) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Malformed JWT (malformed email claim)",
-        });
-      }
+      const host = (() => {
+        try {
+          return new URL(`email://${upn}`).host;
+        } catch (e) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+            message: "Malformed JWT (malformed upn claim)",
+            cause: e,
+          });
+        }
+      })();
 
       const verification =
-        Verification[domain as keyof typeof Verification] ?? Verification[""];
+        Verification[host as keyof typeof Verification] ?? Verification[""];
       const { payload } = await jose.jwtVerify(token, verification.jwks, {
-        audience: ID,
+        audience: CLIENT_ID,
         issuer: verification.issuer,
       });
       return {
-        email: String(payload.email),
+        email: String(payload.upn),
         name: String(payload.name),
       };
     } catch (e) {
       if (e instanceof TRPCError) {
         throw e;
-      }
-      if (e instanceof jose.errors.JWTExpired) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "JWT Expired",
-          cause: e,
-        });
       }
       if (e instanceof jose.errors.JOSEError) {
         throw new TRPCError({
