@@ -200,6 +200,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                               ),
                           ),
                         }}
+                        captionLayout="dropdown"
                         className="rounded-lg border shadow-sm"
                       />
                     )}

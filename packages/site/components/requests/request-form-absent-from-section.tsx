@@ -194,6 +194,7 @@ export const AbsentFromSectionRequestForm: FC<
                               ),
                           ),
                         }}
+                        captionLayout="dropdown"
                         className="rounded-lg border shadow-sm"
                       />
                     )}
