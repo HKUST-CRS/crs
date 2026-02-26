@@ -96,6 +96,13 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
       if (e instanceof TRPCError) {
         throw e;
       }
+      if (e instanceof jose.errors.JWTExpired) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: `JWT Expired: ${e.message}`,
+          cause: e,
+        });
+      }
       if (e instanceof jose.errors.JOSEError) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
