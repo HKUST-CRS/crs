@@ -171,10 +171,9 @@ export const DeadlineExtensionRequestForm: FC<
                       <Calendar
                         mode="single"
                         selected={DateTime.fromISO(field.value).toJSDate()}
-                        defaultMonth={
-                          assignment &&
-                          DateTime.fromISO(assignment.due).toJSDate()
-                        }
+                        defaultMonth={DateTime.fromISO(
+                          assignment.due,
+                        ).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
