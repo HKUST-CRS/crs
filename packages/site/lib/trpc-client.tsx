@@ -37,14 +37,24 @@ export function TRPCReactProvider(
   }>,
 ) {
   const path = usePathname();
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
 
   useEffect(() => {
-    const token = session?.account?.id_token;
-    if (token) {
-      authorize(token);
+    if (session) {
+      if (!session.account.access_token) {
+        throw new Error("No access_token found in session account.");
+      }
+      authorize(session.account.access_token);
+      const interval = setInterval(
+        () => {
+          console.log("Attempt to refresh access_token...");
+          void update();
+        },
+        5 * 60 * 1000,
+      );
+      return () => clearInterval(interval);
     }
-  }, [session]);
+  }, [session, update]);
 
   const [url, setUrl] = useState<string>("");
   useEffect(() => {
