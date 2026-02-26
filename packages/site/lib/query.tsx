@@ -19,7 +19,7 @@ const signOutOnClient = () => {
 };
 
 const errorHandler = (error: Error) => {
-  console.error("tPRC error. ", { error });
+  console.error("tRPC error. ", { error });
   if (error instanceof TRPCClientError) {
     if (error.data?.jose && error.data.jose.code !== "ERR_JWT_EXPIRED") {
       // If it is a Jose Error, but not because of JWT expiration,
