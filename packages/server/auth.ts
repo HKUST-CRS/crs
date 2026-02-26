@@ -46,6 +46,13 @@ const Verification = {
   },
 };
 
+function formatName(family_name: string, given_name: string, name: string) {
+  if (family_name && given_name) {
+    return `${family_name}, ${given_name}`;
+  }
+  return name;
+}
+
 export async function createContext({ req }: CreateHTTPContextOptions) {
   async function auth() {
     const authHeader = req.headers.authorization;
@@ -88,9 +95,39 @@ export async function createContext({ req }: CreateHTTPContextOptions) {
         audience: CLIENT_ID,
         issuer: verification.issuer,
       });
+      // payload should be a Microsoft Entra ID v1.0 Access Token.
+      // Ref:
+      // https://learn.microsoft.com/en-us/entra/identity-platform/access-token-claims-reference
+
+      const { family_name, given_name, name } = payload;
+      if (!upn || typeof upn !== "string") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Malformed JWT (missing or malformed upn claim)",
+        });
+      }
+      if (
+        family_name === undefined ||
+        given_name === undefined ||
+        typeof family_name !== "string" ||
+        typeof given_name !== "string"
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message:
+            "Malformed JWT (missing or malformed family_name and given_name claims)",
+        });
+      }
+      if (name === undefined || typeof name !== "string") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Malformed JWT (missing or malformed name claim)",
+        });
+      }
+
       return {
-        email: String(payload.upn),
-        name: String(payload.name),
+        email: upn,
+        name: formatName(family_name, given_name, name),
       };
     } catch (e) {
       if (e instanceof TRPCError) {
