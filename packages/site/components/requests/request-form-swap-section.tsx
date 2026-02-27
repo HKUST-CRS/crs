@@ -6,7 +6,7 @@ import { DateTime } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { SwapSectionMeta } from "service/models";
-import { DateFormatter, TimeFormatter } from "service/utils/datetime";
+import { formatDate, formatTime, fromISO } from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -77,8 +77,8 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
   const toSectionCode = form.watch("meta.toSection");
   const toSection = course?.sections?.[toSectionCode];
 
-  const fromDate = DateTime.fromISO(form.watch("meta.fromDate"));
-  const toDate = DateTime.fromISO(form.watch("meta.toDate"));
+  const fromDate = fromISO(form.watch("meta.fromDate"));
+  const toDate = fromISO(form.watch("meta.toDate"));
 
   console.log({
     fromSectionRaw: form.watch("meta.fromSection"),
@@ -172,7 +172,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     >
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toFormat(DateFormatter)
+                        formatDate(field.value)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -182,7 +182,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     {fromSection && (
                       <Calendar
                         mode="single"
-                        selected={DateTime.fromISO(field.value).toJSDate()}
+                        selected={fromISO(field.value).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
@@ -254,7 +254,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     <Button variant="outline" disabled={viewonly || !toSection}>
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toFormat(DateFormatter)
+                        formatDate(field.value)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -264,7 +264,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                     {toSection && (
                       <Calendar
                         mode="single"
-                        selected={DateTime.fromISO(field.value).toJSDate()}
+                        selected={fromISO(field.value).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
@@ -296,32 +296,22 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
           (() => {
             const fromSchedule = fromSection.schedule
               .filter((s) => s.day === fromDate.weekday)
-              .map(
-                (s) =>
-                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
-                  " - " +
-                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
-              )
+              .map((s) => `${formatTime(s.from)} - ${formatTime(s.to)}`)
               .join(", ");
             const toSchedule = toSection.schedule
               .filter((s) => s.day === toDate.weekday)
-              .map(
-                (s) =>
-                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
-                  " - " +
-                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
-              )
+              .map((s) => `${formatTime(s.from)} - ${formatTime(s.to)}`)
               .join(", ");
             return (
               <div className="typo-muted col-span-full">
                 You are requesting to swap from section{" "}
                 <strong>{fromSectionCode} </strong>on{" "}
                 <strong>
-                  {fromDate.toFormat(DateFormatter)} ({fromSchedule})
+                  {formatDate(fromDate)} ({fromSchedule})
                 </strong>{" "}
                 to section <strong>{toSectionCode}</strong> on{" "}
                 <strong>
-                  {toDate.toFormat(DateFormatter)} ({toSchedule})
+                  {formatDate(toDate)} ({toSchedule})
                 </strong>
                 .
               </div>

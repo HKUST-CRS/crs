@@ -6,7 +6,7 @@ import { DateTime } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { AbsentFromSectionMeta } from "service/models";
-import { DateFormatter, TimeFormatter } from "service/utils/datetime";
+import { formatDate, formatTime, fromISO } from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -77,7 +77,7 @@ export const AbsentFromSectionRequestForm: FC<
   const fromSectionCode = form.watch("meta.fromSection");
   const fromSection = course?.sections?.[fromSectionCode];
 
-  const fromDate = DateTime.fromISO(form.watch("meta.fromDate"));
+  const fromDate = fromISO(form.watch("meta.fromDate"));
 
   console.log({
     fromSectionRaw: form.watch("meta.fromSection"),
@@ -166,7 +166,7 @@ export const AbsentFromSectionRequestForm: FC<
                     >
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toFormat(DateFormatter)
+                        formatDate(field.value)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -176,7 +176,7 @@ export const AbsentFromSectionRequestForm: FC<
                     {fromSection && (
                       <Calendar
                         mode="single"
-                        selected={DateTime.fromISO(field.value).toJSDate()}
+                        selected={fromISO(field.value).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
@@ -209,19 +209,14 @@ export const AbsentFromSectionRequestForm: FC<
           (() => {
             const fromSchedule = fromSection.schedule
               .filter((s) => s.day === fromDate.weekday)
-              .map(
-                (s) =>
-                  DateTime.fromISO(s.from).toFormat(TimeFormatter) +
-                  " - " +
-                  DateTime.fromISO(s.to).toFormat(TimeFormatter),
-              )
+              .map((s) => `${formatTime(s.from)} - ${formatTime(s.to)}`)
               .join(", ");
             return (
               <div className="typo-muted col-span-full">
                 You are requesting to be absent from section{" "}
                 <strong>{fromSectionCode} </strong>on{" "}
                 <strong>
-                  {fromDate.toFormat(DateFormatter)} ({fromSchedule})
+                  {formatDate(fromDate)} ({fromSchedule})
                 </strong>
                 .
               </div>

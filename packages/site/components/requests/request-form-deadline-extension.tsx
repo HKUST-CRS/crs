@@ -6,7 +6,7 @@ import { DateTime, Duration } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { DeadlineExtensionMeta } from "service/models";
-import { DateTimeFormatter } from "service/utils/datetime";
+import { formatDateTime, fromISO, toISO } from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -75,7 +75,7 @@ export const DeadlineExtensionRequestForm: FC<
   const assignmentCode = form.watch("meta.assignment");
   const assignment = course?.assignments?.[assignmentCode];
 
-  const deadline = DateTime.fromISO(form.watch("meta.deadline"));
+  const deadline = fromISO(form.watch("meta.deadline"));
   const isMetaDone = assignment && deadline.isValid;
 
   const Wrapper = useCallback(
@@ -129,9 +129,7 @@ export const DeadlineExtensionRequestForm: FC<
                         return (
                           <SelectItem key={code} value={code}>
                             <strong>{code}</strong> {assignment.name} - Due{" "}
-                            {DateTime.fromISO(assignment.due).toFormat(
-                              DateTimeFormatter,
-                            )}
+                            {formatDateTime(assignment.due)}
                           </SelectItem>
                         );
                       },
@@ -158,9 +156,7 @@ export const DeadlineExtensionRequestForm: FC<
                     >
                       <CalendarIcon />
                       {field.value ? (
-                        DateTime.fromISO(field.value).toFormat(
-                          DateTimeFormatter,
-                        )
+                        formatDateTime(field.value)
                       ) : (
                         <span>Pick a date</span>
                       )}
@@ -170,17 +166,17 @@ export const DeadlineExtensionRequestForm: FC<
                     {assignment && (
                       <Calendar
                         mode="single"
-                        selected={DateTime.fromISO(field.value).toJSDate()}
+                        selected={fromISO(field.value).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
-                              DateTime.fromJSDate(date).endOf("day").toISO(),
+                              toISO(DateTime.fromJSDate(date).endOf("day")),
                             );
                           }
                         }}
                         disabled={{
-                          before: DateTime.fromISO(assignment.due).toJSDate(),
-                          after: DateTime.fromISO(assignment.due)
+                          before: fromISO(assignment.due).toJSDate(),
+                          after: fromISO(assignment.due)
                             .plus(Duration.fromISO(assignment.maxExtension))
                             .toJSDate(),
                         }}
@@ -202,11 +198,8 @@ export const DeadlineExtensionRequestForm: FC<
                 <strong>
                   {assignmentCode} {assignment.name}
                 </strong>{" "}
-                (due{" "}
-                <strong>
-                  {DateTime.fromISO(assignment.due).toFormat(DateTimeFormatter)}
-                </strong>
-                ) to <strong>{deadline.toFormat(DateTimeFormatter)}</strong>.
+                (due <strong>{formatDateTime(assignment.due)}</strong>) to{" "}
+                <strong>{formatDateTime(deadline)}</strong>.
               </div>
             );
           })()}

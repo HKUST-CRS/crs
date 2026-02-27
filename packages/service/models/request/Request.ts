@@ -1,7 +1,6 @@
-import { DateTime } from "luxon";
 import Papa from "papaparse";
 import { z } from "zod";
-import { DateFormatter, DateTimeFormatter } from "../../utils/datetime";
+import { formatDate, formatDateTime } from "../../utils/datetime";
 import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
@@ -73,27 +72,19 @@ export namespace RequestSerialization {
       case "Swap Section":
         return {
           "From Section": r.metadata.fromSection,
-          "From Date": DateTime.fromISO(r.metadata.fromDate).toFormat(
-            DateFormatter,
-          ),
+          "From Date": formatDate(r.metadata.fromDate),
           "To Section": r.metadata.toSection,
-          "To Date": DateTime.fromISO(r.metadata.toDate).toFormat(
-            DateFormatter,
-          ),
+          "To Date": formatDate(r.metadata.toDate),
         };
       case "Absent from Section":
         return {
           "From Section": r.metadata.fromSection,
-          "From Date": DateTime.fromISO(r.metadata.fromDate).toFormat(
-            DateFormatter,
-          ),
+          "From Date": formatDate(r.metadata.fromDate),
         };
       case "Deadline Extension":
         return {
           Assignment: r.metadata.assignment,
-          "New Deadline": DateTime.fromISO(r.metadata.deadline).toFormat(
-            DateTimeFormatter,
-          ),
+          "New Deadline": formatDateTime(r.metadata.deadline),
         };
     }
   }
@@ -106,7 +97,7 @@ export namespace RequestSerialization {
       Section: r.class.section,
       User: r.from,
       Type: r.type,
-      Timestamp: DateTime.fromISO(r.timestamp).toFormat(DateTimeFormatter),
+      Timestamp: formatDateTime(r.timestamp),
       ...serializeMeta(r),
       Decision: r.response?.decision ?? "Pending",
       Reference: `${base}/request/${r.id}`,

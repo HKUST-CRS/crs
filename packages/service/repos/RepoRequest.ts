@@ -9,6 +9,7 @@ import type {
   ResponseInit,
   UserID,
 } from "../models";
+import { toISO } from "../utils/datetime";
 import { RequestNotFoundError, ResponseAlreadyExistsError } from "./error";
 
 export class RequestRepo {
@@ -26,7 +27,7 @@ export class RequestRepo {
       ...data,
       id,
       from,
-      timestamp: DateTime.now().toISO(),
+      timestamp: toISO(DateTime.now()),
       response: null,
     });
     return id;
@@ -87,7 +88,7 @@ export class RequestRepo {
           response: {
             ...response,
             from: userID,
-            timestamp: DateTime.now().toISO(),
+            timestamp: toISO(DateTime.now()),
           },
         },
       },
