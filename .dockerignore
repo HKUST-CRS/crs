@@ -2,18 +2,26 @@
 Dockerfile
 *.Dockerfile
 .dockerignore
+docker-compose*.yml
 
 # Git
 .git
+.gitignore
 
 # NodeJS
-node_modules
+**/node_modules
+
+# Next.js
+**/.next
 
 # Configurations
 .github
 .vscode
 
 # Text
-README.md
+**/README.md
 CONTRIBUTING.md
 LICENSE
+
+# Assets
+assets
