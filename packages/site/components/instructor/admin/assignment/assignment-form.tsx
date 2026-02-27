@@ -5,9 +5,11 @@ import { CalendarIcon } from "lucide-react";
 import { DateTime, Duration } from "luxon";
 import { Controller, useForm } from "react-hook-form";
 import {
-  DateFormatter,
-  DateTimeFormatter,
-  TimeFormatter,
+  formatDate,
+  formatDateTime,
+  formatTime,
+  fromISO,
+  toISO,
 } from "service/utils/datetime";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -49,7 +51,7 @@ export function AssignmentForm({
     },
   });
 
-  const due = DateTime.fromISO(form.watch("due"));
+  const due = fromISO(form.watch("due"));
   const dueValid = due.isValid;
 
   return (
@@ -93,7 +95,7 @@ export function AssignmentForm({
                   <Button variant="outline" className="flex-1">
                     <CalendarIcon />
                     {field.value ? (
-                      DateTime.fromISO(field.value).toFormat(DateFormatter)
+                      formatDate(field.value)
                     ) : (
                       <span>Pick a date</span>
                     )}
@@ -102,16 +104,16 @@ export function AssignmentForm({
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    selected={DateTime.fromISO(field.value).toJSDate()}
+                    selected={fromISO(field.value).toJSDate()}
                     defaultMonth={
                       field.value
-                        ? DateTime.fromISO(field.value).toJSDate()
+                        ? fromISO(field.value).toJSDate()
                         : DateTime.now().toJSDate()
                     }
                     onSelect={(date) => {
                       if (date) {
                         const currentValue = field.value
-                          ? DateTime.fromISO(field.value)
+                          ? fromISO(field.value)
                           : DateTime.now().endOf("day");
 
                         const updated = DateTime.fromJSDate(date).set({
@@ -123,7 +125,7 @@ export function AssignmentForm({
                           second: currentValue.second,
                           millisecond: currentValue.millisecond,
                         });
-                        field.onChange(updated.toISO());
+                        field.onChange(toISO(updated));
                       }
                     }}
                     captionLayout="dropdown"
@@ -135,19 +137,19 @@ export function AssignmentForm({
                 type="time"
                 step={60 * 10}
                 disabled={!field.value}
-                value={DateTime.fromISO(field.value).toFormat(TimeFormatter)}
+                value={formatTime(field.value)}
                 onChange={(e) => {
                   if (field.value) {
                     const [hour, minute] = e.target.value
                       .split(":")
                       .map((str) => Number(str));
-                    const updated = DateTime.fromISO(field.value).set({
+                    const updated = fromISO(field.value).set({
                       hour: hour,
                       minute: minute,
                       second: 59,
                       millisecond: 999,
                     });
-                    field.onChange(updated.toISO());
+                    field.onChange(toISO(updated));
                   }
                 }}
                 className="w-min"
@@ -169,9 +171,7 @@ export function AssignmentForm({
                 <Button variant="outline" disabled={!dueValid}>
                   <CalendarIcon />
                   {field.value && dueValid ? (
-                    due
-                      .plus(Duration.fromISO(field.value))
-                      .toFormat(DateTimeFormatter)
+                    formatDateTime(due.plus(Duration.fromISO(field.value)))
                   ) : (
                     <span>Pick a date</span>
                   )}

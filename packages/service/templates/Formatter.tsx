@@ -1,5 +1,4 @@
 import type { JSX } from "bun-types/jsx";
-import { DateTime } from "luxon";
 import {
   Classes,
   type Request,
@@ -7,7 +6,7 @@ import {
   type Response,
   type User,
 } from "../models";
-import { DateFormatter, DateTimeFormatter } from "../utils/datetime";
+import { formatDate, formatDateTime } from "../utils/datetime";
 
 type Metadata = {
   student: User;
@@ -27,9 +26,7 @@ const formatRequestOverview = (
   const email = metadata.student.email;
   const type = request.type;
   const clazz = Classes.format(request.class);
-  const timestamp = DateTime.fromISO(request.timestamp).toFormat(
-    DateTimeFormatter,
-  );
+  const timestamp = formatDateTime(request.timestamp);
   return (
     <>
       <p>
@@ -45,12 +42,8 @@ const formatRequestOverview = (
 const formatRequestMetadata = (request: Request) => {
   switch (request.type) {
     case "Swap Section": {
-      const fromDate = DateTime.fromISO(request.metadata.fromDate).toFormat(
-        DateFormatter,
-      );
-      const toDate = DateTime.fromISO(request.metadata.toDate).toFormat(
-        DateFormatter,
-      );
+      const fromDate = formatDate(request.metadata.fromDate);
+      const toDate = formatDate(request.metadata.toDate);
       const fromSection = request.metadata.fromSection;
       const toSection = request.metadata.toSection;
       return (
@@ -61,9 +54,7 @@ const formatRequestMetadata = (request: Request) => {
       );
     }
     case "Absent from Section": {
-      const fromDate = DateTime.fromISO(request.metadata.fromDate).toFormat(
-        DateFormatter,
-      );
+      const fromDate = formatDate(request.metadata.fromDate);
       const fromSection = request.metadata.fromSection;
       return (
         <>
@@ -74,9 +65,7 @@ const formatRequestMetadata = (request: Request) => {
     }
     case "Deadline Extension": {
       const assignment = request.metadata.assignment;
-      const deadline = DateTime.fromISO(request.metadata.deadline).toFormat(
-        DateTimeFormatter,
-      );
+      const deadline = formatDateTime(request.metadata.deadline);
       return (
         <>
           The student is requesting a deadline extension for assignment{" "}
@@ -121,9 +110,7 @@ const formatResponse = (
 
   const name = responder?.name ?? "Unknown Instructor";
   const email = responder?.email ?? response.from;
-  const timestamp = DateTime.fromISO(response.timestamp).toFormat(
-    DateTimeFormatter,
-  );
+  const timestamp = formatDateTime(response.timestamp);
   const decision = response.decision;
   const remarks = response.remarks;
   return (

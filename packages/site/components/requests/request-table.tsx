@@ -11,10 +11,9 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown } from "lucide-react";
-import { DateTime } from "luxon";
 import { useState } from "react";
 import type { Request, Response } from "service/models";
-import { DateTimeFormatter } from "service/utils/datetime";
+import { formatDateTime, fromISO } from "service/utils/datetime";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -98,11 +97,10 @@ const columns: ColumnDef<Request>[] = [
   },
   {
     id: "time",
-    accessorFn: (row) =>
-      DateTime.fromISO(row.timestamp).toFormat(DateTimeFormatter),
+    accessorFn: (row) => formatDateTime(row.timestamp),
     sortingFn: (rowA, rowB) => {
-      const timeA = DateTime.fromISO(rowA.original.timestamp).toMillis();
-      const timeB = DateTime.fromISO(rowB.original.timestamp).toMillis();
+      const timeA = fromISO(rowA.original.timestamp).toMillis();
+      const timeB = fromISO(rowB.original.timestamp).toMillis();
 
       if (timeA === timeB) {
         return 0;
