@@ -5,8 +5,6 @@ import type { JWT } from "next-auth/jwt";
 
 export namespace MicrosoftEntraID {
   async function refresh(account: Account): Promise<Account> {
-    console.log("Refreshing token for account. ", account);
-
     if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET) {
       throw new Error(
         "CLIENT_ID and CLIENT_SECRET must be set in environment variables to refresh tokens.",
@@ -55,7 +53,6 @@ export namespace MicrosoftEntraID {
         : {}),
     };
 
-    console.log("Refreshed token for account. ", newAccount);
     return newAccount;
   }
 
