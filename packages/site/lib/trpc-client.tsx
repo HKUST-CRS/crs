@@ -6,16 +6,11 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { createTRPCContext } from "@trpc/tanstack-react-query";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import type { AppRouter } from "server";
 import { makeQueryClient } from "./query";
 
 export const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
-
-let authorization: string = "";
-export function authorize(token: string) {
-  authorization = `Bearer ${token}`;
-}
 
 let browserQueryClient: QueryClient;
 function getQueryClient() {
@@ -37,41 +32,28 @@ export function TRPCReactProvider(
   }>,
 ) {
   const path = usePathname();
+
   const { data: session, update } = useSession();
-
+  // Periodically attempt to refresh by triggering a session update. On the
+  // server side, the session update checks if the access token is or near
+  // expiry and refreshes it if needed.
   useEffect(() => {
-    if (session) {
-      if (!session.account.access_token) {
-        throw new Error("No access_token found in session account.");
-      }
-      authorize(session.account.access_token);
-      const interval = setInterval(
-        () => {
-          console.log("Attempt to refresh access_token...");
-          void update();
-        },
-        5 * 60 * 1000,
-      );
-      return () => clearInterval(interval);
-    }
-  }, [session, update]);
+    const interval = setInterval(
+      () => {
+        console.log("Attempt to refresh access_token...");
+        void update();
+      },
+      5 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, [update]);
 
-  const [url, setUrl] = useState<string>("");
-  useEffect(() => {
-    if (url) return;
+  // The provider (and thus the children) should only be rendered if we're on
+  // the login page or the user has a session. This prevents components from
+  // trying to use the tRPC client before even there is a session.
+  const shouldRenderProvider = path === "/login" || !!session;
 
-    async function updateUrl() {
-      try {
-        console.log("Fetching Client Server URL...");
-        const url = await fetch("/api/url").then((r) => r.text());
-        setUrl(url);
-        console.log(`Fetch Client Server URL: ${url}`);
-      } catch (e) {
-        console.error("Failed to fetch Client Server URL.", e);
-      }
-    }
-    updateUrl();
-  });
+  const token = session?.account.access_token;
 
   // NOTE: Avoid useState when initializing the query client if you don't
   //       have a suspense boundary between this and the code that may
@@ -81,27 +63,27 @@ export function TRPCReactProvider(
 
   // Only create the tRPC client when we have a valid URL
   // The authorization header is retrieved dynamically from the module-level variable
-  const trpcClient = useMemo(() => {
-    if (!url) return null;
-
-    return createTRPCClient<AppRouter>({
-      links: [
-        httpBatchLink({
-          // transformer: superjson, <-- if you use a data transformer
-          url,
-          headers() {
-            return {
-              Authorization: authorization,
-            };
-          },
-        }),
-      ],
-    });
-  }, [url]);
+  const trpcClient = useMemo(
+    () =>
+      createTRPCClient<AppRouter>({
+        links: [
+          httpBatchLink({
+            url: "/api/trpc",
+            headers() {
+              if (!token) return {};
+              return {
+                Authorization: `Bearer ${token}`,
+              };
+            },
+          }),
+        ],
+      }),
+    [token],
+  );
 
   // Don't render children until we have a valid tRPC client and session/login path
   // This prevents components from trying to use tRPC client before it's properly initialized
-  if ((session || path === "/login") && trpcClient) {
+  if (shouldRenderProvider) {
     return (
       <QueryClientProvider client={queryClient}>
         <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
