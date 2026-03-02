@@ -37,9 +37,9 @@ const DateFormatter = "LLL dd, yyyy";
 const TimeFormatter = "HH:mm";
 
 /**
- * The time formatter used across the site.
+ * The month formatter used across the site.
  *
- * It is designed to be human-readable and clear so that users won't confuse the time.
+ * It is designed to be human-readable and clear so that users won't confuse the month.
  */
 const MonthFormatter = "MMM";
 
