@@ -45,14 +45,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async signIn({ user }): Promise<boolean> {
-      console.log("Sign in attempt from user.", { user });
+      console.log("Sign in attempt from user.", user);
       return verifyEmail(user.email);
     },
     async jwt({ token, account, user }): Promise<JWT> {
       if (account && user) {
         token.account = account;
         token.user = user;
-        console.log("Storing account and user info in token. ", token);
+        console.log("Sign in from user.", user);
         return token;
       }
       return MicrosoftEntraID.maybeRefresh(token);
@@ -79,9 +79,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       ) {
         return true;
       } else {
-        const redirectTo = new URL("/login", request.url);
-        redirectTo.searchParams.set("r", url.href);
-        return NextResponse.redirect(redirectTo);
+        const url = request.nextUrl.clone();
+        url.searchParams.set("r", url.pathname + url.search);
+        url.pathname = "/login";
+        return NextResponse.redirect(url);
       }
     },
   },

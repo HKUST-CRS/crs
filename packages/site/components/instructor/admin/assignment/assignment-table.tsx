@@ -6,9 +6,9 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { DateTime, Duration } from "luxon";
+import { Duration } from "luxon";
 import { Course } from "service/models";
-import { DateTimeFormatter } from "service/utils/datetime";
+import { formatDateTime } from "service/utils/datetime";
 import z from "zod";
 import {
   Table,
@@ -39,7 +39,7 @@ export const columns: ColumnDef<AssignmentRow>[] = [
     accessorKey: "due",
     header: "Due Date",
     cell: ({ row }) => {
-      return DateTime.fromISO(row.original.due).toFormat(DateTimeFormatter);
+      return formatDateTime(row.original.due);
     },
   },
   {
