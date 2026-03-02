@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { formatDate, formatDateTime, formatMonth, formatTime } from "../utils/datetime";
+import {
+  formatDate,
+  formatDateTime,
+  formatMonth,
+  formatTime,
+} from "../utils/datetime";
 
 describe("datetime formatters", () => {
   test("formatDate prints correct format", () => {
