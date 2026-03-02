@@ -6,7 +6,12 @@ import { DateTime } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { SwapSectionMeta } from "service/models";
-import { formatDate, formatTime, fromISO } from "service/utils/datetime";
+import {
+  formatDate,
+  formatMonth,
+  formatTime,
+  fromISO,
+} from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -201,7 +206,13 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                           ),
                         }}
                         captionLayout="dropdown"
+                        startMonth={new Date(2020, 0)}
+                        endMonth={new Date(2030, 11)}
                         className="rounded-lg border shadow-sm"
+                        formatters={{
+                          formatMonthDropdown: (date) =>
+                            formatMonth(date.toISOString()),
+                        }}
                       />
                     )}
                   </PopoverContent>
@@ -284,7 +295,13 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                           ),
                         }}
                         captionLayout="dropdown"
+                        startMonth={new Date(2020, 0)}
+                        endMonth={new Date(2030, 11)}
                         className="rounded-lg border shadow-sm"
+                        formatters={{
+                          formatMonthDropdown: (date) =>
+                            formatMonth(date.toISOString()),
+                        }}
                       />
                     )}
                   </PopoverContent>
