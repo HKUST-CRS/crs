@@ -10,7 +10,7 @@ export function ThemeToggleButton({ className }: { className?: string }) {
 
   return (
     <Button
-      className={cn("absolute top-4 right-4", className)}
+      className={cn("fixed top-4 right-4 z-[8]", className)}
       variant="outline"
       size="sm"
       aria-label="Toggle theme"

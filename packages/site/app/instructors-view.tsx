@@ -4,17 +4,16 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowRightFromLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
 import {
   CreateCourseForm,
   type CreateCourseFormSchema,
 } from "@/components/instructor/create-course-form";
 import {
-  ExportRequestsForm,
-  type ExportRequestsFormSchema,
-} from "@/components/instructor/export-requests-form";
-import { RequestTable } from "@/components/requests/request-table";
+  RequestTable,
+  type RequestTableHandle,
+} from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,6 +54,7 @@ export default function InstructorsView() {
     trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
   );
   const requests = requestsQuery.data;
+  const tableRef = useRef<RequestTableHandle>(null);
 
   // Courses
   const coursesQuery = useQuery(
@@ -70,23 +70,15 @@ export default function InstructorsView() {
     }, [userQuery, requestsQuery, coursesQuery]),
   );
 
-  // Export Requests (Dialog)
-  const [isExportRequestsOpen, setExportRequestsOpen] = useState(false);
-  const handleExportRequests = (form: ExportRequestsFormSchema) => {
-    const requestsToExport = (requests ?? []).filter(
-      (c) => Courses.id2str(c.class.course) === Courses.id2str(form.course),
-    );
+  // Export Requests
+  const handleExportRequests = () => {
+    const requestsToExport = tableRef.current?.getExportRows() ?? [];
     const csv = RequestSerialization.toCSV(
       requestsToExport,
       window.location.origin,
     );
 
-    download(
-      `${Courses.formatID(form.course)}-requests.csv`,
-      new Blob([csv], { type: "text/csv" }),
-    );
-
-    setExportRequestsOpen(false);
+    download("requests.csv", new Blob([csv], { type: "text/csv" }));
   };
 
   // Create Course (Dialog)
@@ -146,13 +138,14 @@ export default function InstructorsView() {
       <section>
         <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
-          <Button onClick={() => setExportRequestsOpen(true)} size="sm">
+          <Button onClick={handleExportRequests} size="sm">
             <ArrowRightFromLine className="h-4 w-4" /> Export Requests
           </Button>
         </div>
 
         {requests ? (
           <RequestTable
+            ref={tableRef}
             data={requests}
             onClick={(request) => {
               router.push(`/response/${request.id}`);
@@ -161,18 +154,6 @@ export default function InstructorsView() {
         ) : (
           <Spinner variant="ellipsis" />
         )}
-
-        <Dialog
-          open={isExportRequestsOpen}
-          onOpenChange={setExportRequestsOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Export Requests</DialogTitle>
-            </DialogHeader>
-            <ExportRequestsForm onSubmit={handleExportRequests} />
-          </DialogContent>
-        </Dialog>
       </section>
       <section>
         <div className="flex flex-row items-end justify-between pb-4">
