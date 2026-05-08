@@ -54,7 +54,7 @@ const facts = [
 export function DYK() {
   const fact = useMemo(() => sample(facts), []);
   return (
-    <div className="fixed top-4 left-4 z-8 text-gray-500 text-xs">
+    <div className="fixed top-4 left-4 z-[8] text-gray-500 text-xs">
       <div className="font-medium text-[0.675rem] uppercase">
         DID YOU KNOW...?
       </div>
