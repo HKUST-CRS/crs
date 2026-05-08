@@ -2,11 +2,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
-import { DateTime, Duration } from "luxon";
+import { Duration } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { DeadlineExtensionMeta } from "service/models";
-import { formatDateTime, fromISO, toISO } from "service/utils/datetime";
+import {
+  formatDateTime,
+  formatMonth,
+  fromISO,
+  toISO,
+} from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -167,10 +172,11 @@ export const DeadlineExtensionRequestForm: FC<
                       <Calendar
                         mode="single"
                         selected={fromISO(field.value).toJSDate()}
+                        defaultMonth={fromISO(assignment.due).toJSDate()}
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
-                              toISO(DateTime.fromJSDate(date).endOf("day")),
+                              toISO(fromISO(date.toISOString()).endOf("day")),
                             );
                           }
                         }}
@@ -180,7 +186,14 @@ export const DeadlineExtensionRequestForm: FC<
                             .plus(Duration.fromISO(assignment.maxExtension))
                             .toJSDate(),
                         }}
+                        captionLayout="dropdown"
+                        startMonth={new Date(2020, 0)}
+                        endMonth={new Date(2030, 11)}
                         className="rounded-lg border shadow-sm"
+                        formatters={{
+                          formatMonthDropdown: (date) =>
+                            formatMonth(date.toISOString()),
+                        }}
                       />
                     )}
                   </PopoverContent>

@@ -1,10 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import { formatDate, formatDateTime, formatTime } from "../utils/datetime";
+import {
+  formatDate,
+  formatDateTime,
+  formatMonth,
+  formatTime,
+} from "../utils/datetime";
 
 describe("datetime formatters", () => {
   test("formatDate prints correct format", () => {
     const value = "2026-01-31T18:00:00+08:00";
     expect(formatDate(value)).toBe("Jan 31, 2026");
+  });
+  test("formatMonth prints correct format", () => {
+    const value = "2026-01-31T18:00:00+08:00";
+    expect(formatMonth(value)).toBe("Jan");
   });
   test("formatTime converts to local timezone (HKT) before formatting", () => {
     const value = "2026-01-31T18:00:00+08:00";
@@ -17,6 +26,10 @@ describe("datetime formatters", () => {
   test("formatDate converts to HKT before formatting", () => {
     const value = "2026-01-31T18:00:00-08:00";
     expect(formatDate(value)).toBe("Feb 01, 2026");
+  });
+  test("formatMonth converts to HKT before formatting", () => {
+    const value = "2026-01-31T18:00:00-08:00";
+    expect(formatMonth(value)).toBe("Feb");
   });
   test("formatTime converts to HKT before formatting", () => {
     const value = "2026-01-31T18:00:00-08:00";
