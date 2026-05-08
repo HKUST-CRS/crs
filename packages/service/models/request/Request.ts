@@ -31,12 +31,29 @@ export const Requests = [
   AbsentFromSectionRequest,
   DeadlineExtensionRequest,
 ] as const;
+export const RequestHeads = [
+  SwapSectionRequest.omit({
+    details: true,
+    metadata: true,
+  }),
+  AbsentFromSectionRequest.omit({
+    details: true,
+    metadata: true,
+  }),
+  DeadlineExtensionRequest.omit({
+    details: true,
+    metadata: true,
+  }),
+] as const;
+
+export const RequestInit = z.discriminatedUnion("type", RequestInits);
+export type RequestInit = z.infer<typeof RequestInit>;
 
 export const Request = z.discriminatedUnion("type", Requests);
 export type Request = z.infer<typeof Request>;
 
-export const RequestInit = z.discriminatedUnion("type", RequestInits);
-export type RequestInit = z.infer<typeof RequestInit>;
+export const RequestHead = z.discriminatedUnion("type", RequestHeads);
+export type RequestHead = z.infer<typeof RequestHead>;
 
 export namespace RequestSerialization {
   const COLUMNS = [

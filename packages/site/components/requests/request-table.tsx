@@ -23,7 +23,7 @@ import {
 import {
   type CourseID,
   Courses,
-  type Request,
+  type RequestHead,
   type Response,
   ResponseDecision,
   Terms,
@@ -56,12 +56,12 @@ import {
 import { cn } from "@/lib/utils";
 
 interface RequestTableProps {
-  data: Request[];
-  onClick?: (row: Request) => void;
+  data: RequestHead[];
+  onClick?: (row: RequestHead) => void;
 }
 
 export interface RequestTableHandle {
-  getExportRows: () => Request[];
+  getExportIDs: () => string[];
 }
 
 const requestFilter =
@@ -72,7 +72,7 @@ const requestFilter =
     from: DateTime | null;
     to: DateTime | null;
   }) =>
-  (request: Request) => {
+  (request: RequestHead) => {
     if (
       filterOptions.decision !== null &&
       request.response?.decision !== filterOptions.decision
@@ -106,7 +106,7 @@ const requestFilter =
     return true;
   };
 
-const columns: ColumnDef<Request>[] = [
+const columns: ColumnDef<RequestHead>[] = [
   {
     accessorKey: "from",
     header: ({ column }) => {
@@ -326,8 +326,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
     useImperativeHandle(
       ref,
       () => ({
-        getExportRows: () =>
-          table.getSortedRowModel().rows.map((row) => row.original),
+        getExportIDs: () =>
+          table.getSortedRowModel().rows.map((row) => row.original.id),
       }),
       [table],
     );

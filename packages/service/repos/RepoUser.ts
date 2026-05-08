@@ -71,18 +71,6 @@ export class UserRepo {
   }
 
   /**
-   * Gets all users that are sudoers.
-   */
-  async getSudoers(): Promise<User[]> {
-    const users = await this.collections.users
-      .find({ sudoer: true })
-      .sort({ email: "ascending" })
-      .collation({ locale: "en", numericOrdering: true })
-      .toArray();
-    return users;
-  }
-
-  /**
    * Get all users enrolled in the course.
    */
   async getUsersInCourse(courseID: CourseID): Promise<User[]> {
