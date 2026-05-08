@@ -538,8 +538,8 @@ describe("RequestService", () => {
     });
   });
 
-  describe("getRequestsAs", () => {
-    test("should get requests as student", async () => {
+  describe("request list projections", () => {
+    test("should get request heads as student", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -580,15 +580,21 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      await requestService.auth(student.email).createRequest(request);
-
-      const requests = await requestService
+      const requestID = await requestService
         .auth(student.email)
-        .getRequestsAs(["student"]);
-      expect(requests.length).toEqual(1);
+        .createRequest(request);
+
+      const requestHeads = await requestService
+        .auth(student.email)
+        .getRequestHeadsAs(["student"]);
+
+      expect(requestHeads).toHaveLength(1);
+      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
+        requestID,
+      ]);
     });
 
-    test("should get requests as observer", async () => {
+    test("should get request heads as observer", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -641,15 +647,21 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      await requestService.auth(student.email).createRequest(request);
+      const requestID = await requestService
+        .auth(student.email)
+        .createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(observer.email)
-        .getRequestsAs(["observer"]);
-      expect(requests.length).toEqual(1);
+        .getRequestHeadsAs(["observer"]);
+
+      expect(requestHeads).toHaveLength(1);
+      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
+        requestID,
+      ]);
     });
 
-    test("should get requests as instructor", async () => {
+    test("should get request heads as instructor", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -702,15 +714,21 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      await requestService.auth(student.email).createRequest(request);
+      const requestID = await requestService
+        .auth(student.email)
+        .createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(instructor.email)
-        .getRequestsAs(["instructor"]);
-      expect(requests.length).toEqual(1);
+        .getRequestHeadsAs(["instructor"]);
+
+      expect(requestHeads).toHaveLength(1);
+      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
+        requestID,
+      ]);
     });
 
-    test("students should not get other students' requests", async () => {
+    test("students should not get other students' request heads", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -765,13 +783,14 @@ describe("RequestService", () => {
       };
       await requestService.auth(requester.email).createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(otherStudent.email)
-        .getRequestsAs(["student"]);
-      expect(requests.length).toEqual(0);
+        .getRequestHeadsAs(["student"]);
+
+      expect(requestHeads).toHaveLength(0);
     });
 
-    test("observers should not get other classes' requests", async () => {
+    test("observers should not get other classes' request heads", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -826,13 +845,14 @@ describe("RequestService", () => {
       };
       await requestService.auth(requester.email).createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(observer.email)
-        .getRequestsAs(["observer"]);
-      expect(requests.length).toEqual(0);
+        .getRequestHeadsAs(["observer"]);
+
+      expect(requestHeads).toHaveLength(0);
     });
 
-    test("instructors should not get other classes' requests", async () => {
+    test("instructors should not get other classes' request heads", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -887,13 +907,14 @@ describe("RequestService", () => {
       };
       await requestService.auth(requester.email).createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(instructor.email)
-        .getRequestsAs(["instructor"]);
-      expect(requests.length).toEqual(0);
+        .getRequestHeadsAs(["instructor"]);
+
+      expect(requestHeads).toHaveLength(0);
     });
 
-    test("admins should get no requests", async () => {
+    test("admins should get no request heads", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -932,7 +953,7 @@ describe("RequestService", () => {
       };
       await insertData(testConn, { users: [student, admin] });
 
-      const requestInit: RequestInit = {
+      const request: RequestInit = {
         type: "Swap Section",
         class: {
           course: { code: course.code, term: course.term },
@@ -946,15 +967,16 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      await requestService.auth(student.email).createRequest(requestInit);
+      await requestService.auth(student.email).createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(admin.email)
-        .getRequestsAs(["admin"]);
-      expect(requests.length).toEqual(0);
+        .getRequestHeadsAs(["admin"]);
+
+      expect(requestHeads).toHaveLength(0);
     });
 
-    test("should return empty when no roles are provided", async () => {
+    test("should return empty request heads when no roles are provided", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -981,7 +1003,7 @@ describe("RequestService", () => {
       };
       await insertData(testConn, { users: [student] });
 
-      const requestInit: RequestInit = {
+      const request: RequestInit = {
         type: "Swap Section",
         class: {
           course: { code: course.code, term: course.term },
@@ -995,15 +1017,16 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-      await requestService.auth(student.email).createRequest(requestInit);
+      await requestService.auth(student.email).createRequest(request);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(student.email)
-        .getRequestsAs([]);
-      expect(requests.length).toEqual(0);
+        .getRequestHeadsAs([]);
+
+      expect(requestHeads).toHaveLength(0);
     });
 
-    test("should merge requests across student and instructor roles", async () => {
+    test("should merge request heads across student and instructor roles", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -1076,20 +1099,24 @@ describe("RequestService", () => {
         },
       };
 
-      await requestService
+      const requestFromDualID = await requestService
         .auth(dualRoleUser.email)
         .createRequest(requestFromDual);
-      await requestService
+      const requestFromOtherID = await requestService
         .auth(otherStudent.email)
         .createRequest(requestFromOther);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(dualRoleUser.email)
-        .getRequestsAs(["student", "instructor"]);
-      expect(requests.length).toEqual(2);
+        .getRequestHeadsAs(["student", "instructor"]);
+
+      expect(requestHeads).toHaveLength(2);
+      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual(
+        expect.arrayContaining([requestFromDualID, requestFromOtherID]),
+      );
     });
 
-    test("should get all requests in course if instructor section is *", async () => {
+    test("should get all request heads in course if instructor section is *", async () => {
       const course: Course = {
         code: "COMP 1023",
         term: "2510",
@@ -1154,7 +1181,6 @@ describe("RequestService", () => {
           toDate: "2025-11-26",
         },
       };
-
       const req2: RequestInit = {
         type: "Swap Section",
         class: {
@@ -1170,14 +1196,241 @@ describe("RequestService", () => {
         },
       };
 
-      await requestService.auth(student1.email).createRequest(req1);
-      await requestService.auth(student2.email).createRequest(req2);
+      const req1ID = await requestService
+        .auth(student1.email)
+        .createRequest(req1);
+      const req2ID = await requestService
+        .auth(student2.email)
+        .createRequest(req2);
 
-      const requests = await requestService
+      const requestHeads = await requestService
         .auth(instructor.email)
-        .getRequestsAs(["instructor"]);
+        .getRequestHeadsAs(["instructor"]);
 
-      expect(requests.length).toEqual(2);
+      expect(requestHeads).toHaveLength(2);
+      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual(
+        expect.arrayContaining([req1ID, req2ID]),
+      );
+    });
+
+    test("should omit details and metadata when getting request heads", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student-head@connect.ust.hk",
+        name: "student-head",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      const instructor: User = {
+        email: "instructor-head@ust.hk",
+        name: "instructor-head",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(testConn, { users: [student, instructor] });
+
+      const request: RequestInit = {
+        type: "Swap Section",
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L1",
+        },
+        details: {
+          reason: "Need to swap sections",
+          proof: [
+            {
+              name: "proof.txt",
+              size: 7,
+              content: "cHJvb2YtMQ==",
+            },
+          ],
+        },
+        metadata: {
+          fromSection: "L1",
+          fromDate: "2025-11-25",
+          toSection: "L2",
+          toDate: "2025-11-26",
+        },
+      };
+
+      const requestID = await requestService
+        .auth(student.email)
+        .createRequest(request);
+
+      const requestHeads = await requestService
+        .auth(instructor.email)
+        .getRequestHeadsAs(["instructor"]);
+
+      expect(requestHeads).toHaveLength(1);
+      expect(requestHeads[0]).toMatchObject({
+        id: requestID,
+        from: student.email,
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L1",
+        },
+        type: "Swap Section",
+        response: null,
+      });
+      expect(requestHeads[0]).not.toHaveProperty("details");
+      expect(requestHeads[0]).not.toHaveProperty("metadata");
+    });
+
+    test("should return requests by ID in requested order with proof", async () => {
+      const course: Course = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+        assignments: {
+          A1: {
+            name: "Assignment 1",
+            due: "2025-11-28T23:59:00+08:00",
+            maxExtension: "P7D",
+          },
+        },
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const student: User = {
+        email: "student-export@connect.ust.hk",
+        name: "student-export",
+        enrollment: [
+          {
+            role: "student",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      const instructor: User = {
+        email: "instructor-export@ust.hk",
+        name: "instructor-export",
+        enrollment: [
+          {
+            role: "instructor",
+            course: { code: course.code, term: course.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(testConn, { users: [student, instructor] });
+
+      const swapRequest: RequestInit = {
+        type: "Swap Section",
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L1",
+        },
+        details: {
+          reason: "Need to swap sections",
+          proof: [
+            {
+              name: "swap-proof.txt",
+              size: 7,
+              content: "cHJvb2YtMQ==",
+            },
+          ],
+        },
+        metadata: {
+          fromSection: "L1",
+          fromDate: "2025-11-25",
+          toSection: "L2",
+          toDate: "2025-11-26",
+        },
+      };
+      const deadlineRequest: RequestInit = {
+        type: "Deadline Extension",
+        class: {
+          course: { code: course.code, term: course.term },
+          section: "L1",
+        },
+        details: {
+          reason: "Need more time",
+          proof: [
+            {
+              name: "deadline-proof.txt",
+              size: 7,
+              content: "cHJvb2YtMg==",
+            },
+          ],
+        },
+        metadata: {
+          assignment: "A1",
+          deadline: "2025-11-30T23:59:00+08:00",
+        },
+      };
+
+      const swapRequestID = await requestService
+        .auth(student.email)
+        .createRequest(swapRequest);
+      const deadlineRequestID = await requestService
+        .auth(student.email)
+        .createRequest(deadlineRequest);
+
+      const requestsByID = await requestService
+        .auth(instructor.email)
+        .getRequestsByID([deadlineRequestID, swapRequestID]);
+      const firstRequest = requestsByID[0];
+      const secondRequest = requestsByID[1];
+      if (firstRequest === undefined || secondRequest === undefined) {
+        throw new Error("expected two requests");
+      }
+
+      expect(requestsByID.map((request) => request.id)).toEqual([
+        deadlineRequestID,
+        swapRequestID,
+      ]);
+      expect(firstRequest).toHaveProperty("metadata");
+      expect(firstRequest.details).toEqual({
+        reason: "Need more time",
+        proof: [
+          {
+            name: "deadline-proof.txt",
+            size: 7,
+            content: "cHJvb2YtMg==",
+          },
+        ],
+      });
+      expect(secondRequest).toHaveProperty("metadata");
+      expect(secondRequest.details).toEqual({
+        reason: "Need to swap sections",
+        proof: [
+          {
+            name: "swap-proof.txt",
+            size: 7,
+            content: "cHJvb2YtMQ==",
+          },
+        ],
+      });
     });
   });
 

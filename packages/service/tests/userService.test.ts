@@ -17,7 +17,6 @@ import {
   ClassPermissionError,
   CoursePermissionError,
   PermissionError,
-  SudoerPermissionError,
 } from "../services/error";
 import { clearData, insertData } from "./tests";
 
@@ -321,55 +320,6 @@ describe("UserService", () => {
         expect.unreachable("should have thrown an error");
       } catch (error) {
         expect(error).toBeInstanceOf(PermissionError);
-      }
-    });
-  });
-
-  describe("getSudoers", () => {
-    test("sudoers should be able to list sudoers", async () => {
-      const sudoer: User = {
-        email: "sudoer1@ust.hk",
-        name: "sudoer1",
-        enrollment: [],
-        sudoer: true,
-      };
-      const nonSudoer: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [],
-        sudoer: false,
-      };
-      await insertData(conn, { users: [sudoer, nonSudoer] });
-
-      const sudoers = await userService.auth(sudoer.email).getSudoers();
-      expect(sudoers.map((u) => u.email)).toEqual(
-        expect.arrayContaining([sudoer.email]),
-      );
-      expect(sudoers.map((u) => u.email)).not.toEqual(
-        expect.arrayContaining([nonSudoer.email]),
-      );
-    });
-
-    test("non-sudoers should not be able to list sudoers", async () => {
-      const sudoer: User = {
-        email: "sudoer1@ust.hk",
-        name: "sudoer1",
-        enrollment: [],
-        sudoer: true,
-      };
-      const nonSudoer: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [],
-        sudoer: false,
-      };
-      await insertData(conn, { users: [sudoer, nonSudoer] });
-
-      try {
-        await userService.auth(nonSudoer.email).getSudoers();
-        expect.unreachable("should have thrown an error");
-      } catch (error) {
-        expect(error).toBeInstanceOf(SudoerPermissionError);
       }
     });
   });

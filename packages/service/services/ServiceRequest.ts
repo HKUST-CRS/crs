@@ -1,5 +1,6 @@
 import type {
   Request,
+  RequestHead,
   RequestID,
   RequestInit,
   ResponseInit,
@@ -51,36 +52,73 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Get all requests of a user, as a specific role.
+   * Get all request heads of a user, as specific roles.
    *
-   * If the role is "student", this returns all requests made by the user.
+   * If the role is "student", this returns request heads for all requests made by the user.
    *
-   * If the role is "instructor" or "observer", this returns all requests for classes that the user
-   * is an instructor or observer of. Enrollments with section "*" include all sections in the
-   * course.
+   * If the role is "instructor" or "observer", this returns request heads for all requests for
+   * classes that the user is an instructor or observer of. Enrollments with section "*" include
+   * all sections in the course.
    *
-   * If the role is "admin", this returns no requests.
+   * If the role is "admin", this returns no request heads.
+   *
+   * @param roles The roles to fetch request heads as.
+   * @returns The list of request heads visible to the user for the specified roles.
    */
-  async getRequestsAs(
+  async getRequestHeadsAs(
     this: RequestService<UserID>,
     roles: Role[],
-  ): Promise<Request[]> {
+  ): Promise<RequestHead[]> {
     const user = await this.repos.user.requireUser(this.user);
-    const requests: Request[] = [];
+    const requests: RequestHead[] = [];
     if (roles.includes("student")) {
-      const studentRequests = await this.repos.request.getRequestsFromUser(
+      const studentRequests = await this.repos.request.getRequestHeadsFromUser(
         this.user,
       );
       requests.push(...studentRequests);
     }
     if (roles.includes("instructor") || roles.includes("observer")) {
       const enrollments = user.enrollment.filter(
-        (clazz) => clazz.role === "instructor" || clazz.role === "observer",
+        (clazz) =>
+          (clazz.role === "instructor" || clazz.role === "observer") &&
+          roles.includes(clazz.role),
       );
       requests.push(
-        ...(await this.repos.request.getRequestsInClasses(enrollments)),
+        ...(await this.repos.request.getRequestHeadsInClasses(enrollments)),
       );
     }
+    return requests;
+  }
+
+  /**
+   * Gets specific requests by their IDs.
+   *
+   * The current user can access a request if they are the requester, or if they have the
+   * instructor or observer role in the request's class.
+   *
+   * Missing request IDs are ignored.
+   *
+   * @param requestIDs The request IDs to fetch.
+   * @returns The matching requests in the same order as the input IDs.
+   */
+  async getRequestsByID(
+    this: RequestService<UserID>,
+    requestIDs: RequestID[],
+  ): Promise<Request[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    const requests = await this.repos.request.getRequestsByID(requestIDs);
+
+    for (const request of requests) {
+      if (this.user !== request.from) {
+        assertClassRole(
+          user,
+          request.class,
+          ["instructor", "observer"],
+          `getting request ${request.id}`,
+        );
+      }
+    }
+
     return requests;
   }
 

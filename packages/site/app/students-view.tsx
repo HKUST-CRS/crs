@@ -36,7 +36,7 @@ export default function StudentsView() {
 
   // Requests
   const requestsQuery = useQuery(
-    trpc.request.getAllAs.queryOptions(["student"]),
+    trpc.request.getAllHeadsAs.queryOptions(["student"]),
   );
   const requests = requestsQuery.data;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightFromLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,7 @@ export default function InstructorsView() {
   const router = useRouter();
 
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
 
@@ -51,7 +52,7 @@ export default function InstructorsView() {
 
   // Requests
   const requestsQuery = useQuery(
-    trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
+    trpc.request.getAllHeadsAs.queryOptions(["instructor", "observer"]),
   );
   const requests = requestsQuery.data;
   const tableRef = useRef<RequestTableHandle>(null);
@@ -71,14 +72,20 @@ export default function InstructorsView() {
   );
 
   // Export Requests
-  const handleExportRequests = () => {
-    const requestsToExport = tableRef.current?.getExportRows() ?? [];
-    const csv = RequestSerialization.toCSV(
-      requestsToExport,
-      window.location.origin,
-    );
+  const [isExporting, setExporting] = useState(false);
+  const handleExportRequests = async () => {
+    const requestIDs = tableRef.current?.getExportIDs() ?? [];
+    setExporting(true);
+    try {
+      const rs = await queryClient.fetchQuery(
+        trpc.request.getAllByID.queryOptions(requestIDs),
+      );
+      const csv = RequestSerialization.toCSV(rs, window.location.origin);
 
-    download("requests.csv", new Blob([csv], { type: "text/csv" }));
+      download("requests.csv", new Blob([csv], { type: "text/csv" }));
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Create Course (Dialog)
@@ -138,8 +145,13 @@ export default function InstructorsView() {
       <section>
         <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
-          <Button onClick={handleExportRequests} size="sm">
-            <ArrowRightFromLine className="h-4 w-4" /> Export Requests
+          <Button
+            onClick={() => void handleExportRequests()}
+            size="sm"
+            disabled={isExporting}
+          >
+            <ArrowRightFromLine className="h-4 w-4" />
+            {isExporting ? "Exporting..." : "Export Requests"}
           </Button>
         </div>
 
