@@ -4,6 +4,7 @@ import {
   type Request,
   type RequestDetails,
   type Response,
+  type ThreadEntry,
   type User,
 } from "../models";
 import { formatDate, formatDateTime } from "../utils/datetime";
@@ -11,6 +12,11 @@ import { formatDate, formatDateTime } from "../utils/datetime";
 type Metadata = {
   student: User;
   instructors: User[];
+  /**
+   * Observers in the class. Only needed by {@link formatUpdate} to attribute
+   * an update authored by an observer; other formatters ignore this field.
+   */
+  observers?: User[];
 };
 
 const formatRequestOverview = (
@@ -127,6 +133,66 @@ const formatResponse = (
       {remarks && <blockquote>{remarks}</blockquote>}
     </>
   );
+};
+
+/**
+ * Formats a thread entry into a human-readable JSX fragment for update
+ * notifications.
+ */
+export const formatUpdate = (
+  entry: ThreadEntry,
+  metadata: Metadata,
+): JSX.Element => {
+  // Resolve the author among the student, instructors, and observers. An
+  // observer's comment would otherwise be mislabeled "An instructor".
+  const actor =
+    entry.from === metadata.student.email
+      ? metadata.student
+      : (metadata.instructors.find((i) => i.email === entry.from) ??
+        metadata.observers?.find((i) => i.email === entry.from));
+  const actorName =
+    actor?.name ||
+    (entry.from === metadata.student.email ? "The student" : "A participant");
+
+  switch (entry.kind) {
+    case "comment":
+      return (
+        <>
+          <p>{actorName} added a comment to the request:</p>
+          <blockquote>{entry.text}</blockquote>
+          {entry.proof?.length ? (
+            <p>There are {entry.proof.length} document(s) attached.</p>
+          ) : null}
+        </>
+      );
+    case "response":
+      return (
+        <>
+          <p>
+            {actorName} made a decision of <b>{entry.decision}</b> on the
+            request.
+          </p>
+          {entry.remarks ? <blockquote>{entry.remarks}</blockquote> : null}
+        </>
+      );
+    case "cancel":
+      return (
+        <>
+          <p>{actorName} cancelled the request.</p>
+          {entry.text ? <blockquote>{entry.text}</blockquote> : null}
+        </>
+      );
+    case "appeal":
+      return (
+        <>
+          <p>{actorName} appealed the request:</p>
+          <blockquote>{entry.text}</blockquote>
+          {entry.proof?.length ? (
+            <p>There are {entry.proof.length} document(s) attached.</p>
+          ) : null}
+        </>
+      );
+  }
 };
 
 /**

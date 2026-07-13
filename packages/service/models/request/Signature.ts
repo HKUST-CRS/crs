@@ -7,6 +7,7 @@ import {
   importJWK,
   type JWK,
 } from "jose";
+import type { ProofFile } from "./Proof";
 import { Request } from "./Request";
 
 export namespace Signature {
@@ -96,14 +97,18 @@ export namespace Signature {
 
   export async function sign(r: Request): Promise<string> {
     const rr = Request.parse(structuredClone(r));
-    rr.details.proof = rr.details.proof?.map((p) => {
-      const hash = crypto.createHash("sha256");
-      hash.update(Buffer.from(p.content, "base64"));
-      return {
-        ...p,
-        content: hash.digest("hex"),
-      };
-    });
+    const hashProofs = (proofs?: ProofFile[]): ProofFile[] | undefined =>
+      proofs?.map((p) => {
+        const hash = crypto.createHash("sha256");
+        hash.update(Buffer.from(p.content, "base64"));
+        return { ...p, content: hash.digest("hex") };
+      });
+    rr.details.proof = hashProofs(rr.details.proof);
+    for (const entry of rr.updates) {
+      if (entry.kind === "comment" || entry.kind === "appeal") {
+        entry.proof = hashProofs(entry.proof);
+      }
+    }
     const jws = await new CompactSign(
       new TextEncoder().encode(JSON.stringify(rr)),
     )
