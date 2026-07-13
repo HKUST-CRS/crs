@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import ResponseForm from "@/components/requests/response-form";
+import RequestThread from "@/components/requests/request-thread";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 
@@ -15,24 +15,16 @@ export default function ResponseDisplay({ requestID }: { requestID: string }) {
     });
     return null;
   }
-  if (requestQuery.data) {
-    if (requestQuery.data.response) {
-      return (
-        <ResponseForm
+  return (
+    <div className="m-4">
+      {requestQuery.data ? (
+        <RequestThread
           request={requestQuery.data}
-          onSubmit={requestQuery.refetch}
-          viewonly
+          onUpdated={requestQuery.refetch}
         />
-      );
-    } else {
-      return (
-        <ResponseForm
-          request={requestQuery.data}
-          onSubmit={requestQuery.refetch}
-        />
-      );
-    }
-  } else {
-    return <Spinner variant="ellipsis" />;
-  }
+      ) : (
+        <Spinner variant="ellipsis" />
+      )}
+    </div>
+  );
 }

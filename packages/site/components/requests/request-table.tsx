@@ -24,7 +24,6 @@ import {
   type CourseID,
   Courses,
   type RequestHead,
-  type Response,
   ResponseDecision,
   Terms,
 } from "service/models";
@@ -64,9 +63,23 @@ export interface RequestTableHandle {
   getExportIDs: () => string[];
 }
 
+/**
+ * The filterable "decision" of a request, mirroring what the Decision column
+ * displays. Extends the raw response decision with the status-derived states
+ * ("pending" for an unanswered open request, "cancelled" for a cancelled one)
+ * so instructors can filter by those too.
+ */
+type DecisionFilterValue = ResponseDecision | "pending" | "cancelled";
+
+function requestDecision(r: RequestHead): DecisionFilterValue {
+  if (r.status === "cancelled") return "cancelled";
+  if (r.response === null) return "pending";
+  return r.response.decision;
+}
+
 const requestFilter =
   (filterOptions: {
-    decision: ResponseDecision | null;
+    decision: DecisionFilterValue | null;
     term: string | null;
     course: CourseID | null;
     from: DateTime | null;
@@ -75,7 +88,7 @@ const requestFilter =
   (request: RequestHead) => {
     if (
       filterOptions.decision !== null &&
-      request.response?.decision !== filterOptions.decision
+      requestDecision(request) !== filterOptions.decision
     ) {
       return false;
     }
@@ -199,6 +212,7 @@ const columns: ColumnDef<RequestHead>[] = [
   {
     id: "decision",
     accessorFn: (row) => {
+      if (row.status === "cancelled") return "Cancelled";
       return row.response?.decision || "Pending";
     },
     header: ({ column }) => {
@@ -214,7 +228,11 @@ const columns: ColumnDef<RequestHead>[] = [
       );
     },
     cell: ({ row }) => {
-      const response = row.original.response;
+      const request = row.original;
+      if (request.status === "cancelled") {
+        return <span className="text-gray-500">Cancelled</span>;
+      }
+      const response = request.response;
       return response ? (
         response.decision === "Approve" ? (
           <span>
@@ -239,12 +257,11 @@ const columns: ColumnDef<RequestHead>[] = [
       );
     },
     sortingFn: (rowA, rowB) => {
-      function toStatus(r: Response | null) {
-        return r?.decision ?? "pending";
+      function toStatus(r: RequestHead) {
+        if (r.status === "cancelled") return "cancelled";
+        return r.response?.decision ?? "pending";
       }
-      return toStatus(rowA.original.response) > toStatus(rowB.original.response)
-        ? 1
-        : -1;
+      return toStatus(rowA.original) > toStatus(rowB.original) ? 1 : -1;
     },
   },
 ];
@@ -263,7 +280,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       pageSize: 50,
     });
     const [decisionFilter, setDecisionFilter] =
-      useState<ResponseDecision | null>(null);
+      useState<DecisionFilterValue | null>(null);
     const [termFilter, setTermFilter] = useState<string | null>(null);
     const [courseFilter, setCourseFilter] = useState<CourseID | null>(null);
     const [fromFilter, setFromFilter] = useState<DateTime | null>(null);
@@ -349,7 +366,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               value={decisionFilter ?? "__all"}
               onValueChange={(value) => {
                 setDecisionFilter(
-                  value === "__all" ? null : (value as ResponseDecision),
+                  value === "__all" ? null : (value as DecisionFilterValue),
                 );
               }}
               disabled={!termOptions.length}
@@ -359,11 +376,13 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All decisions</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
                 {[...ResponseDecision.values].map((term) => (
                   <SelectItem key={term} value={term}>
                     {term}
                   </SelectItem>
                 ))}
+                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </Field>
