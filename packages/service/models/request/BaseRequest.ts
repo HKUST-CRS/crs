@@ -1,32 +1,20 @@
 import { z } from "zod";
 import { Class } from "../course";
 import { UserID } from "../user";
+import { Proof } from "./Proof";
+import { RequestStatus } from "./RequestStatus";
 import type { RequestType } from "./RequestType";
 import { Response } from "./Response";
+import { ThreadEntry } from "./Thread";
 
 export const RequestDetails = z.object({
   reason: z
     .string()
     .nonempty("A brief explanation for the request is required.")
     .meta({ description: "A brief explanation of the request." }),
-  proof: z
-    .array(
-      z.object({
-        name: z.string().meta({ description: "The name of the file." }),
-        size: z
-          .number()
-          .meta({ description: "The size of the file in bytes." })
-          .max(2 * 1024 * 1024, "At most 2 MiB per file is allowed."),
-        content: z.base64().meta({
-          description: "The base64-encoded content of the file. ",
-        }),
-      }),
-    )
-    .max(4, "At most 4 supporting documents are allowed.")
-    .optional()
-    .meta({
-      description: "Optional supporting documents or files for the request.",
-    }),
+  proof: Proof.meta({
+    description: "Optional supporting documents or files for the request.",
+  }),
 });
 export type RequestDetails = z.infer<typeof RequestDetails>;
 
@@ -50,6 +38,19 @@ export const BaseRequest = z.object({
   details: RequestDetails,
   timestamp: z.iso.datetime({ offset: true }),
   response: z.union([Response, z.null()]),
+  /**
+   * The current lifecycle status of the request.
+   *
+   * Denormalized from the thread: set to "open" on creation, "resolved" by a
+   * response, "cancelled" by a cancel, and back to "open" by an appeal.
+   */
+  status: RequestStatus,
+  /**
+   * The append-only thread of updates to the request. The request body itself
+   * (class, type, metadata, details) is immutable after creation; all
+   * follow-up activity is recorded here.
+   */
+  updates: z.array(ThreadEntry),
 });
 export type BaseRequest = z.infer<typeof BaseRequest>;
 

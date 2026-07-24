@@ -70,7 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return true;
       }
       if (
-        auth &&
+        auth?.account &&
         (auth.account.expires_at
           ? DateTime.fromSeconds(auth.account.expires_at)
               .diffNow()

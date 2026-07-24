@@ -12,18 +12,24 @@ export const RequestInits = [
     from: true,
     timestamp: true,
     response: true,
+    status: true,
+    updates: true,
   }),
   AbsentFromSectionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
     response: true,
+    status: true,
+    updates: true,
   }),
   DeadlineExtensionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
     response: true,
+    status: true,
+    updates: true,
   }),
 ] as const;
 export const Requests = [
@@ -35,14 +41,17 @@ export const RequestHeads = [
   SwapSectionRequest.omit({
     details: true,
     metadata: true,
+    updates: true,
   }),
   AbsentFromSectionRequest.omit({
     details: true,
     metadata: true,
+    updates: true,
   }),
   DeadlineExtensionRequest.omit({
     details: true,
     metadata: true,
+    updates: true,
   }),
 ] as const;
 
@@ -66,6 +75,7 @@ export namespace RequestSerialization {
     "User",
     "Type",
     "Timestamp",
+    "Status",
 
     // Swap Section & Absent from Section
     "From Section",
@@ -115,6 +125,7 @@ export namespace RequestSerialization {
       User: r.from,
       Type: r.type,
       Timestamp: formatDateTime(r.timestamp),
+      Status: r.status,
       ...serializeMeta(r),
       Decision: r.response?.decision ?? "Pending",
       Reference: `${base}/request/${r.id}`,

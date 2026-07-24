@@ -1,13 +1,19 @@
 import type {
+  AppealEntry,
+  CancelEntry,
+  CommentEntry,
+  Proof,
   Request,
   RequestHead,
   RequestID,
   RequestInit,
+  ResponseEntry,
   ResponseInit,
   Role,
   UserID,
 } from "../models";
 import type { Repos } from "../repos";
+import { PermissionError } from "./error";
 import { assertClassRole } from "./permission";
 
 export class RequestService<TUser extends UserID | null = null> {
@@ -141,28 +147,102 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Creates a response to a request.
+   * Adds a comment (optionally with supporting documents) to the request thread.
    *
-   * The user must be an instructor of the class that the request is for in order to create a
-   * response to the request.
+   * The requester, or an instructor/observer in the class, may comment to provide
+   * more information. The request body itself is never edited; clarification is
+   * given via comments. Comments are allowed on open or resolved requests, but
+   * not on cancelled ones.
    *
-   * @param requestID The ID of the request to respond to.
-   * @param response The response data.
+   * @returns The created thread entry.
    */
-  async createResponse(
+  async addComment(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    payload: { text: string; proof?: Proof },
+  ): Promise<CommentEntry> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
+    if (this.user !== request.from) {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor", "observer"],
+        `commenting on request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendComment(this.user, requestID, payload);
+  }
+
+  /**
+   * Responds to a request with a decision.
+   *
+   * The user must be an instructor of the class. A response is only allowed while
+   * the request is open (including after an appeal reopened it); otherwise a
+   * `StatusConflictError` is thrown. The top-level denormalized `response` is
+   * updated to the latest response and the status becomes "resolved".
+   *
+   * @returns The created thread entry.
+   */
+  async respond(
     this: RequestService<UserID>,
     requestID: RequestID,
     response: ResponseInit,
-  ): Promise<void> {
+  ): Promise<ResponseEntry> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    // only instructors of the class can create responses
     assertClassRole(
       user,
       request.class,
       ["instructor"],
-      `creating response to request ${requestID}`,
+      `responding to request ${requestID}`,
     );
-    await this.repos.request.createResponse(this.user, requestID, response);
+    return this.repos.request.appendResponse(this.user, requestID, response);
+  }
+
+  /**
+   * Cancels a request. Only the requester may cancel, and only while the request
+   * is open; cancellation is terminal.
+   *
+   * @returns The created thread entry.
+   */
+  async cancelRequest(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    text?: string,
+  ): Promise<CancelEntry> {
+    await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
+    if (this.user !== request.from) {
+      throw new PermissionError(
+        this.user,
+        [],
+        `cancelling request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendCancel(this.user, requestID, text);
+  }
+
+  /**
+   * Appeals a resolved request, reopening it for another response. Only the
+   * requester may appeal, and only while the request is resolved.
+   *
+   * @returns The created thread entry.
+   */
+  async appealRequest(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    payload: { text: string; proof?: Proof },
+  ): Promise<AppealEntry> {
+    await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
+    if (this.user !== request.from) {
+      throw new PermissionError(
+        this.user,
+        [],
+        `appealing request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendAppeal(this.user, requestID, payload);
   }
 }

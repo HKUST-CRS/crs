@@ -1,8 +1,10 @@
 import {
+  Proof,
   Request,
   RequestHead,
   RequestID,
   RequestInit,
+  ResponseDecision,
   Role,
 } from "service/models";
 import z from "zod";
@@ -38,5 +40,84 @@ export const routerRequest = router({
       const r = await services.request.auth(ctx.user.email).getRequest(rid);
       await services.notification.notifyNewRequest(r);
       return rid;
+    }),
+
+  // ── Thread (append-only) ──────────────────────────────────────────────
+  // The request body is immutable after creation. All follow-up activity is
+  // recorded as entries on the thread via these mutations.
+
+  comment: procedure
+    .input(
+      z.object({
+        id: RequestID,
+        text: z.string().nonempty("A comment cannot be empty."),
+        proof: Proof,
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const entry = await services.request
+        .auth(ctx.user.email)
+        .addComment(input.id, { text: input.text, proof: input.proof });
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await services.notification.notifyRequestUpdate(request, entry);
+    }),
+  respond: procedure
+    .input(
+      z.object({
+        id: RequestID,
+        remarks: z.string(),
+        decision: ResponseDecision,
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const entry = await services.request
+        .auth(ctx.user.email)
+        .respond(input.id, {
+          remarks: input.remarks,
+          decision: input.decision,
+        });
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await services.notification.notifyRequestUpdate(request, entry);
+    }),
+  cancel: procedure
+    .input(
+      z.object({
+        id: RequestID,
+        text: z.string().optional(),
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const entry = await services.request
+        .auth(ctx.user.email)
+        .cancelRequest(input.id, input.text);
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await services.notification.notifyRequestUpdate(request, entry);
+    }),
+  appeal: procedure
+    .input(
+      z.object({
+        id: RequestID,
+        text: z.string().nonempty("An appeal must include a justification."),
+        proof: Proof,
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const entry = await services.request
+        .auth(ctx.user.email)
+        .appealRequest(input.id, { text: input.text, proof: input.proof });
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await services.notification.notifyRequestUpdate(request, entry);
     }),
 });

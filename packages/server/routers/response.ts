@@ -1,9 +1,18 @@
-import { RequestID } from "service/models";
-import { ResponseInit } from "service/models/request/Response";
+import { RequestID, ResponseInit } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
 
+/**
+ * Compatibility alias for the old `response.create` procedure, kept during the
+ * thread-style rollout so that an old frontend build (which still calls
+ * `response.create`) keeps working against this new backend.
+ *
+ * It forwards to the new {@link RequestService.respond} path and notifies via
+ * {@link NotificationService.notifyRequestUpdate}, exactly like
+ * `routerRequest.respond`. Remove this router once the frontend is confirmed
+ * to be on `request.respond`.
+ */
 export const routerResponse = router({
   create: procedure
     .input(
@@ -14,12 +23,12 @@ export const routerResponse = router({
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      await services.request
+      const entry = await services.request
         .auth(ctx.user.email)
-        .createResponse(input.id, input.init);
+        .respond(input.id, input.init);
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyNewResponse(request);
+      await services.notification.notifyRequestUpdate(request, entry);
     }),
 });

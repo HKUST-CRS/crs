@@ -8,13 +8,13 @@ import {
   Classes,
   type Request,
   type RequestDetails,
+  type ThreadEntry,
   type User,
 } from "../models";
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
-import { formatRequest } from "../templates/Formatter";
+import { formatRequest, formatUpdate } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
-import { ResponseNotFoundError } from "./error";
 
 export class NotificationService {
   private templateDir: string;
@@ -63,6 +63,10 @@ export class NotificationService {
 
   private urlToResponse(rid: string): string {
     return new URL(`/response/${rid}`, this.baseUrl).toString();
+  }
+
+  private urlToRequest(rid: string): string {
+    return new URL(`/request/${rid}`, this.baseUrl).toString();
   }
 
   /**
@@ -145,14 +149,23 @@ export class NotificationService {
   }
 
   /**
-   * Notify the requester, and the responsible instructors and observers, for a new response.
-   * @param request The request on which the response is made.
+   * Notify the relevant parties of a thread update (comment, response, cancel,
+   * or appeal). Student actions notify the instructors (with the student and
+   * observers CC'd); instructor actions notify the student (with instructors
+   * and observers CC'd) — mirroring the existing new-request/new-response split.
+   * @param request The request on which the update was made.
+   * @param entry The thread entry describing the update.
    */
-  async notifyNewResponse(request: Request) {
-    if (!request.response) {
-      throw new ResponseNotFoundError(request.id);
-    }
-    const subject = `Response - ${Classes.format(request.class)}`;
+  async notifyRequestUpdate(request: Request, entry: ThreadEntry) {
+    // Prefix the subject with the update kind so recipients can triage at a
+    // glance (comments can be high-volume).
+    const kindLabel: Record<ThreadEntry["kind"], string> = {
+      comment: "Comment",
+      response: "Response",
+      cancel: "Cancelled",
+      appeal: "Appeal",
+    };
+    const subject = `${kindLabel[entry.kind]} - ${Classes.format(request.class)}`;
 
     const student = await this.repos.user.requireUser(request.from);
     const instructors = await this.repos.user.getUsersInClass(
@@ -164,42 +177,52 @@ export class NotificationService {
       "observer",
     );
 
-    const content = await this.renderNewResponse(request, {
+    const content = await this.renderUpdate(request, entry, {
       student,
       instructors,
+      observers,
     });
 
-    await this.sendEmail(
-      [student.email],
-      [...instructors.map((i) => i.email), ...observers.map((i) => i.email)],
-      subject,
-      content,
-      request.details.proof ?? [],
-    );
+    const attachments =
+      entry.kind === "comment" || entry.kind === "appeal"
+        ? (entry.proof ?? [])
+        : [];
+
+    const isStudentAction = entry.from === request.from;
+    if (isStudentAction) {
+      await this.sendEmail(
+        instructors.map((i) => i.email),
+        [student.email, ...observers.map((i) => i.email)],
+        subject,
+        content,
+        attachments,
+      );
+    } else {
+      await this.sendEmail(
+        [student.email],
+        [...instructors.map((i) => i.email), ...observers.map((i) => i.email)],
+        subject,
+        content,
+        attachments,
+      );
+    }
   }
 
-  private async renderNewResponse(
+  private async renderUpdate(
     request: Request,
+    entry: ThreadEntry,
     {
       student,
       instructors,
+      observers,
     }: {
       student: User;
       instructors: User[];
+      observers: User[];
     },
   ): Promise<string> {
-    const response = request.response;
-    if (!response) {
-      throw new ResponseNotFoundError(request.id);
-    }
-    const StudentLine = (() => {
-      if (student.name) {
-        return student.name;
-      } else {
-        return "Student";
-      }
-    })();
-    const InstructorLine = (() => {
+    const isStudentAction = entry.from === request.from;
+    const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
       if (is.length === 0) {
         return "Course Instructors";
@@ -207,22 +230,25 @@ export class NotificationService {
         return is.sort(compareString).join(", ");
       }
     })();
-    const Link = this.urlToResponse(request.id);
-    const Summary = formatRequest(request, {
-      student,
-      instructors,
-    });
+    const studentLine = student.name || "Student";
 
-    const templatePath = path.join(this.templateDir, "new_response.mdx");
+    const RecipientLine = isStudentAction ? instructorLine : studentLine;
+    const SenderLine = isStudentAction ? studentLine : instructorLine;
+    const Link = this.urlToRequest(request.id);
+    const Update = formatUpdate(entry, { student, instructors, observers });
+    const Summary = formatRequest(request, { student, instructors, observers });
+
+    const templatePath = path.join(this.templateDir, "new_update.mdx");
     const templateFile = Bun.file(templatePath);
 
     const module = await evaluate(await templateFile.text(), runtime);
 
     return renderToStaticMarkup(
       createElement(module.default, {
-        StudentLine,
-        InstructorLine,
+        RecipientLine,
+        SenderLine,
         Link,
+        Update,
         Summary,
         ID: request.id,
         Sig: await Signature.sign(request),
