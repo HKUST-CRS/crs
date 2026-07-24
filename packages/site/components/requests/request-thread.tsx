@@ -1,8 +1,8 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   type ProofFile,
   type Request,
@@ -12,6 +12,15 @@ import {
 } from "service/models";
 import { formatDateTime, fromISO } from "service/utils/datetime";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -43,6 +52,7 @@ export default function RequestThread({
   onUpdated = () => {},
 }: RequestThreadProps) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   // Resolve author names for everyone who may appear in the thread. We use the
   // class-scoped roster endpoints (instructors + observers) rather than per-user
@@ -114,6 +124,35 @@ export default function RequestThread({
   const canAppeal = isRequester && status === "resolved";
 
   const [mode, setMode] = useState<ComposerMode>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+
+  // The Actions bar sits at the bottom of the page, so the composer revealed by
+  // a button click renders *below the fold*. Without scrolling, the form is
+  // invisible and the action looks like it did nothing. Bring the freshly
+  // revealed composer into view whenever the active mode changes.
+  useEffect(() => {
+    if (!mode) return;
+    // Wait a frame so the conditionally-rendered form has laid out.
+    const id = requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [mode]);
+
+  // After a thread action lands, invalidate the request query so the thread
+  // refreshes in place — reliably. The mutations return no data, so the UI
+  // depends on this re-fetch to reflect the new entry / status. Awaiting it
+  // before closing the composer avoids the occasional flaky refresh.
+  const handleDone = async () => {
+    await queryClient.invalidateQueries({
+      queryKey: trpc.request.get.queryKey(request.id),
+    });
+    onUpdated();
+    setMode(null);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,8 +209,13 @@ export default function RequestThread({
           )}
           {canCancel && (
             <Button
-              variant={mode === "cancel" ? "default" : "outline"}
+              variant={mode === "cancel" ? "destructive" : "outline"}
               size="sm"
+              className={
+                mode === "cancel"
+                  ? undefined
+                  : "hover:border-destructive hover:text-destructive"
+              }
               onClick={() => setMode(mode === "cancel" ? null : "cancel")}
             >
               Cancel Request
@@ -193,42 +237,20 @@ export default function RequestThread({
           )}
         </div>
 
-        {mode === "comment" && (
-          <CommentForm
-            request={request}
-            onDone={() => {
-              setMode(null);
-              onUpdated();
-            }}
-          />
-        )}
-        {mode === "respond" && (
-          <RespondForm
-            request={request}
-            onDone={() => {
-              setMode(null);
-              onUpdated();
-            }}
-          />
-        )}
-        {mode === "cancel" && (
-          <CancelForm
-            request={request}
-            onDone={() => {
-              setMode(null);
-              onUpdated();
-            }}
-          />
-        )}
-        {mode === "appeal" && (
-          <AppealForm
-            request={request}
-            onDone={() => {
-              setMode(null);
-              onUpdated();
-            }}
-          />
-        )}
+        <div ref={composerRef} className="flex flex-col gap-3">
+          {mode === "comment" && (
+            <CommentForm request={request} onDone={handleDone} />
+          )}
+          {mode === "respond" && (
+            <RespondForm request={request} onDone={handleDone} />
+          )}
+          {mode === "cancel" && (
+            <CancelForm request={request} onDone={handleDone} />
+          )}
+          {mode === "appeal" && (
+            <AppealForm request={request} onDone={handleDone} />
+          )}
+        </div>
       </section>
     </div>
   );
@@ -417,7 +439,7 @@ function CommentForm({
   onDone,
 }: {
   request: Request;
-  onDone: () => void;
+  onDone: () => Promise<void> | void;
 }) {
   const trpc = useTRPC();
   const mutation = useMutation(trpc.request.comment.mutationOptions());
@@ -431,7 +453,7 @@ function CommentForm({
       success: "Comment posted.",
       error: (e) => `Failed: ${e?.message ?? String(e)}`,
     });
-    onDone();
+    await onDone();
   };
 
   return (
@@ -454,7 +476,7 @@ function AppealForm({
   onDone,
 }: {
   request: Request;
-  onDone: () => void;
+  onDone: () => Promise<void> | void;
 }) {
   const trpc = useTRPC();
   const mutation = useMutation(trpc.request.appeal.mutationOptions());
@@ -468,7 +490,7 @@ function AppealForm({
       success: "Appeal submitted. The request has been reopened.",
       error: (e) => `Failed: ${e?.message ?? String(e)}`,
     });
-    onDone();
+    await onDone();
   };
 
   return (
@@ -491,11 +513,12 @@ function CancelForm({
   onDone,
 }: {
   request: Request;
-  onDone: () => void;
+  onDone: () => Promise<void> | void;
 }) {
   const trpc = useTRPC();
   const mutation = useMutation(trpc.request.cancel.mutationOptions());
   const [text, setText] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const submit = async () => {
     await toast.promise(
@@ -506,17 +529,50 @@ function CancelForm({
         error: (e) => `Failed: ${e?.message ?? String(e)}`,
       },
     );
-    onDone();
+    await onDone();
   };
 
   return (
-    <ComposerShell disabled={mutation.isPending} onSubmit={submit}>
+    <div className="flex flex-col gap-2 rounded-md border p-3">
       <Textarea
         placeholder="Optional reason for cancellation"
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
-    </ComposerShell>
+      <div className="flex justify-end">
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+        >
+          Cancel
+        </Button>
+      </div>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently cancel your request. This action cannot be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Request</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={mutation.isPending}
+              onClick={() => {
+                setConfirmOpen(false);
+                void submit();
+              }}
+            >
+              Yes, cancel request
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }
 
@@ -525,7 +581,7 @@ function RespondForm({
   onDone,
 }: {
   request: Request;
-  onDone: () => void;
+  onDone: () => Promise<void> | void;
 }) {
   const trpc = useTRPC();
   const mutation = useMutation(trpc.request.respond.mutationOptions());
@@ -546,7 +602,7 @@ function RespondForm({
         error: (e) => `Failed: ${e?.message ?? String(e)}`,
       },
     );
-    onDone();
+    await onDone();
   };
 
   return (
