@@ -18,7 +18,7 @@
  *
  * NOTE: Development convenience only
  */
- 
+
 import { DbConn } from "service/db";
 import {
   type Course,
@@ -27,10 +27,9 @@ import {
   type UserID,
 } from "service/models";
 
-
 const DEFAULT_EMAIL: UserID = "god@ust.hk";
 const DEV_COURSE = { code: "TEST 0000", term: "0010" } as const;
- 
+
 const TEST_COURSE: Course = {
   code: DEV_COURSE.code,
   term: DEV_COURSE.term,

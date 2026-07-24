@@ -64,6 +64,13 @@ function makeSwapInit(section = "L1"): RequestInit {
     },
   };
 }
+const sampleProof = [
+  {
+    name: "note.txt",
+    size: 2,
+    content: Buffer.from("hi").toString("base64"),
+  },
+];
 
 describe("RequestService", () => {
   let testConn: DbConn;
@@ -1584,6 +1591,21 @@ describe("RequestService", () => {
         expect(error).toBeInstanceOf(StatusConflictError);
       }
     });
+    test("comment proof round-trips through getRequest", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit());
+      await requestService.auth(student.email).addComment(id, {
+        text: "see attached",
+        proof: sampleProof,
+      });
+      const r = await requestService.auth(student.email).getRequest(id);
+      const entry = r.updates.at(-1);
+      expect(entry?.kind).toBe("comment");
+      if (entry?.kind === "comment") expect(entry.proof).toEqual(sampleProof);
+    });
   });
 
   describe("respond", () => {
@@ -1869,6 +1891,28 @@ describe("RequestService", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(StatusConflictError);
       }
+    });
+    test("appeal proof round-trips through getRequest", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit());
+      await requestService.auth(instructor.email).respond(id, {
+        decision: "Reject",
+        remarks: "no",
+      });
+      await requestService
+        .auth(student.email)
+        .appealRequest(id, { text: "please reconsider", proof: sampleProof });
+      const r = await requestService.auth(student.email).getRequest(id);
+      const entry = r.updates.at(-1);
+      expect(entry?.kind).toBe("appeal");
+      if (entry?.kind === "appeal") expect(entry.proof).toEqual(sampleProof);
     });
   });
 

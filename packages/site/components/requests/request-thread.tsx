@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -461,11 +462,15 @@ function CommentForm({
       disabled={mutation.isPending || !text.trim()}
       onSubmit={submit}
     >
-      <Textarea
-        placeholder="Add a comment / supplementary information"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+      <Field>
+        <FieldLabel htmlFor="composer-comment">Comment</FieldLabel>
+        <Textarea
+          id="composer-comment"
+          placeholder="Add a comment / supplementary information"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </Field>
       <ProofInput onFiles={onFiles} />
     </ComposerShell>
   );
@@ -498,11 +503,15 @@ function AppealForm({
       disabled={mutation.isPending || !text.trim()}
       onSubmit={submit}
     >
-      <Textarea
-        placeholder="Justification for the appeal"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+      <Field>
+        <FieldLabel htmlFor="composer-appeal">Appeal</FieldLabel>
+        <Textarea
+          id="composer-appeal"
+          placeholder="Justification for the appeal"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </Field>
       <ProofInput onFiles={onFiles} />
     </ComposerShell>
   );
@@ -534,11 +543,15 @@ function CancelForm({
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
-      <Textarea
-        placeholder="Optional reason for cancellation"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
+      <Field>
+        <FieldLabel htmlFor="composer-cancel">Reason (optional)</FieldLabel>
+        <Textarea
+          id="composer-cancel"
+          placeholder="Optional reason for cancellation"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+      </Field>
       <div className="flex justify-end">
         <Button
           variant="destructive"
@@ -607,34 +620,41 @@ function RespondForm({
 
   return (
     <ComposerShell disabled={mutation.isPending || !decision} onSubmit={submit}>
-      <Textarea
-        placeholder="Remarks regarding the decision"
-        value={remarks}
-        onChange={(e) => setRemarks(e.target.value)}
-      />
-      <Select
-        value={decision}
-        onValueChange={(v) => setDecision(v as ResponseDecision)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Decision" />
-        </SelectTrigger>
-        <SelectContent>
-          {[...ResponseDecision.values].map((v) => (
-            <SelectItem key={v} value={v}>
-              <b
-                className={
-                  v === "Approve"
-                    ? "text-green-800 dark:text-green-400"
-                    : "text-red-800 dark:text-red-400"
-                }
-              >
-                {v}
-              </b>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Field>
+        <FieldLabel htmlFor="respond-remarks">Remarks</FieldLabel>
+        <Textarea
+          id="respond-remarks"
+          placeholder="Remarks regarding the decision"
+          value={remarks}
+          onChange={(e) => setRemarks(e.target.value)}
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="respond-decision">Decision</FieldLabel>
+        <Select
+          value={decision}
+          onValueChange={(v) => setDecision(v as ResponseDecision)}
+        >
+          <SelectTrigger id="respond-decision" className="w-full">
+            <SelectValue placeholder="Decision" />
+          </SelectTrigger>
+          <SelectContent>
+            {[...ResponseDecision.values].map((v) => (
+              <SelectItem key={v} value={v}>
+                <b
+                  className={
+                    v === "Approve"
+                      ? "text-green-800 dark:text-green-400"
+                      : "text-red-800 dark:text-red-400"
+                  }
+                >
+                  {v}
+                </b>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
     </ComposerShell>
   );
 }
@@ -672,11 +692,15 @@ function ProofInput({
   onFiles: (files: FileList | null) => void;
 }) {
   return (
-    <Input
-      type="file"
-      multiple
-      accept="image/*,application/pdf,text/plain"
-      onChange={(e) => void onFiles(e.target.files)}
-    />
+    <Field>
+      <FieldLabel htmlFor="composer-proof">Supporting documents</FieldLabel>
+      <Input
+        id="composer-proof"
+        type="file"
+        multiple
+        accept="image/*,application/pdf,text/plain"
+        onChange={(e) => void onFiles(e.target.files)}
+      />
+    </Field>
   );
 }

@@ -193,7 +193,7 @@ export class RequestRepo {
     entry: ThreadEntry,
     expectedStatuses: RequestStatus[],
     op: string,
-    set?: Record<string, unknown>,
+    set?: Pick<Partial<Request>, "response" | "status">,
   ): Promise<void> {
     // Build a status guard that also admits legacy documents written before
     // the thread feature existed (which have no `status` field). For those,
