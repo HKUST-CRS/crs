@@ -121,6 +121,14 @@ async function seedUser(conn: DbConn, email: UserID): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // Hard stop in production: seeding creates/resets a sudoer and a test
+  // course and force-overwrites the target user's enrollment. This is dev-only
+  // tooling — never run it against a real database.
+  if (Bun.env.NODE_ENV === "production") {
+    throw new Error(
+      "Refusing to seed: NODE_ENV is 'production'. The seed script is dev-only and destructively overwrites users.",
+    );
+  }
   const email = (Bun.argv[2] ?? DEFAULT_EMAIL) as UserID;
   const conn = await DbConn.createFromEnv();
   try {

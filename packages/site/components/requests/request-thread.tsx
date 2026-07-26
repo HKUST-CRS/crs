@@ -43,15 +43,11 @@ import { downloadBase64File, readFileAsBase64 } from "./utils";
  */
 export type RequestThreadProps = {
   request: Request;
-  onUpdated?: () => void;
 };
 
 type ComposerMode = "comment" | "respond" | "cancel" | "appeal" | null;
 
-export default function RequestThread({
-  request,
-  onUpdated = () => {},
-}: RequestThreadProps) {
+export default function RequestThread({ request }: RequestThreadProps) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -151,7 +147,6 @@ export default function RequestThread({
     await queryClient.invalidateQueries({
       queryKey: trpc.request.get.queryKey(request.id),
     });
-    onUpdated();
     setMode(null);
   };
 

@@ -10,6 +10,7 @@ import {
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
+import { safeNotify } from "../utils/notify";
 
 export const routerRequest = router({
   get: procedure
@@ -38,7 +39,7 @@ export const routerRequest = router({
         .auth(ctx.user.email)
         .createRequest(input);
       const r = await services.request.auth(ctx.user.email).getRequest(rid);
-      await services.notification.notifyNewRequest(r);
+      await safeNotify(() => services.notification.notifyNewRequest(r));
       return rid;
     }),
 
@@ -62,7 +63,9 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyRequestUpdate(request, entry);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entry),
+      );
     }),
   respond: procedure
     .input(
@@ -83,7 +86,9 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyRequestUpdate(request, entry);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entry),
+      );
     }),
   cancel: procedure
     .input(
@@ -100,7 +105,9 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyRequestUpdate(request, entry);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entry),
+      );
     }),
   appeal: procedure
     .input(
@@ -118,6 +125,8 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyRequestUpdate(request, entry);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entry),
+      );
     }),
 });

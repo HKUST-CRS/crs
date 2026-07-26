@@ -2,6 +2,7 @@ import { RequestID, ResponseInit } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
+import { safeNotify } from "../utils/notify";
 
 /**
  * Compatibility alias for the old `response.create` procedure, kept during the
@@ -29,6 +30,8 @@ export const routerResponse = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await services.notification.notifyRequestUpdate(request, entry);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entry),
+      );
     }),
 });

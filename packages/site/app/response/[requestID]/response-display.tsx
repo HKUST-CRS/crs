@@ -18,10 +18,7 @@ export default function ResponseDisplay({ requestID }: { requestID: string }) {
   return (
     <div className="m-4">
       {requestQuery.data ? (
-        <RequestThread
-          request={requestQuery.data}
-          onUpdated={requestQuery.refetch}
-        />
+        <RequestThread request={requestQuery.data} />
       ) : (
         <Spinner variant="ellipsis" />
       )}
