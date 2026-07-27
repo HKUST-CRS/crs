@@ -261,7 +261,9 @@ const columns: ColumnDef<RequestHead>[] = [
         if (r.status === "cancelled") return "cancelled";
         return r.response?.decision ?? "pending";
       }
-      return toStatus(rowA.original) > toStatus(rowB.original) ? 1 : -1;
+      const a = toStatus(rowA.original);
+      const b = toStatus(rowB.original);
+      return a === b ? 0 : a > b ? 1 : -1;
     },
   },
 ];
