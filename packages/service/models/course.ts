@@ -23,6 +23,9 @@ export const Course = z
         examples: ["L1", "L01", "T1", "LA1"],
       }),
       z.object({
+        type: z.enum(["Lecture", "Tutorial", "Lab"]).optional().meta({
+          description: "The type of the section.",
+        }),
         schedule: z.array(
           z.object({
             day: z.number().min(1).max(7),
@@ -30,6 +33,10 @@ export const Course = z
             to: z.iso.time(),
           }),
         ),
+        lecturers: z.array(z.email()).optional().meta({
+          description:
+            "The email addresses of the lecturers responsible for this section.",
+        }),
       }),
     ),
     assignments: z.record(
@@ -43,9 +50,17 @@ export const Course = z
         due: z.iso.datetime({ offset: true }).meta({
           description: "The due date of the assignment.",
         }),
+        state: z.enum(["open", "closed", "graded"]).optional().meta({
+          description:
+            "The state of the assignment, the appeal window opens when the assignment is graded.",
+        }),
         maxExtension: z.iso.duration().meta({
           description:
             "The maximum extension duration allowed for this assignment.",
+        }),
+        tas: z.array(z.email()).optional().meta({
+          description:
+            "The email addresses of the TAs responsible for this assignment.",
         }),
       }),
     ),
