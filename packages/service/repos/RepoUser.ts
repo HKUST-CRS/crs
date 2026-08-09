@@ -27,6 +27,28 @@ export class UserRepo {
   }
 
   /**
+   * Get the users with the specified email addresses.
+   *
+   * If an email address does not exist, it is ignored.
+   *
+   * The returned users preserve the input email order, without duplicates.
+   */
+  async getUsersByEmail(emails: UserID[]): Promise<User[]> {
+    const uniqueEmails = [...new Set(emails)];
+    if (uniqueEmails.length === 0) {
+      return [];
+    }
+    const users = await this.collections.users
+      .find({ email: { $in: uniqueEmails } })
+      .toArray();
+    const usersByEmail = new Map(users.map((user) => [user.email, user]));
+    return uniqueEmails.flatMap((email) => {
+      const user = usersByEmail.get(email);
+      return user ? [user] : [];
+    });
+  }
+
+  /**
    * Create a new user if not exists.
    *
    * The user's name is initialized as an empty string, and enrollment as an empty array.
