@@ -20,10 +20,9 @@ const ThreadEntryBase = z.object({
 
 /**
  * The monomorphic content entry of the thread: a message, optionally with
- * supporting documents, posted by the requester or an instructor/observer. The
- * request's opening reason + proof is recorded as the first comment at creation
- * time, so every piece of textual/attachment content on a request lives in one
- * place.
+ * supporting documents, posted by the requester or an instructor. The request's
+ * opening reason + proof is recorded as the first comment at creation time, so
+ * every piece of textual/attachment content on a request lives in one place.
  */
 export const CommentEntry = ThreadEntryBase.extend({
   kind: z.literal("comment"),

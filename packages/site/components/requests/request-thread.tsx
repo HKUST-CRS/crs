@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/lib/trpc-client";
@@ -95,17 +95,6 @@ export default function RequestThread({ request }: RequestThreadProps) {
         (e.section === request.class.section || e.section === "*") &&
         e.role === "instructor",
     );
-  const isStaff =
-    isInstructor ||
-    (!!user &&
-      user.enrollment.some(
-        (e) =>
-          e.course.code === request.class.course.code &&
-          e.course.term === request.class.course.term &&
-          (e.section === request.class.section || e.section === "*") &&
-          e.role === "observer",
-      ));
-
   const status = request.status;
   // The latest status-change entry is the current decision; every earlier
   // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
@@ -116,10 +105,11 @@ export default function RequestThread({ request }: RequestThreadProps) {
       break;
     }
   }
-  // Comments are allowed for the requester or staff at any point, including
-  // after cancellation. Status changes are gated by role and (for re-decision)
-  // by the request not being cancelled.
-  const canComment = isRequester || isStaff;
+  // Comments are allowed for the requester or an instructor at any point,
+  // including after cancellation. Observers have read-only access. Status
+  // changes are gated by role and (for re-decision) by the request not being
+  // cancelled.
+  const canComment = isRequester || isInstructor;
   const canDecide = isInstructor && status !== "cancelled";
   const canCancel = isRequester && status !== "cancelled";
   const canAppeal =
@@ -218,7 +208,7 @@ function ThreadEntryView({
         <div className="typo-muted text-sm">
           <b>{name}</b> commented · {timestamp}
         </div>
-        <p className="mt-1 whitespace-pre-wrap">{entry.text}</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm">{entry.text}</p>
         {entry.proof && entry.proof.length > 0 && (
           <ProofList proof={entry.proof} />
         )}
@@ -264,7 +254,7 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
         <li key={key}>
           <button
             type="button"
-            className="text-blue-700 text-sm underline dark:text-blue-400"
+            className="wrap-anywhere max-w-full cursor-pointer text-left text-sm underline"
             onClick={() => downloadBase64File(file.content, file.name)}
           >
             {file.name}
@@ -385,132 +375,138 @@ function Composer({
   const noActions = !canComment && !canDecide && !canCancel && !canAppeal;
 
   return (
-    <section className="flex flex-col gap-3">
-      <h4 className="font-medium text-sm">Add to thread</h4>
-      <div className="flex flex-col gap-2 rounded-md border p-3">
-        <Field>
-          <FieldLabel htmlFor="composer-text">Comment</FieldLabel>
-          <Textarea
-            id="composer-text"
-            placeholder={
-              canDecide
-                ? "Add a remark (optional for decisions, required for comments/appeals)"
-                : "Add a comment / supplementary information"
-            }
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="composer-proof">Supporting documents</FieldLabel>
-          <Input
-            key={proofKey}
-            id="composer-proof"
-            type="file"
-            multiple
-            accept="image/*,application/pdf,text/plain"
-            onChange={(e) => void onFiles(e.target.files)}
-          />
-        </Field>
-        <div className="flex flex-wrap justify-end gap-2">
-          {canComment && (
+    <section className="flex flex-col gap-4">
+      <Field>
+        <FieldLabel htmlFor="composer-text">Comment</FieldLabel>
+        <Textarea
+          id="composer-text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        {canDecide ? (
+          <FieldDescription>
+            An optional remark for your decision, or additional information or
+            context for your comment.
+          </FieldDescription>
+        ) : (
+          <FieldDescription>
+            Please provide any additional information or context.
+          </FieldDescription>
+        )}
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="composer-proof">Supporting documents</FieldLabel>
+        <Input
+          key={proofKey}
+          id="composer-proof"
+          type="file"
+          multiple
+          accept="image/*,application/pdf,text/plain"
+          onChange={(e) => void onFiles(e.target.files)}
+        />
+        <FieldDescription>
+          Please provide up to four supporting documents for your request. The
+          maximum file size is 2 MiB each.
+        </FieldDescription>
+      </Field>
+      <div className="flex flex-wrap justify-end gap-2">
+        {canCancel && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending}
+            className="hover:border-destructive hover:text-destructive"
+            onClick={() => setConfirmCancel(true)}
+          >
+            Cancel Request
+          </Button>
+        )}
+        {canDecide && (
+          <>
             <Button
               size="sm"
+              disabled={pending}
+              className="text-green-700 dark:text-green-400"
               variant="outline"
-              disabled={pending || !hasText}
               onClick={() =>
                 void run(
-                  () => commentM.mutateAsync({ id: request.id, text, proof }),
-                  { loading: "Posting comment...", success: "Comment posted." },
-                )
-              }
-            >
-              Comment
-            </Button>
-          )}
-          {canDecide && (
-            <>
-              <Button
-                size="sm"
-                disabled={pending}
-                className="text-green-700 dark:text-green-400"
-                variant="outline"
-                onClick={() =>
-                  void run(
-                    () =>
-                      approveM.mutateAsync({
-                        id: request.id,
-                        text: text || undefined,
-                        proof,
-                      }),
-                    {
-                      loading: "Approving request...",
-                      success: "Request approved.",
-                    },
-                  )
-                }
-              >
-                Approve
-              </Button>
-              <Button
-                size="sm"
-                disabled={pending}
-                className="text-red-700 dark:text-red-400"
-                variant="outline"
-                onClick={() =>
-                  void run(
-                    () =>
-                      rejectM.mutateAsync({
-                        id: request.id,
-                        text: text || undefined,
-                        proof,
-                      }),
-                    {
-                      loading: "Rejecting request...",
-                      success: "Request rejected.",
-                    },
-                  )
-                }
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          {canAppeal && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending || !hasText}
-              onClick={() =>
-                void run(
-                  () => appealM.mutateAsync({ id: request.id, text, proof }),
+                  () =>
+                    approveM.mutateAsync({
+                      id: request.id,
+                      text: text || undefined,
+                      proof,
+                    }),
                   {
-                    loading: "Submitting appeal...",
-                    success: "Appeal submitted.",
+                    loading: "Approving request...",
+                    success: "Request approved.",
                   },
                 )
               }
             >
-              Appeal
+              Approve
             </Button>
-          )}
-          {canCancel && (
             <Button
               size="sm"
-              variant="outline"
               disabled={pending}
-              className="hover:border-destructive hover:text-destructive"
-              onClick={() => setConfirmCancel(true)}
+              className="text-red-700 dark:text-red-400"
+              variant="outline"
+              onClick={() =>
+                void run(
+                  () =>
+                    rejectM.mutateAsync({
+                      id: request.id,
+                      text: text || undefined,
+                      proof,
+                    }),
+                  {
+                    loading: "Rejecting request...",
+                    success: "Request rejected.",
+                  },
+                )
+              }
             >
-              Cancel Request
+              Reject
             </Button>
-          )}
-          {noActions && (
-            <span className="typo-muted text-sm">
-              No actions available for this request.
-            </span>
-          )}
-        </div>
+          </>
+        )}
+        {canAppeal && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pending || !hasText}
+            onClick={() =>
+              void run(
+                () => appealM.mutateAsync({ id: request.id, text, proof }),
+                {
+                  loading: "Submitting appeal...",
+                  success: "Appeal submitted.",
+                },
+              )
+            }
+          >
+            Appeal
+          </Button>
+        )}
+        {canComment && (
+          <Button
+            size="sm"
+            variant="default"
+            disabled={pending || !hasText}
+            onClick={() =>
+              void run(
+                () => commentM.mutateAsync({ id: request.id, text, proof }),
+                { loading: "Posting comment...", success: "Comment posted." },
+              )
+            }
+          >
+            Comment
+          </Button>
+        )}
+        {noActions && (
+          <span className="typo-muted text-sm">
+            No actions are available for this request.
+          </span>
+        )}
       </div>
 
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>

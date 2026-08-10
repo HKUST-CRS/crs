@@ -18,7 +18,8 @@ import { assertClassRole } from "./permission";
 // intentionally permissive: an instructor may re-decide (approve/reject from a
 // decided or appealed state), a requester may cancel from any non-cancelled
 // state, and a requester may appeal a decision to flag it for re-review.
-// "cancelled" is terminal for status changes, but comments are always allowed.
+// "cancelled" is terminal for status changes, but authorized participants may
+// still comment.
 const DECISION_FROM: RequestStatus[] = [
   "open",
   "appealed",
@@ -161,10 +162,10 @@ export class RequestService<TUser extends UserID | null = null> {
   /**
    * Adds a comment (optionally with supporting documents) to the request thread.
    *
-   * The requester, or an instructor/observer in the class, may comment at any
-   * point — including after the request is cancelled — to provide more
-   * information. The request body itself is never edited; clarification is
-   * given via comments.
+   * The requester or an instructor in the class may comment at any point —
+   * including after the request is cancelled — to provide more information.
+   * Observers have read-only access to the thread. The request body itself is
+   * never edited; clarification is given via comments.
    *
    * @returns The created comment entry.
    */
@@ -179,7 +180,7 @@ export class RequestService<TUser extends UserID | null = null> {
       assertClassRole(
         user,
         request.class,
-        ["instructor", "observer"],
+        ["instructor"],
         `commenting on request ${requestID}`,
       );
     }

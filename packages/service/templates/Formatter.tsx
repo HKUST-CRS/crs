@@ -96,7 +96,7 @@ const formatOpeningComment = (request: Request): JSX.Element => {
       <blockquote>{opening.text}</blockquote>
       {proofCount ? (
         <p>
-          There are {proofCount} proof document(s) for the request attached.
+          The student provided {proofCount} proof document(s) with the request.
         </p>
       ) : (
         <p>The student did not attach any proof documents.</p>

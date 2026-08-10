@@ -338,12 +338,11 @@ describe("RequestService", () => {
       expect(r.status).toBe("open");
     });
 
-    test("an instructor and an observer can comment", async () => {
+    test("an instructor can comment", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       const instructor = makeUser("i1@ust.hk", "instructor");
-      const observer = makeUser("o1@ust.hk", "observer");
       await insertData(testConn, {
-        users: [student, instructor, observer],
+        users: [student, instructor],
         courses: [baseCourse],
       });
       const id = await requestService
@@ -352,11 +351,28 @@ describe("RequestService", () => {
       await requestService
         .auth(instructor.email)
         .addComment(id, { text: "noted" });
-      await requestService
-        .auth(observer.email)
-        .addComment(id, { text: "observing" });
       const r = await requestService.auth(student.email).getRequest(id);
-      expect(r.updates).toHaveLength(3);
+      expect(r.updates).toHaveLength(2);
+    });
+
+    test("an observer cannot comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const observer = makeUser("o1@ust.hk", "observer");
+      await insertData(testConn, {
+        users: [student, observer],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit());
+      try {
+        await requestService
+          .auth(observer.email)
+          .addComment(id, { text: "observing" });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
     });
 
     test("a comment is allowed on a cancelled request", async () => {
