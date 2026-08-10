@@ -44,7 +44,7 @@ export type SwapSectionFormSchema = z.infer<typeof SwapSectionFormSchema>;
 export type SwapSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: SwapSectionFormSchema;
+  default?: Partial<SwapSectionFormSchema>;
 
   onSubmit?: (data: SwapSectionFormSchema) => void;
 

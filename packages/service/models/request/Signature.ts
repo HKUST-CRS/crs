@@ -103,9 +103,8 @@ export namespace Signature {
         hash.update(Buffer.from(p.content, "base64"));
         return { ...p, content: hash.digest("hex") };
       });
-    rr.details.proof = hashProofs(rr.details.proof);
     for (const entry of rr.updates) {
-      if (entry.kind === "comment" || entry.kind === "appeal") {
+      if (entry.kind === "comment") {
         entry.proof = hashProofs(entry.proof);
       }
     }

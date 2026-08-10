@@ -3,11 +3,21 @@ import z from "zod";
 /**
  * The lifecycle status of a request.
  *
- * - "open": the request is awaiting a response, or has been reopened by an appeal.
- * - "resolved": an instructor has responded (approved or rejected).
- * - "cancelled": the student has cancelled the request (terminal).
+ * - "open": awaiting an instructor decision.
+ * - "approved" / "rejected": an instructor has decided. An instructor may decide
+ *   again, so these are not terminal.
+ * - "appealed": the requester has asked for the decision to be reconsidered;
+ *   surfaces these requests in the instructor queue.
+ * - "cancelled": the requester has withdrawn the request. Terminal for status
+ *   changes, but comments may still be added.
  *
  * Denormalized from the append-only thread; see `BaseRequest.status`.
  */
-export const RequestStatus = z.enum(["open", "cancelled", "resolved"]);
+export const RequestStatus = z.enum([
+  "open",
+  "approved",
+  "rejected",
+  "appealed",
+  "cancelled",
+]);
 export type RequestStatus = z.infer<typeof RequestStatus>;

@@ -29,6 +29,9 @@ export function RequestFormDetails<
   TTransformedValues extends TFieldValues,
 >(props: RequestFormDetailsProps<TFieldValues, TContext, TTransformedValues>) {
   const viewonly = props.viewonly ?? false;
+  // In viewonly mode the reason + proof live in the thread (as the opening
+  // comment), not on the request body, so there is nothing to render here.
+  if (viewonly) return null;
   const form = props.form as unknown as UseFormReturn<
     { details: RequestDetails },
     TContext,

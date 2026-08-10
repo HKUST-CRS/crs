@@ -4,7 +4,6 @@ import { UserID } from "../user";
 import { Proof } from "./Proof";
 import { RequestStatus } from "./RequestStatus";
 import type { RequestType } from "./RequestType";
-import { Response } from "./Response";
 import { ThreadEntry } from "./Thread";
 
 export const RequestDetails = z.object({
@@ -35,20 +34,20 @@ export const BaseRequest = z.object({
   id: RequestID,
   from: UserID,
   class: Class,
-  details: RequestDetails,
   timestamp: z.iso.datetime({ offset: true }),
-  response: z.union([Response, z.null()]),
   /**
    * The current lifecycle status of the request.
    *
-   * Denormalized from the thread: set to "open" on creation, "resolved" by a
-   * response, "cancelled" by a cancel, and back to "open" by an appeal.
+   * Denormalized from the thread: set to the status of the latest status-change
+   * entry (and "open" at creation). Status changes are append-only, so this is
+   * always the latest status event.
    */
   status: RequestStatus,
   /**
    * The append-only thread of updates to the request. The request body itself
-   * (class, type, metadata, details) is immutable after creation; all
-   * follow-up activity is recorded here.
+   * (class, type, metadata) is immutable after creation; all content (the
+   * opening reason + proof, follow-up comments) and every status change are
+   * recorded here.
    */
   updates: z.array(ThreadEntry),
 });

@@ -1,13 +1,15 @@
 import path from "node:path";
 import { evaluate } from "@mdx-js/mdx";
 import nodemailer from "nodemailer";
-import { createElement } from "react";
+import { createElement, Fragment } from "react";
 import * as runtime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   Classes,
+  initialComment,
+  type ProofFile,
   type Request,
-  type RequestDetails,
+  type RequestStatus,
   type ThreadEntry,
   type User,
 } from "../models";
@@ -15,6 +17,14 @@ import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { formatRequest, formatUpdate } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
+
+const STATUS_SUBJECT: Record<RequestStatus, string> = {
+  open: "Reopened",
+  approved: "Approved",
+  rejected: "Rejected",
+  appealed: "Appealed",
+  cancelled: "Cancelled",
+};
 
 export class NotificationService {
   private templateDir: string;
@@ -96,7 +106,7 @@ export class NotificationService {
       [student.email, ...observers.map((i) => i.email)],
       subject,
       content,
-      request.details.proof ?? [],
+      initialComment(request)?.proof ?? [],
     );
   }
 
@@ -149,24 +159,15 @@ export class NotificationService {
   }
 
   /**
-   * Notify the relevant parties of a thread update (comment, response, cancel,
-   * or appeal). Student actions notify the instructors (with the student and
-   * observers CC'd); instructor actions notify the student (with instructors
-   * and observers CC'd) — mirroring the existing new-request/new-response split.
+   * Notify the relevant parties of a thread update. A single action may append
+   * multiple entries (e.g. a decision with a remark records a comment then a
+   * status change); all are rendered together in one email. Student actions
+   * notify the instructors (with the student and observers CC'd); instructor
+   * actions notify the student (with instructors and observers CC'd).
    * @param request The request on which the update was made.
-   * @param entry The thread entry describing the update.
+   * @param entries The thread entries describing the update.
    */
-  async notifyRequestUpdate(request: Request, entry: ThreadEntry) {
-    // Prefix the subject with the update kind so recipients can triage at a
-    // glance (comments can be high-volume).
-    const kindLabel: Record<ThreadEntry["kind"], string> = {
-      comment: "Comment",
-      response: "Response",
-      cancel: "Cancelled",
-      appeal: "Appeal",
-    };
-    const subject = `${kindLabel[entry.kind]} - ${Classes.format(request.class)}`;
-
+  async notifyRequestUpdate(request: Request, entries: ThreadEntry[]) {
     const student = await this.repos.user.requireUser(request.from);
     const instructors = await this.repos.user.getUsersInClass(
       request.class,
@@ -177,18 +178,24 @@ export class NotificationService {
       "observer",
     );
 
-    const content = await this.renderUpdate(request, entry, {
+    const actor = entries[0]?.from ?? request.from;
+    const statusEntry = entries.find((e) => e.kind === "status");
+    const subjectPrefix = statusEntry
+      ? STATUS_SUBJECT[statusEntry.status]
+      : "Comment";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}`;
+
+    const content = await this.renderUpdate(request, entries, {
       student,
       instructors,
       observers,
     });
 
-    const attachments =
-      entry.kind === "comment" || entry.kind === "appeal"
-        ? (entry.proof ?? [])
-        : [];
+    const attachments = entries.flatMap((e) =>
+      e.kind === "comment" ? (e.proof ?? []) : [],
+    );
 
-    const isStudentAction = entry.from === request.from;
+    const isStudentAction = actor === request.from;
     if (isStudentAction) {
       await this.sendEmail(
         instructors.map((i) => i.email),
@@ -210,7 +217,7 @@ export class NotificationService {
 
   private async renderUpdate(
     request: Request,
-    entry: ThreadEntry,
+    entries: ThreadEntry[],
     {
       student,
       instructors,
@@ -221,7 +228,8 @@ export class NotificationService {
       observers: User[];
     },
   ): Promise<string> {
-    const isStudentAction = entry.from === request.from;
+    const actor = entries[0]?.from ?? request.from;
+    const isStudentAction = actor === request.from;
     const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
       if (is.length === 0) {
@@ -235,7 +243,13 @@ export class NotificationService {
     const RecipientLine = isStudentAction ? instructorLine : studentLine;
     const SenderLine = isStudentAction ? studentLine : instructorLine;
     const Link = this.urlToRequest(request.id);
-    const Update = formatUpdate(entry, { student, instructors, observers });
+    const Update = createElement(
+      Fragment,
+      null,
+      ...entries.map((e) =>
+        formatUpdate(e, { student, instructors, observers }),
+      ),
+    );
     const Summary = formatRequest(request, { student, instructors, observers });
 
     const templatePath = path.join(this.templateDir, "new_update.mdx");
@@ -261,7 +275,7 @@ export class NotificationService {
     cc: string[],
     subject: string,
     content: string,
-    attachments: NonNullable<RequestDetails["proof"]>,
+    attachments: ProofFile[],
   ): Promise<void> {
     if (!this.transporter) {
       console.warn(

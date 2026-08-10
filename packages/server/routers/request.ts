@@ -4,7 +4,6 @@ import {
   RequestHead,
   RequestID,
   RequestInit,
-  ResponseDecision,
   Role,
 } from "service/models";
 import z from "zod";
@@ -44,8 +43,10 @@ export const routerRequest = router({
     }),
 
   // ── Thread (append-only) ──────────────────────────────────────────────
-  // The request body is immutable after creation. All follow-up activity is
-  // recorded as entries on the thread via these mutations.
+  // The request body (class/type/metadata) is immutable after creation. All
+  // content (the opening reason, follow-up comments) and every status change
+  // are recorded as entries on the thread via these mutations. A status change
+  // with a remark records a comment entry followed by the status-change entry.
 
   comment: procedure
     .input(
@@ -64,30 +65,47 @@ export const routerRequest = router({
         .auth(ctx.user.email)
         .getRequest(input.id);
       await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entry),
+        services.notification.notifyRequestUpdate(request, [entry]),
       );
     }),
-  respond: procedure
+  approve: procedure
     .input(
       z.object({
         id: RequestID,
-        remarks: z.string(),
-        decision: ResponseDecision,
+        text: z.string().optional(),
+        proof: Proof,
       }),
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const entry = await services.request
+      const entries = await services.request
         .auth(ctx.user.email)
-        .respond(input.id, {
-          remarks: input.remarks,
-          decision: input.decision,
-        });
+        .approve(input.id, remarkFrom(input));
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entry),
+        services.notification.notifyRequestUpdate(request, entries),
+      );
+    }),
+  reject: procedure
+    .input(
+      z.object({
+        id: RequestID,
+        text: z.string().optional(),
+        proof: Proof,
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const entries = await services.request
+        .auth(ctx.user.email)
+        .reject(input.id, remarkFrom(input));
+      const request = await services.request
+        .auth(ctx.user.email)
+        .getRequest(input.id);
+      await safeNotify(() =>
+        services.notification.notifyRequestUpdate(request, entries),
       );
     }),
   cancel: procedure
@@ -95,18 +113,19 @@ export const routerRequest = router({
       z.object({
         id: RequestID,
         text: z.string().optional(),
+        proof: Proof,
       }),
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const entry = await services.request
+      const entries = await services.request
         .auth(ctx.user.email)
-        .cancelRequest(input.id, input.text);
+        .cancel(input.id, remarkFrom(input));
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entry),
+        services.notification.notifyRequestUpdate(request, entries),
       );
     }),
   appeal: procedure
@@ -119,14 +138,24 @@ export const routerRequest = router({
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const entry = await services.request
+      const entries = await services.request
         .auth(ctx.user.email)
-        .appealRequest(input.id, { text: input.text, proof: input.proof });
+        .appeal(input.id, { text: input.text, proof: input.proof });
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entry),
+        services.notification.notifyRequestUpdate(request, entries),
       );
     }),
 });
+
+/**
+ * Builds the optional remark payload for a status change (approve/reject/cancel)
+ * from the composer input: a remark is recorded only when there is non-empty
+ * text, carrying any attached proof along with it.
+ */
+function remarkFrom(input: { text?: string; proof?: Proof }) {
+  const text = input.text?.trim();
+  return text ? { text, proof: input.proof } : undefined;
+}

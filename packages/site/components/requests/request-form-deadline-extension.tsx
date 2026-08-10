@@ -46,7 +46,7 @@ export type DeadlineExtensionFormSchema = z.infer<
 export type DeadlineExtensionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: DeadlineExtensionFormSchema;
+  default?: Partial<DeadlineExtensionFormSchema>;
   onSubmit?: (data: DeadlineExtensionFormSchema) => void;
 
   className?: string;

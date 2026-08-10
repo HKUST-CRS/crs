@@ -24,7 +24,7 @@ import {
   type CourseID,
   Courses,
   type RequestHead,
-  ResponseDecision,
+  type RequestStatus,
   Terms,
 } from "service/models";
 import { formatDate, formatDateTime, fromISO } from "service/utils/datetime";
@@ -63,18 +63,29 @@ export interface RequestTableHandle {
   getExportIDs: () => string[];
 }
 
-/**
- * The filterable "decision" of a request, mirroring what the Decision column
- * displays. Extends the raw response decision with the status-derived states
- * ("pending" for an unanswered open request, "cancelled" for a cancelled one)
- * so instructors can filter by those too.
- */
-type DecisionFilterValue = ResponseDecision | "pending" | "cancelled";
+/** Display label for each lifecycle status in the Decision column. */
+const DECISION_LABEL: Record<RequestStatus, string> = {
+  open: "Pending",
+  approved: "Approve",
+  rejected: "Reject",
+  appealed: "Appealed",
+  cancelled: "Cancelled",
+};
+
+/** Sort order for the Decision column (pending first, cancelled last). */
+const STATUS_ORDER: Record<RequestStatus, number> = {
+  open: 0,
+  appealed: 1,
+  approved: 2,
+  rejected: 3,
+  cancelled: 4,
+};
+
+/** The filterable status of a request — its lifecycle status. */
+type DecisionFilterValue = RequestStatus;
 
 function requestDecision(r: RequestHead): DecisionFilterValue {
-  if (r.status === "cancelled") return "cancelled";
-  if (r.response === null) return "pending";
-  return r.response.decision;
+  return r.status;
 }
 
 const requestFilter =
@@ -211,10 +222,7 @@ const columns: ColumnDef<RequestHead>[] = [
   },
   {
     id: "decision",
-    accessorFn: (row) => {
-      if (row.status === "cancelled") return "Cancelled";
-      return row.response?.decision || "Pending";
-    },
+    accessorFn: (row) => DECISION_LABEL[row.status],
     header: ({ column }) => {
       return (
         <Button
@@ -228,41 +236,21 @@ const columns: ColumnDef<RequestHead>[] = [
       );
     },
     cell: ({ row }) => {
-      const request = row.original;
-      if (request.status === "cancelled") {
-        return <span className="text-gray-500">Cancelled</span>;
-      }
-      const response = request.response;
-      return response ? (
-        response.decision === "Approve" ? (
-          <span>
-            <span className="text-green-800 dark:text-green-400">Approve</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : response.decision === "Reject" ? (
-          <span>
-            <span className="text-red-800 dark:text-red-400">Reject</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : (
-          <span>
-            <span className="text-yellow-800 dark:text-yellow-400">
-              Unknown ({response.decision})
-            </span>{" "}
-            <span>({response.from})</span>
-          </span>
-        )
-      ) : (
-        <span className="text-yellow-800 dark:text-yellow-400">Pending</span>
-      );
+      const status = row.original.status;
+      const label = DECISION_LABEL[status];
+      const color =
+        status === "approved"
+          ? "text-green-800 dark:text-green-400"
+          : status === "rejected"
+            ? "text-red-800 dark:text-red-400"
+            : status === "cancelled"
+              ? "text-gray-500"
+              : "text-yellow-800 dark:text-yellow-400";
+      return <span className={color}>{label}</span>;
     },
     sortingFn: (rowA, rowB) => {
-      function toStatus(r: RequestHead) {
-        if (r.status === "cancelled") return "cancelled";
-        return r.response?.decision ?? "pending";
-      }
-      const a = toStatus(rowA.original);
-      const b = toStatus(rowB.original);
+      const a = STATUS_ORDER[rowA.original.status];
+      const b = STATUS_ORDER[rowB.original.status];
       return a === b ? 0 : a > b ? 1 : -1;
     },
   },
@@ -377,14 +365,12 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                 <SelectValue placeholder="Choose a decision" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all">All decisions</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                {[...ResponseDecision.values].map((term) => (
-                  <SelectItem key={term} value={term}>
-                    {term}
+                <SelectItem value="__all">All statuses</SelectItem>
+                {(Object.keys(DECISION_LABEL) as RequestStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {DECISION_LABEL[s]}
                   </SelectItem>
                 ))}
-                <SelectItem value="cancelled">Cancelled</SelectItem>
               </SelectContent>
             </Select>
           </Field>

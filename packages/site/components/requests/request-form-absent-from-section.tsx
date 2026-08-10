@@ -46,7 +46,7 @@ export type AbsentFromSectionFormSchema = z.infer<
 export type AbsentFromSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: AbsentFromSectionFormSchema;
+  default?: Partial<AbsentFromSectionFormSchema>;
 
   onSubmit?: (data: AbsentFromSectionFormSchema) => void;
 

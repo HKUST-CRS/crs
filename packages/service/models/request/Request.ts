@@ -3,34 +3,34 @@ import { z } from "zod";
 import { formatDate, formatDateTime } from "../../utils/datetime";
 import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
+import { RequestDetails } from "./BaseRequest";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
+import type { RequestStatus } from "./RequestStatus";
 import { SwapSectionRequest } from "./SwapSection";
+import type { CommentEntry } from "./Thread";
 
 export const RequestInits = [
   SwapSectionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
-    response: true,
     status: true,
     updates: true,
-  }),
+  }).extend({ details: RequestDetails }),
   AbsentFromSectionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
-    response: true,
     status: true,
     updates: true,
-  }),
+  }).extend({ details: RequestDetails }),
   DeadlineExtensionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
-    response: true,
     status: true,
     updates: true,
-  }),
+  }).extend({ details: RequestDetails }),
 ] as const;
 export const Requests = [
   SwapSectionRequest,
@@ -39,17 +39,14 @@ export const Requests = [
 ] as const;
 export const RequestHeads = [
   SwapSectionRequest.omit({
-    details: true,
     metadata: true,
     updates: true,
   }),
   AbsentFromSectionRequest.omit({
-    details: true,
     metadata: true,
     updates: true,
   }),
   DeadlineExtensionRequest.omit({
-    details: true,
     metadata: true,
     updates: true,
   }),
@@ -63,6 +60,58 @@ export type Request = z.infer<typeof Request>;
 
 export const RequestHead = z.discriminatedUnion("type", RequestHeads);
 export type RequestHead = z.infer<typeof RequestHead>;
+
+/**
+ * The opening comment of a request — its initial reason (+ proof), recorded as
+ * the first thread entry at creation time. Returns `undefined` only for legacy
+ * documents that predate the thread model and have no comments.
+ */
+export function initialComment(
+  r: Pick<Request, "updates">,
+): CommentEntry | undefined {
+  return r.updates.find((e): e is CommentEntry => e.kind === "comment");
+}
+
+/**
+ * The human-readable decision implied by a status: "Approve" / "Reject" for
+ * decided requests, "Pending" otherwise (including appealed, which awaits a
+ * re-decision).
+ */
+export function decisionLabel(
+  status: RequestStatus,
+): "Approve" | "Reject" | "Pending" {
+  if (status === "approved") return "Approve";
+  if (status === "rejected") return "Reject";
+  return "Pending";
+}
+
+/**
+ * The remark accompanying the latest decision (approve/reject), if any. A
+ * decision records its remark as a comment entry authored by the decider
+ * immediately preceding the status-change entry; a decision without a remark
+ * has no such comment. Only approve/reject status changes are decisions, so
+ * appeals and cancellations are skipped even when they are the latest change.
+ */
+export function decisionRemark(r: Pick<Request, "updates">): string {
+  for (let i = r.updates.length - 1; i >= 0; i--) {
+    const cur = r.updates[i];
+    if (
+      cur &&
+      cur.kind === "status" &&
+      (cur.status === "approved" || cur.status === "rejected")
+    ) {
+      const prev = r.updates[i - 1];
+      // The remark is the decider's own comment immediately preceding the
+      // decision; any other comment (the requester's reason, a later
+      // follow-up, or an appeal) is not the decision's remark.
+      if (prev && prev.kind === "comment" && prev.from === cur.from) {
+        return prev.text;
+      }
+      return "";
+    }
+  }
+  return "";
+}
 
 export namespace RequestSerialization {
   const COLUMNS = [
@@ -127,10 +176,10 @@ export namespace RequestSerialization {
       Timestamp: formatDateTime(r.timestamp),
       Status: r.status,
       ...serializeMeta(r),
-      Decision: r.response?.decision ?? "Pending",
+      Decision: decisionLabel(r.status),
       Reference: `${base}/request/${r.id}`,
-      Reason: r.details.reason,
-      Remarks: r.response?.remarks ?? "",
+      Reason: initialComment(r)?.text ?? "",
+      Remarks: decisionRemark(r),
     }));
     return Papa.unparse(data, {
       columns: COLUMNS,

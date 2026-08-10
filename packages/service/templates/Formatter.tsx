@@ -1,9 +1,9 @@
 import type { JSX } from "bun-types/jsx";
 import {
   Classes,
+  initialComment,
   type Request,
-  type RequestDetails,
-  type Response,
+  type RequestStatus,
   type ThreadEntry,
   type User,
 } from "../models";
@@ -40,7 +40,7 @@ const formatRequestOverview = (
         <b>{type}</b> request at {timestamp} for class {clazz}.{" "}
         {formatRequestMetadata(request)}
       </p>
-      {formatRequestDetails(request.details)}
+      {formatOpeningComment(request)}
     </>
   );
 };
@@ -82,22 +82,21 @@ const formatRequestMetadata = (request: Request) => {
   }
 };
 
-const formatRequestDetails = (details: RequestDetails): JSX.Element => {
-  const reasonLine = details.reason;
-  const proofLine = details.proof ?? [];
+// The opening comment holds the request's initial reason (+ proof); it is the
+// first entry of the thread. Legacy documents get a synthesized opening on read.
+const formatOpeningComment = (request: Request): JSX.Element => {
+  const opening = initialComment(request);
+  if (!opening) {
+    return <p>The student did not provide a reason for the request.</p>;
+  }
+  const proofCount = opening.proof?.length ?? 0;
   return (
     <>
-      {reasonLine ? (
-        <>
-          <p>The reason for the request is as follows:</p>
-          <blockquote>{reasonLine}</blockquote>
-        </>
-      ) : (
-        <p>The student did not provide a reason for the request.</p>
-      )}
-      {proofLine.length ? (
+      <p>The reason for the request is as follows:</p>
+      <blockquote>{opening.text}</blockquote>
+      {proofCount ? (
         <p>
-          There are {proofLine.length} proof documents for the request attached.
+          There are {proofCount} proof document(s) for the request attached.
         </p>
       ) : (
         <p>The student did not attach any proof documents.</p>
@@ -106,33 +105,12 @@ const formatRequestDetails = (details: RequestDetails): JSX.Element => {
   );
 };
 
-const formatResponse = (
-  response: Response,
-  metadata: Metadata,
-): JSX.Element => {
-  const responder = metadata.instructors.find(
-    (instructor) => instructor.email === response.from,
-  );
-
-  const name = responder?.name ?? "Unknown Instructor";
-  const email = responder?.email ?? response.from;
-  const timestamp = formatDateTime(response.timestamp);
-  const decision = response.decision;
-  const remarks = response.remarks;
-  return (
-    <>
-      <p>
-        {name} (<a href={`mailto:${email}`}>{email}</a>) has made a decision of{" "}
-        <b>{decision}</b> at {timestamp} to the request.{" "}
-        {remarks ? (
-          <>The remarks are as follows:</>
-        ) : (
-          <>The instructor did not provide any remarks for the response.</>
-        )}
-      </p>
-      {remarks && <blockquote>{remarks}</blockquote>}
-    </>
-  );
+const STATUS_VERB: Record<RequestStatus, string> = {
+  open: "reopened",
+  approved: "approved",
+  rejected: "rejected",
+  appealed: "appealed",
+  cancelled: "cancelled",
 };
 
 /**
@@ -165,32 +143,11 @@ export const formatUpdate = (
           ) : null}
         </>
       );
-    case "response":
+    case "status":
       return (
-        <>
-          <p>
-            {actorName} made a decision of <b>{entry.decision}</b> on the
-            request.
-          </p>
-          {entry.remarks ? <blockquote>{entry.remarks}</blockquote> : null}
-        </>
-      );
-    case "cancel":
-      return (
-        <>
-          <p>{actorName} cancelled the request.</p>
-          {entry.text ? <blockquote>{entry.text}</blockquote> : null}
-        </>
-      );
-    case "appeal":
-      return (
-        <>
-          <p>{actorName} appealed the request:</p>
-          <blockquote>{entry.text}</blockquote>
-          {entry.proof?.length ? (
-            <p>There are {entry.proof.length} document(s) attached.</p>
-          ) : null}
-        </>
+        <p>
+          {actorName} {STATUS_VERB[entry.status]} the request.
+        </p>
       );
   }
 };
@@ -203,10 +160,5 @@ export const formatRequest = (
   request: Request,
   metadata: Metadata,
 ): JSX.Element => {
-  return (
-    <>
-      {formatRequestOverview(request, metadata)}
-      {request.response && formatResponse(request.response, metadata)}
-    </>
-  );
+  return <>{formatRequestOverview(request, metadata)}</>;
 };

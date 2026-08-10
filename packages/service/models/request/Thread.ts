@@ -1,7 +1,7 @@
 import z from "zod";
 import { UserID } from "../user";
 import { Proof } from "./Proof";
-import { ResponseDecision } from "./Response";
+import { RequestStatus } from "./RequestStatus";
 
 /**
  * The unique identifier for a thread entry.
@@ -19,9 +19,11 @@ const ThreadEntryBase = z.object({
 });
 
 /**
- * A supplementary message, optionally with supporting documents, posted by the
- * student or an instructor/observer to provide more information. The request
- * body is never edited; clarification is given via comments.
+ * The monomorphic content entry of the thread: a message, optionally with
+ * supporting documents, posted by the requester or an instructor/observer. The
+ * request's opening reason + proof is recorded as the first comment at creation
+ * time, so every piece of textual/attachment content on a request lives in one
+ * place.
  */
 export const CommentEntry = ThreadEntryBase.extend({
   kind: z.literal("comment"),
@@ -31,46 +33,22 @@ export const CommentEntry = ThreadEntryBase.extend({
 export type CommentEntry = z.infer<typeof CommentEntry>;
 
 /**
- * An instructor's decision on the request. Allowed multiple times across an
- * appeal cycle; the top-level denormalized `response` field always reflects the
- * latest response entry.
+ * A change of the request's lifecycle status. Carries only the new status; any
+ * remark accompanying the change is recorded as a preceding comment entry (so
+ * content stays monomorphic). Status changes are append-only: the request's
+ * denormalized `status` always reflects the latest status-change entry.
  */
-export const ResponseEntry = ThreadEntryBase.extend({
-  kind: z.literal("response"),
-  remarks: z.string(),
-  decision: ResponseDecision,
+export const StatusChangeEntry = ThreadEntryBase.extend({
+  kind: z.literal("status"),
+  status: RequestStatus,
 });
-export type ResponseEntry = z.infer<typeof ResponseEntry>;
+export type StatusChangeEntry = z.infer<typeof StatusChangeEntry>;
 
 /**
- * The student's cancellation of the request. Terminal: a cancelled request
- * cannot be responded to or appealed.
- */
-export const CancelEntry = ThreadEntryBase.extend({
-  kind: z.literal("cancel"),
-  text: z.string().optional(),
-});
-export type CancelEntry = z.infer<typeof CancelEntry>;
-
-/**
- * The student's appeal of a resolved request, reopening it for another
- * response. Optionally includes a justification and supporting documents.
- */
-export const AppealEntry = ThreadEntryBase.extend({
-  kind: z.literal("appeal"),
-  text: z.string().nonempty("An appeal must include a justification."),
-  proof: Proof,
-});
-export type AppealEntry = z.infer<typeof AppealEntry>;
-
-/**
- * An entry in the append-only thread of a request. The request body is
- * immutable after creation; all follow-up activity is recorded here.
+ * An entry in the append-only thread of a request.
  */
 export const ThreadEntry = z.discriminatedUnion("kind", [
   CommentEntry,
-  ResponseEntry,
-  CancelEntry,
-  AppealEntry,
+  StatusChangeEntry,
 ]);
 export type ThreadEntry = z.infer<typeof ThreadEntry>;

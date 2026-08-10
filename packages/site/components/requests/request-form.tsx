@@ -119,7 +119,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -142,7 +141,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -165,7 +163,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
