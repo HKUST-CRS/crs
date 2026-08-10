@@ -107,6 +107,15 @@ export default function RequestThread({ request }: RequestThreadProps) {
       ));
 
   const status = request.status;
+  // The latest status-change entry is the current decision; every earlier
+  // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
+  let lastStatusIndex = -1;
+  for (let i = request.updates.length - 1; i >= 0; i--) {
+    if (request.updates[i].kind === "status") {
+      lastStatusIndex = i;
+      break;
+    }
+  }
   // Comments are allowed for the requester or staff at any point, including
   // after cancellation. Status changes are gated by role and (for re-decision)
   // by the request not being cancelled.
@@ -128,11 +137,12 @@ export default function RequestThread({ request }: RequestThreadProps) {
       {/* Thread */}
       <section className="flex flex-col gap-3">
         <h4 className="font-medium text-sm">Thread</h4>
-        {request.updates.map((entry) => (
+        {request.updates.map((entry, i) => (
           <ThreadEntryView
             key={entry.id}
             entry={entry}
             author={authors.get(entry.from)}
+            superseded={entry.kind === "status" && i !== lastStatusIndex}
           />
         ))}
       </section>
@@ -194,9 +204,11 @@ function StatusBanner({ status }: { status: RequestStatus }) {
 function ThreadEntryView({
   entry,
   author,
+  superseded = false,
 }: {
   entry: ThreadEntry;
   author?: User;
+  superseded?: boolean;
 }) {
   const name = author?.name || entry.from;
   const timestamp = formatDateTime(fromISO(entry.timestamp));
@@ -215,6 +227,19 @@ function ThreadEntryView({
   }
   // status change
   const s = STATUS_STYLE[entry.status];
+  if (superseded) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-sm opacity-60">
+        <span className="rounded bg-zinc-100 px-2 py-0.5 font-medium text-zinc-500 line-through dark:bg-zinc-800 dark:text-zinc-400">
+          {s.label}
+        </span>
+        <span className="typo-muted">
+          by <b>{name}</b> · {timestamp}
+        </span>
+        <span className="typo-muted text-xs italic">superseded</span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className={clsx("rounded px-2 py-0.5 font-medium", s.className)}>
