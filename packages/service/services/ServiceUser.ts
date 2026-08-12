@@ -109,6 +109,20 @@ export class UserService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Gets the users with the specified email addresses.
+   *
+   * Missing emails are ignored. The result preserves the input order, without
+   * duplicates.
+   */
+  async getUsersByEmail(
+    this: UserService<UserID>,
+    emails: UserID[],
+  ): Promise<User[]> {
+    await this.repos.user.requireUser(this.user);
+    return this.repos.user.getUsersByEmail(emails);
+  }
+
+  /**
    * Returns the current authenticated user.
    */
   async getCurrentUser(this: UserService<UserID>): Promise<User> {

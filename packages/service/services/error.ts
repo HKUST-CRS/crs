@@ -1,4 +1,5 @@
 import {
+  type AppealID,
   type Class,
   Classes,
   type CourseID,
@@ -68,5 +69,30 @@ export class ResponseNotFoundError extends Error {
   constructor(requestID: RequestID) {
     super(`Request ${requestID} does not have a response yet`);
     this.name = "ResponseNotFoundError";
+  }
+}
+
+export class AssignmentNotFoundError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} not found in course ${course.code} (${course.term})`,
+    );
+    this.name = "AssignmentNotFoundError";
+  }
+}
+
+export class AssignmentNotGradedError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} in course ${course.code} (${course.term}) is not graded yet`,
+    );
+    this.name = "AssignmentNotGradedError";
+  }
+}
+
+export class AppealPermissionError extends Error {
+  constructor(userID: UserID, appealID: AppealID) {
+    super(`User ${userID} is not a participant of appeal ${appealID}`);
+    this.name = "AppealPermissionError";
   }
 }

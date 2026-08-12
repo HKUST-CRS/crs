@@ -5,7 +5,9 @@ import { createElement } from "react";
 import * as runtime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  type Appeal,
   Classes,
+  Courses,
   type Request,
   type RequestDetails,
   type User,
@@ -65,6 +67,10 @@ export class NotificationService {
     return new URL(`/response/${rid}`, this.baseUrl).toString();
   }
 
+  private urlToAppeal(aid: string): string {
+    return new URL(`/appeal/${aid}`, this.baseUrl).toString();
+  }
+
   /**
    * Notify the responsible instructors, observers, and the requester, for a new request.
    * @param request The request made.
@@ -93,6 +99,29 @@ export class NotificationService {
       subject,
       content,
       request.details.proof ?? [],
+    );
+  }
+
+  /**
+   * Notify the responsible staff and the student for a new appeal.
+   * @param appeal The appeal that was created.
+   */
+  async notifyNewAppeal(appeal: Appeal) {
+    const subject = `Appeal - ${Courses.formatID(appeal.course)}`;
+
+    const student = await this.repos.user.requireUser(appeal.student);
+    const staff = await this.repos.user.getUsersByEmail(
+      appeal.participants.filter((email) => email !== appeal.student),
+    );
+
+    const content = await this.renderNewAppeal(appeal, { student, staff });
+
+    await this.sendEmail(
+      staff.map((user) => user.email),
+      [],
+      subject,
+      content,
+      [],
     );
   }
 
@@ -140,6 +169,39 @@ export class NotificationService {
         Summary,
         ID: request.id,
         Sig: await Signature.sign(request),
+      }),
+    );
+  }
+
+  private async renderNewAppeal(
+    appeal: Appeal,
+    { student, staff }: { student: User; staff: User[] },
+  ): Promise<string> {
+    const StudentLine = student.name || "Student";
+    const StaffLine = (() => {
+      const names = staff
+        .map((user) => user.name)
+        .filter((name) => name !== "");
+      if (names.length === 0) {
+        return "Course Staff";
+      } else {
+        return names.sort(compareString).join(", ");
+      }
+    })();
+    const Link = this.urlToAppeal(appeal.id);
+    const Message = appeal.messages[0]?.content ?? "";
+
+    const templatePath = path.join(this.templateDir, "new_appeal.mdx");
+    const templateFile = Bun.file(templatePath);
+
+    const module = await evaluate(await templateFile.text(), runtime);
+
+    return renderToStaticMarkup(
+      createElement(module.default, {
+        StudentLine,
+        StaffLine,
+        Link,
+        Message,
       }),
     );
   }
