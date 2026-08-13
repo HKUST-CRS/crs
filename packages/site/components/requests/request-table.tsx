@@ -63,16 +63,16 @@ export interface RequestTableHandle {
   getExportIDs: () => string[];
 }
 
-/** Display label for each lifecycle status in the Decision column. */
-const DECISION_LABEL: Record<RequestStatus, string> = {
-  open: "Pending",
-  approved: "Approve",
-  rejected: "Reject",
+/** Display label for each lifecycle status in the Status column. */
+const STATUS_LABEL: Record<RequestStatus, string> = {
+  open: "Open",
+  approved: "Approved",
+  rejected: "Rejected",
   appealed: "Appealed",
   cancelled: "Cancelled",
 };
 
-/** Sort order for the Decision column (pending first, cancelled last). */
+/** Sort order for the Status column (open first, cancelled last). */
 const STATUS_ORDER: Record<RequestStatus, number> = {
   open: 0,
   appealed: 1,
@@ -82,15 +82,15 @@ const STATUS_ORDER: Record<RequestStatus, number> = {
 };
 
 /** The filterable status of a request — its lifecycle status. */
-type DecisionFilterValue = RequestStatus;
+type StatusFilterValue = RequestStatus;
 
-function requestDecision(r: RequestHead): DecisionFilterValue {
+function statusOf(r: RequestHead): StatusFilterValue {
   return r.status;
 }
 
 const requestFilter =
   (filterOptions: {
-    decision: DecisionFilterValue | null;
+    status: StatusFilterValue | null;
     term: string | null;
     course: CourseID | null;
     from: DateTime | null;
@@ -98,8 +98,8 @@ const requestFilter =
   }) =>
   (request: RequestHead) => {
     if (
-      filterOptions.decision !== null &&
-      requestDecision(request) !== filterOptions.decision
+      filterOptions.status !== null &&
+      statusOf(request) !== filterOptions.status
     ) {
       return false;
     }
@@ -221,8 +221,8 @@ const columns: ColumnDef<RequestHead>[] = [
     },
   },
   {
-    id: "decision",
-    accessorFn: (row) => DECISION_LABEL[row.status],
+    id: "status",
+    accessorFn: (row) => STATUS_LABEL[row.status],
     header: ({ column }) => {
       return (
         <Button
@@ -230,21 +230,21 @@ const columns: ColumnDef<RequestHead>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className={cn(column.getIsSorted() && "underline")}
         >
-          Decision
+          Status
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
     cell: ({ row }) => {
       const status = row.original.status;
-      const label = DECISION_LABEL[status];
+      const label = STATUS_LABEL[status];
       const color =
         status === "approved"
           ? "text-green-800 dark:text-green-400"
           : status === "rejected"
             ? "text-red-800 dark:text-red-400"
             : status === "cancelled"
-              ? "text-gray-500"
+              ? "text-gray-500 dark:text-gray-400"
               : "text-yellow-800 dark:text-yellow-400";
       return <span className={color}>{label}</span>;
     },
@@ -269,8 +269,9 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       pageIndex: 0,
       pageSize: 50,
     });
-    const [decisionFilter, setDecisionFilter] =
-      useState<DecisionFilterValue | null>(null);
+    const [statusFilter, setStatusFilter] = useState<StatusFilterValue | null>(
+      null,
+    );
     const [termFilter, setTermFilter] = useState<string | null>(null);
     const [courseFilter, setCourseFilter] = useState<CourseID | null>(null);
     const [fromFilter, setFromFilter] = useState<DateTime | null>(null);
@@ -302,14 +303,14 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       () =>
         rawData.filter(
           requestFilter({
-            decision: decisionFilter,
+            status: statusFilter,
             term: termFilter,
             course: courseFilter,
             from: fromFilter,
             to: toFilter,
           }),
         ),
-      [rawData, decisionFilter, fromFilter, courseFilter, termFilter, toFilter],
+      [rawData, statusFilter, fromFilter, courseFilter, termFilter, toFilter],
     );
 
     const table = useReactTable({
@@ -351,24 +352,24 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field className="col-span-1">
-            <FieldLabel>Decision</FieldLabel>
+            <FieldLabel>Status</FieldLabel>
             <Select
-              value={decisionFilter ?? "__all"}
+              value={statusFilter ?? "__all"}
               onValueChange={(value) => {
-                setDecisionFilter(
-                  value === "__all" ? null : (value as DecisionFilterValue),
+                setStatusFilter(
+                  value === "__all" ? null : (value as StatusFilterValue),
                 );
               }}
               disabled={!termOptions.length}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a decision" />
+                <SelectValue placeholder="Choose a status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All statuses</SelectItem>
-                {(Object.keys(DECISION_LABEL) as RequestStatus[]).map((s) => (
+                {(Object.keys(STATUS_LABEL) as RequestStatus[]).map((s) => (
                   <SelectItem key={s} value={s}>
-                    {DECISION_LABEL[s]}
+                    {STATUS_LABEL[s]}
                   </SelectItem>
                 ))}
               </SelectContent>

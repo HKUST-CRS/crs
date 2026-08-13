@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Class } from "../course";
 import { UserID } from "../user";
-import { Proof } from "./Proof";
+import { ProofUpload } from "./Proof";
 import { RequestStatus } from "./RequestStatus";
 import type { RequestType } from "./RequestType";
 import { ThreadEntry } from "./Thread";
@@ -11,7 +11,7 @@ export const RequestDetails = z.object({
     .string()
     .nonempty("A brief explanation for the request is required.")
     .meta({ description: "A brief explanation of the request." }),
-  proof: Proof.meta({
+  proof: ProofUpload.meta({
     description: "Optional supporting documents or files for the request.",
   }),
 });

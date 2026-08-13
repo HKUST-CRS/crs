@@ -100,8 +100,8 @@ export namespace Signature {
     const hashProofs = (proofs?: ProofFile[]): ProofFile[] | undefined =>
       proofs?.map((p) => {
         const hash = crypto.createHash("sha256");
-        hash.update(Buffer.from(p.content, "base64"));
-        return { ...p, content: hash.digest("hex") };
+        hash.update(p.fileId);
+        return { ...p, fileId: hash.digest("hex") };
       });
     for (const entry of rr.updates) {
       if (entry.kind === "comment") {

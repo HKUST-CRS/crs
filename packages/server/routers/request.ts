@@ -1,5 +1,5 @@
 import {
-  Proof,
+  ProofUpload,
   Request,
   RequestHead,
   RequestID,
@@ -10,6 +10,23 @@ import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
 import { safeNotify } from "../utils/notify";
+
+/**
+ * Input for a status change that may carry an optional remark (approve/reject/
+ * cancel). A bare status change (no text, no proof) is allowed, but a remark
+ * with supporting documents must also carry text — otherwise the proof would be
+ * silently dropped by {@link remarkFrom}. This rejects such input explicitly
+ * rather than returning success without recording the files.
+ */
+const StatusActionInput = z
+  .object({
+    id: RequestID,
+    text: z.string().optional(),
+    proof: ProofUpload,
+  })
+  .refine((v) => !v.proof?.length || (v.text?.trim() ?? "").length > 0, {
+    message: "A remark is required when attaching supporting documents.",
+  });
 
 export const routerRequest = router({
   get: procedure
@@ -53,7 +70,7 @@ export const routerRequest = router({
       z.object({
         id: RequestID,
         text: z.string().nonempty("A comment cannot be empty."),
-        proof: Proof,
+        proof: ProofUpload,
       }),
     )
     .output(z.void())
@@ -69,13 +86,7 @@ export const routerRequest = router({
       );
     }),
   approve: procedure
-    .input(
-      z.object({
-        id: RequestID,
-        text: z.string().optional(),
-        proof: Proof,
-      }),
-    )
+    .input(StatusActionInput)
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
@@ -89,13 +100,7 @@ export const routerRequest = router({
       );
     }),
   reject: procedure
-    .input(
-      z.object({
-        id: RequestID,
-        text: z.string().optional(),
-        proof: Proof,
-      }),
-    )
+    .input(StatusActionInput)
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
@@ -109,13 +114,7 @@ export const routerRequest = router({
       );
     }),
   cancel: procedure
-    .input(
-      z.object({
-        id: RequestID,
-        text: z.string().optional(),
-        proof: Proof,
-      }),
-    )
+    .input(StatusActionInput)
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
@@ -133,7 +132,7 @@ export const routerRequest = router({
       z.object({
         id: RequestID,
         text: z.string().nonempty("An appeal must include a justification."),
-        proof: Proof,
+        proof: ProofUpload,
       }),
     )
     .output(z.void())
@@ -148,14 +147,21 @@ export const routerRequest = router({
         services.notification.notifyRequestUpdate(request, entries),
       );
     }),
+  proofContent: procedure
+    .input(z.object({ fileId: z.string() }))
+    .output(z.object({ content: z.string() }))
+    .query(({ input, ctx }) => {
+      return services.request.auth(ctx.user.email).readProof(input.fileId);
+    }),
 });
 
 /**
  * Builds the optional remark payload for a status change (approve/reject/cancel)
  * from the composer input: a remark is recorded only when there is non-empty
- * text, carrying any attached proof along with it.
+ * text, carrying any attached proof along with it. {@link StatusActionInput}
+ * guarantees that proof is never present without text.
  */
-function remarkFrom(input: { text?: string; proof?: Proof }) {
+function remarkFrom(input: { text?: string; proof?: ProofUpload }) {
   const text = input.text?.trim();
   return text ? { text, proof: input.proof } : undefined;
 }

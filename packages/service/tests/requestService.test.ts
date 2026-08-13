@@ -7,12 +7,22 @@ import {
   expect,
   test,
 } from "bun:test";
+import crypto from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import type { Course, Proof, Request, RequestInit, User } from "../models";
+import type {
+  Course,
+  ProofFile,
+  ProofFileUpload,
+  ProofUpload,
+  Request,
+  RequestInit,
+  User,
+} from "../models";
 import { decisionRemark } from "../models";
 import { createRepos } from "../repos";
 import { RequestNotFoundError, StatusConflictError } from "../repos/error";
+import { migrateRequests } from "../repos/migrate";
 import { RequestService } from "../services";
 import { ClassPermissionError, PermissionError } from "../services/error";
 import { clearData, insertData } from "./tests";
@@ -64,7 +74,7 @@ function makeAdmin(email: string): User {
   };
 }
 
-function makeSwapInit(section = "L1", proof: Proof = []): RequestInit {
+function makeSwapInit(section = "L1", proof: ProofUpload = []): RequestInit {
   return {
     type: "Swap Section",
     class: {
@@ -81,13 +91,38 @@ function makeSwapInit(section = "L1", proof: Proof = []): RequestInit {
   };
 }
 
-const sampleProof = [
+const sampleProof: ProofUpload = [
   {
     name: "note.txt",
     size: 2,
     content: Buffer.from("hi").toString("base64"),
   },
 ];
+
+// Stored proof entries reference GridFS by fileId, so compare against the
+// uploaded payload by name/size and verify the bytes round-trip via readProof.
+async function expectStoredProof(
+  proof: ProofFile[] | undefined,
+  uploads: ProofFileUpload[],
+  svc: RequestService<string>,
+) {
+  expect(proof).toHaveLength(uploads.length);
+  for (const [i, f] of (proof ?? []).entries()) {
+    const expected = uploads[i];
+    if (!expected) continue;
+    expect(f.name).toBe(expected.name);
+    expect(f.size).toBe(expected.size);
+    expect(f.hash).toBe(
+      crypto
+        .createHash("sha256")
+        .update(Buffer.from(expected.content, "base64"))
+        .digest("hex"),
+    );
+    expect(typeof f.fileId).toBe("string");
+    const { content } = await svc.readProof(f.fileId);
+    expect(content).toBe(expected.content);
+  }
+}
 
 // A bare legacy body (pre-thread: no status/updates, reason+proof in details).
 function legacyBody(id: string, from: string, response: unknown) {
@@ -164,7 +199,11 @@ describe("RequestService", () => {
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.updates[0]?.kind).toBe("comment");
       if (r.updates[0]?.kind === "comment") {
-        expect(r.updates[0].proof).toEqual(sampleProof);
+        await expectStoredProof(
+          r.updates[0].proof,
+          sampleProof,
+          requestService.auth(student.email),
+        );
       }
     });
 
@@ -419,7 +458,12 @@ describe("RequestService", () => {
       const r = await requestService.auth(student.email).getRequest(id);
       const entry = r.updates.at(-1);
       expect(entry?.kind).toBe("comment");
-      if (entry?.kind === "comment") expect(entry.proof).toEqual(sampleProof);
+      if (entry?.kind === "comment")
+        await expectStoredProof(
+          entry.proof,
+          sampleProof,
+          requestService.auth(student.email),
+        );
     });
   });
 
@@ -530,7 +574,11 @@ describe("RequestService", () => {
       expect(tail[1]?.kind).toBe("status");
       if (tail[0]?.kind === "comment") {
         expect(tail[0].text).toBe("insufficient evidence");
-        expect(tail[0].proof).toEqual(sampleProof);
+        await expectStoredProof(
+          tail[0].proof,
+          sampleProof,
+          requestService.auth(instructor.email),
+        );
       }
       if (tail[1]?.kind === "status") expect(tail[1].status).toBe("rejected");
     });
@@ -727,7 +775,11 @@ describe("RequestService", () => {
       const comment = r.updates.at(-2);
       expect(comment?.kind).toBe("comment");
       if (comment?.kind === "comment")
-        expect(comment.proof).toEqual(sampleProof);
+        await expectStoredProof(
+          comment.proof,
+          sampleProof,
+          requestService.auth(student.email),
+        );
     });
   });
 
@@ -802,6 +854,7 @@ describe("RequestService", () => {
       await insertData(testConn, {
         requests: [legacyBody("l-open", student.email, null)],
       });
+      await migrateRequests(testConn.collections);
       const r = await requestService.auth(student.email).getRequest("l-open");
       expect(r.status).toBe("open");
       expect(r.updates).toHaveLength(1);
@@ -824,6 +877,7 @@ describe("RequestService", () => {
           }),
         ],
       });
+      await migrateRequests(testConn.collections);
       const r = await requestService
         .auth(student.email)
         .getRequest("l-approved");
@@ -843,6 +897,7 @@ describe("RequestService", () => {
           }),
         ],
       });
+      await migrateRequests(testConn.collections);
       const r = await requestService
         .auth(student.email)
         .getRequest("l-decided");
@@ -863,6 +918,7 @@ describe("RequestService", () => {
       await insertData(testConn, {
         requests: [legacyBody("l-head", student.email, null)],
       });
+      await migrateRequests(testConn.collections);
       const heads = await requestService
         .auth(student.email)
         .getRequestHeadsAs(["student"]);
@@ -881,6 +937,7 @@ describe("RequestService", () => {
       await insertData(testConn, {
         requests: [legacyBody("l-approve", student.email, null)],
       });
+      await migrateRequests(testConn.collections);
       await requestService.auth(instructor.email).approve("l-approve");
       const r = await requestService
         .auth(instructor.email)
@@ -902,6 +959,7 @@ describe("RequestService", () => {
           }),
         ],
       });
+      await migrateRequests(testConn.collections);
       await requestService
         .auth(student.email)
         .appeal("l-appeal", { text: "reconsider" });
@@ -951,6 +1009,7 @@ describe("RequestService", () => {
         } as unknown as Request,
       ];
       await insertData(testConn, { requests: legacy });
+      await migrateRequests(testConn.collections);
       const r = await requestService.auth(student.email).getRequest("l-feat");
       expect(r.status).toBe("approved");
       // opening comment (from details) + the converted status entry
@@ -959,6 +1018,54 @@ describe("RequestService", () => {
         expect(r.updates[0].text).toBe("old reason");
       }
       expect(r.updates.at(-1)?.kind).toBe("status");
+    });
+  });
+
+  // ── proof storage ─────────────────────────────────────────────────────────
+  describe("proof storage", () => {
+    test("persists the decoded byte length and content hash, ignoring client claims", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const lying: ProofUpload = [
+        {
+          name: "note.txt",
+          size: 1,
+          content: Buffer.from("hi").toString("base64"),
+        },
+      ];
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit("L1", lying));
+      const r = await requestService.auth(student.email).getRequest(id);
+      const opening = r.updates[0];
+      if (opening?.kind === "comment" && opening.proof?.[0]) {
+        expect(opening.proof[0].size).toBe(2);
+        expect(opening.proof[0].hash).toBe(
+          crypto.createHash("sha256").update("hi").digest("hex"),
+        );
+      }
+    });
+
+    test("rolls back remark proofs when a status change conflicts", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit());
+      await requestService.auth(student.email).cancel(id);
+      // "cancelled" is terminal, so the decision is inadmissible; the remark
+      // proof uploaded before the status guard must be deleted (no orphan).
+      await expect(
+        requestService
+          .auth(instructor.email)
+          .approve(id, { text: "reconsider", proof: sampleProof }),
+      ).rejects.toThrow(StatusConflictError);
+      const orphaned = await testConn.collections.proofs.find().toArray();
+      expect(orphaned).toHaveLength(0);
     });
   });
 });

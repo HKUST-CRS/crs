@@ -25,5 +25,6 @@ export async function clearData(conn: DbConn) {
     conn.collections.users.deleteMany({}),
     conn.collections.courses.deleteMany({}),
     conn.collections.requests.deleteMany({}),
+    conn.collections.proofs.drop(),
   ]);
 }

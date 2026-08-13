@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
@@ -5,6 +6,8 @@ import type {
   Class,
   CommentEntry,
   Proof,
+  ProofFile,
+  ProofUpload,
   Request,
   RequestHead,
   RequestID,
@@ -13,59 +16,9 @@ import type {
   ThreadEntry,
   UserID,
 } from "../models";
+import { MAX_PROOF_SIZE } from "../models";
 import { toISO } from "../utils/datetime";
 import { RequestNotFoundError, StatusConflictError } from "./error";
-
-// ── Legacy document tolerance ────────────────────────────────────────────────
-// Documents written before this thread redesign store the opening reason+proof
-// in `details` on the body, use the old status value "resolved", and record
-// activity as response/cancel/appeal entry kinds. These helpers normalize such
-// documents on read so the rest of the system only ever sees the new shape:
-// monomorphic comment + status-change entries, status in
-// {open, approved, rejected, appealed, cancelled}, and the opening reason as
-// the first comment. No forced pre-deploy migration is required.
-
-type LegacyResponse = {
-  decision?: "Approve" | "Reject";
-  remarks?: string;
-  from?: UserID;
-  timestamp?: string;
-} | null;
-type LegacyDetails = { reason?: string; proof?: Proof } | undefined;
-type LegacyDoc = {
-  id: string;
-  from: UserID;
-  timestamp: string;
-  status?: string;
-  response?: LegacyResponse;
-  details?: LegacyDetails;
-  updates?: unknown[];
-};
-
-/** Maps any stored status (including legacy "resolved" / absent) to the new enum. */
-function normalizeStatus(
-  status: string | undefined,
-  response: LegacyResponse,
-): RequestStatus {
-  switch (status) {
-    case "open":
-    case "cancelled":
-    case "approved":
-    case "rejected":
-    case "appealed":
-      return status;
-    case "resolved":
-      // Legacy "resolved" carries the decision on `response`.
-      return response?.decision === "Reject" ? "rejected" : "approved";
-    default:
-      // Pre-thread documents have no `status` field at all.
-      return response
-        ? response.decision === "Reject"
-          ? "rejected"
-          : "approved"
-        : "open";
-  }
-}
 
 type EntryBase = { id: string; from: UserID; timestamp: string };
 
@@ -82,171 +35,44 @@ function makeComment(
   };
 }
 
-/**
- * Converts a raw thread (which may mix new comment/status entries with legacy
- * response/cancel/appeal entries) into the new monomorphic shape. A legacy
- * response/cancel/appeal with accompanying text becomes a comment entry
- * followed by the status-change entry, preserving the remark.
- */
-function normalizeEntries(raw: unknown[]): ThreadEntry[] {
-  const out: ThreadEntry[] = [];
-  for (const e of raw) {
-    const entry = e as EntryBase & {
-      kind: string;
-      text?: string;
-      proof?: Proof;
-      status?: RequestStatus;
-      remarks?: string;
-      decision?: "Approve" | "Reject";
-    };
-    const base: EntryBase = {
-      id: entry.id,
-      from: entry.from,
-      timestamp: entry.timestamp,
-    };
-    switch (entry.kind) {
-      case "comment":
-        out.push(makeComment(base, entry.text ?? "", entry.proof));
-        break;
-      case "status":
-        out.push({ ...base, kind: "status", status: entry.status ?? "open" });
-        break;
-      case "response":
-        if (entry.remarks) out.push(makeComment(base, entry.remarks));
-        out.push({
-          ...base,
-          kind: "status",
-          status: entry.decision === "Reject" ? "rejected" : "approved",
-        });
-        break;
-      case "cancel":
-        if (entry.text) out.push(makeComment(base, entry.text));
-        out.push({ ...base, kind: "status", status: "cancelled" });
-        break;
-      case "appeal":
-        if (entry.text) out.push(makeComment(base, entry.text, entry.proof));
-        out.push({ ...base, kind: "status", status: "appealed" });
-        break;
-    }
-  }
-  // A legacy body without any opening reason comment (pre-thread) gets a
-  // synthesized opening comment from `details`, so the reason is preserved.
-  return out;
-}
-
-function normalizeRequest(doc: LegacyDoc & Record<string, unknown>): Request {
-  const owner: EntryBase = {
-    id: `${doc.id}#opening`,
-    from: doc.from,
-    timestamp: doc.timestamp,
-  };
-  const updates = normalizeEntries(doc.updates ?? []);
-  // Legacy bodies carry the opening reason+proof in `details` (it was never
-  // recorded in the thread); synthesize the opening comment so the reason is
-  // preserved as the first entry, ahead of any converted follow-up entries.
-  // New documents have no `details`, so this is a no-op for them.
-  if (doc.details?.reason) {
-    updates.unshift(makeComment(owner, doc.details.reason, doc.details.proof));
-  }
-  // A pre-thread body carries the instructor decision only on the top-level
-  // `response` field (never in the thread); synthesize the remark comment +
-  // status-change entry so the decider, timestamp, and remark survive. Skip
-  // when the thread already records a decision — feat/threads-era documents
-  // carry it both as an `updates` entry and denormalized on `response`.
-  const response = doc.response;
-  if (response?.decision) {
-    const alreadyDecided = updates.some(
-      (e) =>
-        e.kind === "status" &&
-        (e.status === "approved" || e.status === "rejected"),
-    );
-    if (!alreadyDecided) {
-      const base: EntryBase = {
-        id: `${doc.id}#decision`,
-        from: response.from ?? owner.from,
-        timestamp: response.timestamp ?? owner.timestamp,
-      };
-      if (response.remarks) updates.push(makeComment(base, response.remarks));
-      updates.push({
-        ...base,
-        kind: "status",
-        status: response.decision === "Reject" ? "rejected" : "approved",
-      });
-    }
-  }
-  // Drop legacy-only body fields so the result matches the new schema.
-  const { details, response: _response, updates: _updates, ...rest } = doc;
-  return {
-    ...rest,
-    status: normalizeStatus(doc.status, doc.response ?? null),
-    updates,
-  } as Request;
-}
-
-function normalizeRequestHead(
-  doc: LegacyDoc & Record<string, unknown>,
-): RequestHead {
-  const { details, response, updates, ...rest } = doc;
-  return {
-    ...rest,
-    status: normalizeStatus(doc.status, doc.response ?? null),
-  } as RequestHead;
-}
-
-/**
- * Builds the status match condition for a guarded append, including legacy
- * fallbacks: old "resolved" documents and pre-thread documents (no `status`)
- * are admitted when the expected set covers the corresponding new state.
- */
-function statusGuard(expected: RequestStatus[]): Record<string, unknown>[] {
-  const conds: Record<string, unknown>[] = [{ status: { $in: expected } }];
-  const admitsDecided =
-    expected.includes("approved") || expected.includes("rejected");
-  if (admitsDecided) {
-    conds.push({ status: "resolved" });
-    conds.push({ status: { $exists: false }, response: { $ne: null } });
-  }
-  if (expected.includes("open")) {
-    conds.push({ status: { $exists: false }, response: null });
-  }
-  return conds;
-}
-
 export class RequestRepo {
   constructor(protected collections: Collections) {}
 
   async requireRequest(requestID: RequestID): Promise<Request> {
-    const request = await this.collections.requests.findOne({ id: requestID });
+    const request = await this.collections.requests.findOne(
+      { id: requestID },
+      { projection: { _id: 0 } },
+    );
     if (!request) throw new RequestNotFoundError(requestID);
-    return normalizeRequest(request);
+    return request;
   }
 
   async createRequest(from: UserID, data: RequestInit): Promise<string> {
     const id = new ObjectId().toHexString();
     const timestamp = toISO(DateTime.now());
-    // The opening reason + proof become the first comment in the thread; the
-    // stored body carries only class/type/metadata.
-    const opening: CommentEntry = {
-      id: new ObjectId().toHexString(),
-      from,
-      timestamp,
-      kind: "comment",
-      text: data.details.reason,
-      ...(data.details.proof ? { proof: data.details.proof } : {}),
-    };
-    // Drop `details` from the stored body (the opening comment already holds
-    // the reason + proof); spreading the rest keeps the type/metadata
-    // discriminant correlated for the insert.
-    const { details: _details, ...rest } = data;
-    await this.collections.requests.insertOne({
-      ...rest,
-      id,
-      from,
-      timestamp,
-      status: "open",
-      updates: [opening],
+    const { proof, ids } = await this.storeProof(data.details.proof);
+    return this.commitProofs(ids, async () => {
+      // The opening reason + proof become the first comment in the thread; the
+      // stored body carries only class/type/metadata.
+      const opening = makeComment(
+        { id: new ObjectId().toHexString(), from, timestamp },
+        data.details.reason,
+        proof,
+      );
+      // Drop `details` from the stored body (the opening comment already holds
+      // the reason + proof); spreading the rest keeps the type/metadata
+      // discriminant correlated for the insert.
+      const { details: _details, ...rest } = data;
+      await this.collections.requests.insertOne({
+        ...rest,
+        id,
+        from,
+        timestamp,
+        status: "open",
+        updates: [opening],
+      });
+      return id;
     });
-    return id;
   }
 
   /**
@@ -258,17 +84,11 @@ export class RequestRepo {
     const requests = await this.collections.requests
       .find(
         { from: userID },
-        {
-          projection: {
-            _id: 0,
-            metadata: 0,
-            updates: 0,
-          },
-        },
+        { projection: { _id: 0, metadata: 0, updates: 0 } },
       )
       .sort({ timestamp: "descending" })
       .toArray();
-    return requests.map(normalizeRequestHead);
+    return requests as unknown as RequestHead[];
   }
 
   /**
@@ -303,17 +123,11 @@ export class RequestRepo {
             };
           }),
         },
-        {
-          projection: {
-            _id: 0,
-            metadata: 0,
-            updates: 0,
-          },
-        },
+        { projection: { _id: 0, metadata: 0, updates: 0 } },
       )
       .sort({ timestamp: "descending" })
       .toArray();
-    return requests.map(normalizeRequestHead);
+    return requests as unknown as RequestHead[];
   }
 
   /**
@@ -329,22 +143,11 @@ export class RequestRepo {
     }
 
     const requests = await this.collections.requests
-      .find(
-        {
-          id: {
-            $in: requestIDs,
-          },
-        },
-        {
-          projection: {
-            _id: 0,
-          },
-        },
-      )
+      .find({ id: { $in: requestIDs } }, { projection: { _id: 0 } })
       .toArray();
 
     const requestsByID = new Map(
-      requests.map((request) => [request.id, normalizeRequest(request)]),
+      requests.map((request) => [request.id, request as Request]),
     );
 
     return requestIDs.flatMap((requestID) => {
@@ -359,8 +162,8 @@ export class RequestRepo {
    * denormalized status — all in a single `updateOne`.
    *
    * Pass `expectedStatuses = null` to allow the append from any status (used
-   * for comments). Otherwise the append only applies when the request is in an
-   * admissible state; a conflicting state throws `StatusConflictError`.
+   * for comments). Otherwise the append only applies when the request is in
+   * an admissible state; a conflicting state throws `StatusConflictError`.
    */
   private async append(
     requestID: RequestID,
@@ -369,10 +172,9 @@ export class RequestRepo {
     op: string,
     set?: { status: RequestStatus },
   ): Promise<void> {
-    const filter: Record<string, unknown> = { id: requestID };
-    if (expectedStatuses) {
-      filter.$or = statusGuard(expectedStatuses);
-    }
+    const filter: Record<string, unknown> = expectedStatuses
+      ? { id: requestID, status: { $in: expectedStatuses } }
+      : { id: requestID };
     const result = await this.collections.requests.updateOne(filter, {
       $push: { updates: { $each: entries } },
       ...(set ? { $set: set } : {}),
@@ -396,19 +198,22 @@ export class RequestRepo {
   async appendComment(
     userID: UserID,
     requestID: RequestID,
-    payload: { text: string; proof?: Proof },
+    payload: { text: string; proof?: ProofUpload },
   ): Promise<CommentEntry> {
-    const entry = makeComment(
-      {
-        id: new ObjectId().toHexString(),
-        from: userID,
-        timestamp: toISO(DateTime.now()),
-      },
-      payload.text,
-      payload.proof,
-    );
-    await this.append(requestID, [entry], null, "append a comment");
-    return entry;
+    const { proof, ids } = await this.storeProof(payload.proof);
+    return this.commitProofs(ids, async () => {
+      const entry = makeComment(
+        {
+          id: new ObjectId().toHexString(),
+          from: userID,
+          timestamp: toISO(DateTime.now()),
+        },
+        payload.text,
+        proof,
+      );
+      await this.append(requestID, [entry], null, "append a comment");
+      return entry;
+    });
   }
 
   /**
@@ -423,27 +228,129 @@ export class RequestRepo {
     status: RequestStatus,
     expectedStatuses: RequestStatus[],
     op: string,
-    remark?: { text: string; proof?: Proof },
+    remark?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
-    const timestamp = toISO(DateTime.now());
-    const entries: ThreadEntry[] = [];
-    if (remark) {
-      entries.push(
-        makeComment(
-          { id: new ObjectId().toHexString(), from: userID, timestamp },
-          remark.text,
-          remark.proof,
-        ),
-      );
-    }
-    entries.push({
-      id: new ObjectId().toHexString(),
-      from: userID,
-      timestamp,
-      kind: "status",
-      status,
+    const remarkProof = remark
+      ? await this.storeProof(remark.proof)
+      : undefined;
+    return this.commitProofs(remarkProof?.ids ?? [], async () => {
+      const timestamp = toISO(DateTime.now());
+      const entries: ThreadEntry[] = [];
+      if (remark) {
+        entries.push(
+          makeComment(
+            { id: new ObjectId().toHexString(), from: userID, timestamp },
+            remark.text,
+            remarkProof?.proof,
+          ),
+        );
+      }
+      entries.push({
+        id: new ObjectId().toHexString(),
+        from: userID,
+        timestamp,
+        kind: "status",
+        status,
+      });
+      await this.append(requestID, entries, expectedStatuses, op, { status });
+      return entries;
     });
-    await this.append(requestID, entries, expectedStatuses, op, { status });
-    return entries;
+  }
+
+  // ── Proof (GridFS) ───────────────────────────────────────────────────────
+
+  /**
+   * Uploads each supplied proof file to GridFS, returning the stored
+   * references (`fileId`) plus the uploaded ObjectIds for rollback. The
+   * persisted `size` and `hash` are derived from the decoded bytes rather than
+   * the client-supplied values, so the per-file limit is enforced on the
+   * actual content. If an upload fails partway, any already-uploaded files are
+   * deleted here; the caller must clean up if the subsequent document write
+   * fails (see {@link commitProofs}).
+   */
+  private async storeProof(
+    proof?: ProofUpload,
+  ): Promise<{ proof: Proof | undefined; ids: ObjectId[] }> {
+    if (!proof?.length) return { proof: undefined, ids: [] };
+    const stored: ProofFile[] = [];
+    const ids: ObjectId[] = [];
+    try {
+      for (const file of proof) {
+        const bytes = Buffer.from(file.content, "base64");
+        if (bytes.length > MAX_PROOF_SIZE) {
+          throw new Error(
+            `Proof "${file.name}" exceeds the ${MAX_PROOF_SIZE}-byte limit`,
+          );
+        }
+        const id = await this.uploadProofBytes(file.name, bytes);
+        ids.push(id);
+        stored.push({
+          name: file.name,
+          size: bytes.length,
+          hash: crypto.createHash("sha256").update(bytes).digest("hex"),
+          fileId: id.toHexString(),
+        });
+      }
+    } catch (e) {
+      // Best-effort: delete any files uploaded before the failure. A rejection
+      // is expected if the upload itself errored, so swallow it.
+      await Promise.all(
+        ids.map((id) => this.collections.proofs.delete(id).catch(() => {})),
+      );
+      throw e;
+    }
+    return { proof: stored, ids };
+  }
+
+  /**
+   * Runs a document write, deleting the given proof files from GridFS if the
+   * write throws. GridFS uploads do not participate in the Mongo transaction
+   * (no session is threaded into `openUploadStream`), so this compensating
+   * delete is the only way to avoid orphaned bytes on a failed create/append.
+   */
+  private async commitProofs<T>(
+    ids: ObjectId[],
+    write: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await write();
+    } catch (e) {
+      // Best-effort: a rejection is expected if the upload errored, so swallow it.
+      await Promise.all(
+        ids.map((id) => this.collections.proofs.delete(id).catch(() => {})),
+      );
+      throw e;
+    }
+  }
+
+  /** Streams a buffer into GridFS, resolving with the stored file id. */
+  private uploadProofBytes(name: string, bytes: Buffer): Promise<ObjectId> {
+    const { promise, resolve, reject } = Promise.withResolvers<ObjectId>();
+    const upload = this.collections.proofs.openUploadStream(name);
+    upload.once("error", reject);
+    upload.once("finish", () => resolve(upload.id as unknown as ObjectId));
+    upload.end(bytes);
+    return promise;
+  }
+
+  /** Reads the bytes of a stored proof file, returned as base64. */
+  async readProof(fileId: string): Promise<string> {
+    const stream = this.collections.proofs.openDownloadStream(
+      new ObjectId(fileId),
+    );
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk as Buffer);
+    }
+    return Buffer.concat(chunks).toString("base64");
+  }
+
+  /** Finds the request whose thread carries the given proof file, if any. */
+  async findRequestByProofFileId(fileId: string): Promise<Request | null> {
+    const doc = await this.collections.requests.findOne(
+      { "updates.proof.fileId": fileId },
+      { projection: { _id: 0 } },
+    );
+    return doc as Request | null;
   }
 }

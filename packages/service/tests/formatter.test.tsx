@@ -38,7 +38,8 @@ test("request summaries do not claim opening proofs are email attachments", () =
           {
             name: "proof.txt",
             size: 2,
-            content: Buffer.from("hi").toString("base64"),
+            hash: "0".repeat(64),
+            fileId: "proof-file-1",
           },
         ],
       },

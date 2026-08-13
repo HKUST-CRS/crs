@@ -2,9 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   ProofFile,
+  ProofFileUpload,
   Request,
   RequestStatus,
   ThreadEntry,
@@ -219,7 +220,7 @@ function ThreadEntryView({
   const s = STATUS_STYLE[entry.status];
   if (superseded) {
     return (
-      <div className="flex flex-wrap items-center gap-2 text-sm opacity-60">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="rounded bg-zinc-100 px-2 py-0.5 font-medium text-zinc-500 line-through dark:bg-zinc-800 dark:text-zinc-400">
           {s.label}
         </span>
@@ -242,12 +243,26 @@ function ThreadEntryView({
   );
 }
 function ProofList({ proof }: { proof: ProofFile[] }) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
   // Attachments carry no stable id, so assign a uuid per file (memoized on the
   // list) and key on it — filenames can repeat across uploads.
   const files = useMemo(
     () => proof.map((file) => ({ file, key: crypto.randomUUID() })),
     [proof],
   );
+  // The bytes live in GridFS, not on the entry, so fetch on click then trigger
+  // the browser download.
+  const download = async (file: ProofFile) => {
+    try {
+      const { content } = await queryClient.fetchQuery(
+        trpc.request.proofContent.queryOptions({ fileId: file.fileId }),
+      );
+      downloadBase64File(content, file.name);
+    } catch (e) {
+      toast.error(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   return (
     <ul className="mt-2 flex flex-col gap-1">
       {files.map(({ file, key }) => (
@@ -255,7 +270,7 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
           <button
             type="button"
             className="wrap-anywhere max-w-full cursor-pointer text-left text-sm underline"
-            onClick={() => downloadBase64File(file.content, file.name)}
+            onClick={() => void download(file)}
           >
             {file.name}
           </button>
@@ -268,7 +283,7 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
 // ── Composer ────────────────────────────────────────────────────────────────
 
 const MAX_PROOF_FILES = 4;
-const MAX_PROOF_FILE_SIZE = 2 * 1024 * 1024; // 2 MiB — matches the backend Proof schema
+const MAX_PROOF_FILE_SIZE = 4 * 1024 * 1024; // 4 MiB — matches the backend Proof schema
 
 type ComposerProps = {
   request: Request;
@@ -295,7 +310,7 @@ function Composer({
   const cancelM = useMutation(trpc.request.cancel.mutationOptions());
 
   const [text, setText] = useState("");
-  const [proof, setProof] = useState<ProofFile[] | undefined>(undefined);
+  const [proof, setProof] = useState<ProofFileUpload[] | undefined>(undefined);
   const [proofKey, setProofKey] = useState(0);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
@@ -306,6 +321,11 @@ function Composer({
     rejectM.isPending ||
     appealM.isPending ||
     cancelM.isPending;
+  const hasProof = !!proof?.length;
+  // A remark is required to attach proof (see StatusActionInput), so block the
+  // status actions until text is added instead of letting the server reject.
+  const proofNeedsText = hasProof && !hasText;
+  const selectionToken = useRef(0);
 
   // After a thread action lands, invalidate the request query so the thread
   // refreshes in place. The mutations return no data, so the UI depends on this
@@ -330,26 +350,32 @@ function Composer({
 
   const onFiles = async (files: FileList | null) => {
     if (!files) return;
+    // Token guards the async conversion: a newer selection invalidates an
+    // in-flight one so out-of-order resolution can't overwrite the latest pick.
+    const token = ++selectionToken.current;
     const fileArray = [...files];
-    if (fileArray.length > MAX_PROOF_FILES) {
-      toast.error(`At most ${MAX_PROOF_FILES} files are allowed.`);
+    const tooMany = fileArray.length > MAX_PROOF_FILES;
+    const oversized = fileArray.find((f) => f.size > MAX_PROOF_FILE_SIZE);
+    if (tooMany || oversized) {
+      // Clear the previously accepted proof and reset the input on failure, so
+      // the displayed selection never diverges from what will be submitted.
+      setProof(undefined);
+      setProofKey((k) => k + 1);
+      toast.error(
+        tooMany
+          ? `At most ${MAX_PROOF_FILES} files are allowed.`
+          : `"${oversized?.name}" exceeds the 4 MiB limit.`,
+      );
       return;
     }
-    for (const f of fileArray) {
-      if (f.size > MAX_PROOF_FILE_SIZE) {
-        toast.error(`"${f.name}" exceeds the 2 MiB limit.`);
-        return;
-      }
-    }
-    setProof(
-      await Promise.all(
-        fileArray.map(async (f) => ({
-          name: f.name,
-          size: f.size,
-          content: await readFileAsBase64(f),
-        })),
-      ),
+    const converted = await Promise.all(
+      fileArray.map(async (f) => ({
+        name: f.name,
+        size: f.size,
+        content: await readFileAsBase64(f),
+      })),
     );
+    if (token === selectionToken.current) setProof(converted);
   };
 
   const run = async (
@@ -382,6 +408,7 @@ function Composer({
           id="composer-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          disabled={pending}
         />
         {canDecide ? (
           <FieldDescription>
@@ -403,10 +430,11 @@ function Composer({
           multiple
           accept="image/*,application/pdf,text/plain"
           onChange={(e) => void onFiles(e.target.files)}
+          disabled={pending}
         />
         <FieldDescription>
           Please provide up to four supporting documents for your request. The
-          maximum file size is 2 MiB each.
+          maximum file size is 4 MiB each.
         </FieldDescription>
       </Field>
       <div className="flex flex-wrap justify-end gap-2">
@@ -414,7 +442,7 @@ function Composer({
           <Button
             size="sm"
             variant="secondary"
-            disabled={pending}
+            disabled={pending || proofNeedsText}
             className="hover:border-destructive hover:text-destructive"
             onClick={() => setConfirmCancel(true)}
           >
@@ -425,7 +453,7 @@ function Composer({
           <>
             <Button
               size="sm"
-              disabled={pending}
+              disabled={pending || proofNeedsText}
               className="text-green-700 dark:text-green-400"
               variant="outline"
               onClick={() =>
@@ -447,7 +475,7 @@ function Composer({
             </Button>
             <Button
               size="sm"
-              disabled={pending}
+              disabled={pending || proofNeedsText}
               className="text-red-700 dark:text-red-400"
               variant="outline"
               onClick={() =>
@@ -522,7 +550,7 @@ function Composer({
             <AlertDialogCancel>Keep Request</AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={pending}
+              disabled={pending || proofNeedsText}
               onClick={() => {
                 setConfirmCancel(false);
                 void run(

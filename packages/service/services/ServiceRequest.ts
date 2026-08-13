@@ -1,6 +1,6 @@
 import type {
   CommentEntry,
-  Proof,
+  ProofUpload,
   Request,
   RequestHead,
   RequestID,
@@ -11,6 +11,7 @@ import type {
   UserID,
 } from "../models";
 import type { Repos } from "../repos";
+import { ProofNotFoundError } from "../repos/error";
 import { PermissionError } from "./error";
 import { assertClassRole } from "./permission";
 
@@ -172,7 +173,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async addComment(
     this: RequestService<UserID>,
     requestID: RequestID,
-    payload: { text: string; proof?: Proof },
+    payload: { text: string; proof?: ProofUpload },
   ): Promise<CommentEntry> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -198,7 +199,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async approve(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: Proof },
+    remark?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     return this.decide(requestID, "approved", remark);
   }
@@ -209,7 +210,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async reject(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: Proof },
+    remark?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     return this.decide(requestID, "rejected", remark);
   }
@@ -218,7 +219,7 @@ export class RequestService<TUser extends UserID | null = null> {
     this: RequestService<UserID>,
     requestID: RequestID,
     status: "approved" | "rejected",
-    remark?: { text: string; proof?: Proof },
+    remark?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -249,7 +250,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async cancel(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: Proof },
+    remark?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -281,7 +282,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async appeal(
     this: RequestService<UserID>,
     requestID: RequestID,
-    payload: { text: string; proof?: Proof },
+    payload: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -300,5 +301,31 @@ export class RequestService<TUser extends UserID | null = null> {
       "appeal",
       payload,
     );
+  }
+
+  /**
+   * Reads the bytes of a stored proof file. Only a participant of the request
+   * that owns the file (the requester or an instructor/observer in the class)
+   * may download it; the file must belong to a visible request's thread.
+   *
+   * @returns The file content as base64.
+   */
+  async readProof(
+    this: RequestService<UserID>,
+    fileId: string,
+  ): Promise<{ content: string }> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.findRequestByProofFileId(fileId);
+    if (!request) throw new ProofNotFoundError(fileId);
+    if (this.user !== request.from) {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor", "observer"],
+        `downloading proof ${fileId}`,
+      );
+    }
+    const content = await this.repos.request.readProof(fileId);
+    return { content };
   }
 }

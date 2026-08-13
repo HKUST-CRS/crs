@@ -1,5 +1,10 @@
 import * as dotenv from "dotenv";
-import { type ClientSession, type Collection, MongoClient } from "mongodb";
+import {
+  type ClientSession,
+  type Collection,
+  GridFSBucket,
+  MongoClient,
+} from "mongodb";
 import type { Course, Request, User } from "../models";
 
 export interface Collections {
@@ -9,6 +14,8 @@ export interface Collections {
   users: Collection<User>;
   courses: Collection<Course>;
   requests: Collection<Request>;
+  /** GridFS bucket storing the bytes of uploaded supporting documents. */
+  proofs: GridFSBucket;
 }
 
 async function createIndexes(collections: Collections): Promise<void> {
@@ -44,6 +51,7 @@ export class DbConn {
       users: db.collection<User>("users"),
       courses: db.collection<Course>("courses"),
       requests: db.collection<Request>("requests"),
+      proofs: new GridFSBucket(db, { bucketName: "proofs" }),
     };
     await createIndexes(this.collections);
   }

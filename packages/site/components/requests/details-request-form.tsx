@@ -95,7 +95,7 @@ export function RequestFormDetails<
             </FormControl>
             <FormDescription>
               Please provide any supporting documents for your request. The
-              maximum file size is 2 MiB each.
+              maximum file size is 4 MiB each.
             </FormDescription>
             <ul className="typo-muted">
               {details?.proof &&

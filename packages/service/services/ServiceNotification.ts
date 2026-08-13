@@ -297,11 +297,13 @@ export class NotificationService {
       cc,
       subject,
       html: content,
-      attachments: attachments.map((f) => ({
-        filename: f.name,
-        content: f.content,
-        encoding: "base64",
-      })),
+      attachments: await Promise.all(
+        attachments.map(async (f) => ({
+          filename: f.name,
+          content: await this.repos.request.readProof(f.fileId),
+          encoding: "base64",
+        })),
+      ),
     });
   }
 }
