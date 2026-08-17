@@ -16,6 +16,9 @@ import { AppealAlreadyExistsError } from "../repos/error";
 import { AppealService } from "../services";
 import {
   AppealClosedError,
+  AppealClosePendingError,
+  AppealCloseRequestNotFoundError,
+  AppealCloseRequiresStudentError,
   AppealParticipantExistsError,
   AppealPermissionError,
   AssignmentNotFoundError,
@@ -118,6 +121,18 @@ describe("AppealService", () => {
     enrollment: [
       {
         role: "instructor",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "*",
+      },
+    ],
+    sudoer: false,
+  };
+  const observer: User = {
+    email: "observer1@ust.hk",
+    name: "observer1",
+    enrollment: [
+      {
+        role: "observer",
         course: { code: "COMP 1023", term: "2510" },
         section: "*",
       },
@@ -319,13 +334,55 @@ describe("AppealService", () => {
       expect(updated.messages[1]?.from).toBe("instructor1@ust.hk");
       expect(updated.messages[1]?.role).toBe("instructor");
 
-      // A participant with no course enrollment (the TA) gets no role badge.
+      // The TA has no course enrollment but is a TA of the assignment, so the
+      // message is stamped with the TA role.
       await appealService
         .auth(ta.email)
         .postMessage(appealID, { content: "Let me check the rubric." });
       const final = await appealService.auth(student.email).getAppeal(appealID);
       expect(final.messages[2]?.from).toBe("ta1@ust.hk");
-      expect(final.messages[2]?.role).toBeUndefined();
+      expect(final.messages[2]?.role).toBe("ta");
+    });
+
+    test("stamps instructor when the appealing student's enrollment changes", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+
+      const appealID = await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+
+      // Simulate the single-account testing flow: after creating the appeal as
+      // a student, the account's enrollment is edited to instructor in the DB.
+      // Just for testing
+      await testConn.collections.users.updateOne(
+        { email: student.email },
+        {
+          $set: {
+            enrollment: [
+              {
+                role: "instructor",
+                course: { code: "COMP 1023", term: "2510" },
+                section: "*",
+              },
+            ],
+          },
+        },
+      );
+
+      await appealService
+        .auth(student.email)
+        .postMessage(appealID, { content: "Now I am the instructor" });
+
+      const appeal = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(appeal.messages[1]?.role).toBe("instructor");
     });
 
     test("throws AppealPermissionError when a non-participant posts", async () => {
@@ -378,20 +435,283 @@ describe("AppealService", () => {
     });
   });
 
-  describe("inviteParticipant", () => {
-    const observer: User = {
-      email: "observer1@ust.hk",
-      name: "observer1",
-      enrollment: [
-        {
-          role: "observer",
-          course: { code: "COMP 1023", term: "2510" },
-          section: "*",
-        },
-      ],
-      sudoer: false,
-    };
+  describe("getAppealParticipants", () => {
+    test("returns every participant with email, name, and role", async () => {
+      await insertData(testConn, {
+        users: [student, ta, lecturer, otherStudent],
+        courses: [gradedCourse()],
+      });
 
+      const appealID = await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+
+      const participants = await appealService
+        .auth(student.email)
+        .getAppealParticipants(appealID);
+      expect(participants).toEqual([
+        { email: "student1@connect.ust.hk", name: "student1", role: "student" },
+        { email: "ta1@ust.hk", name: "ta1", role: "ta" },
+        { email: "lecturer1@ust.hk", name: "lecturer1", role: "lecturer" },
+      ]);
+    });
+
+    test("resolves enrolled staff and invited observers from their course role", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer],
+        courses: [instructorCourse()],
+      });
+
+      const appealID = await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+      await appealService
+        .auth(instructor.email)
+        .inviteParticipant(appealID, observer.email);
+
+      const participants = await appealService
+        .auth(student.email)
+        .getAppealParticipants(appealID);
+      expect(participants).toHaveLength(4);
+      const rolesByEmail = new Map(participants.map((p) => [p.email, p.role]));
+      expect(rolesByEmail.get("student1@connect.ust.hk")).toBe("student");
+      expect(rolesByEmail.get("ta1@ust.hk")).toBe("ta");
+      expect(rolesByEmail.get("instructor1@ust.hk")).toBe("instructor");
+      expect(rolesByEmail.get("observer1@ust.hk")).toBe("observer");
+    });
+
+    test("throws AppealPermissionError for a non-participant", async () => {
+      await insertData(testConn, {
+        users: [student, ta, lecturer, otherStudent],
+        courses: [gradedCourse()],
+      });
+
+      const appealID = await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+
+      try {
+        await appealService
+          .auth(otherStudent.email)
+          .getAppealParticipants(appealID);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealPermissionError);
+      }
+    });
+  });
+
+  describe("closeAppeal", () => {
+    async function createAppeal(): Promise<string> {
+      return await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+    }
+
+    test("an instructor participant can request a close, which stores the result", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "Grade adjusted to 90");
+
+      const appeal = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(appeal.state).toBe("open");
+      expect(appeal.closeRequest?.result).toBe("Grade adjusted to 90");
+      expect(appeal.closeRequest?.requestedBy).toBe("instructor1@ust.hk");
+      expect(appeal.closeRequest?.requestedAt).toBeDefined();
+    });
+
+    test("throws CoursePermissionError when a student requests a close", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+
+      try {
+        await appealService
+          .auth(student.email)
+          .requestClose(appealID, "Result");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("throws AppealClosedError when requesting a close on a closed appeal", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await testConn.collections.appeals.updateOne(
+        { id: appealID },
+        { $set: { state: "closed" } },
+      );
+
+      try {
+        await appealService
+          .auth(instructor.email)
+          .requestClose(appealID, "Result");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealClosedError);
+      }
+    });
+
+    test("throws AppealClosePendingError when a close is already pending", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "First result");
+
+      try {
+        await appealService
+          .auth(instructor.email)
+          .requestClose(appealID, "Second result");
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealClosePendingError);
+      }
+    });
+
+    test("the student can agree, which closes the appeal and preserves the result", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "Grade adjusted to 90");
+
+      await appealService.auth(student.email).agreeClose(appealID);
+
+      const appeal = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(appeal.state).toBe("closed");
+      expect(appeal.closedAt).not.toBeNull();
+      expect(appeal.closeRequest?.result).toBe("Grade adjusted to 90");
+      expect(appeal.messages).toHaveLength(2);
+      expect(appeal.messages[1]?.kind).toBe("system");
+      expect(appeal.messages[1]?.content).toBe(
+        "student1 agreed to the closing request result: Grade adjusted to 90",
+      );
+    });
+
+    test("throws AppealCloseRequiresStudentError when a non-student agrees", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "Result");
+
+      try {
+        await appealService.auth(instructor.email).agreeClose(appealID);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealCloseRequiresStudentError);
+      }
+    });
+
+    test("throws AppealCloseRequestNotFoundError when agreeing with no pending request", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+
+      try {
+        await appealService.auth(student.email).agreeClose(appealID);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealCloseRequestNotFoundError);
+      }
+    });
+
+    test("the student can decline, which keeps the appeal open and clears the request", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "Grade adjusted to 90");
+
+      await appealService.auth(student.email).declineClose(appealID);
+
+      const appeal = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(appeal.state).toBe("open");
+      expect(appeal.closeRequest).toBeNull();
+      expect(appeal.messages).toHaveLength(2);
+      expect(appeal.messages[1]?.kind).toBe("system");
+      expect(appeal.messages[1]?.content).toBe(
+        "student1 declined the closing request result: Grade adjusted to 90",
+      );
+
+      // The discussion can continue after declining.
+      await appealService
+        .auth(student.email)
+        .postMessage(appealID, { content: "I disagree with the result" });
+      const updated = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(updated.messages).toHaveLength(3);
+    });
+
+    test("throws AppealClosedError when posting to a closed appeal", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppeal();
+      await appealService
+        .auth(instructor.email)
+        .requestClose(appealID, "Result");
+      await appealService.auth(student.email).agreeClose(appealID);
+
+      try {
+        await appealService
+          .auth(student.email)
+          .postMessage(appealID, { content: "Too late" });
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealClosedError);
+      }
+    });
+  });
+
+  describe("inviteParticipant", () => {
     async function createAppealAsStudent(): Promise<string> {
       return await appealService
         .auth(student.email)

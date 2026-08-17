@@ -3,6 +3,7 @@ import {
   AppealHead,
   AppealID,
   AppealInit,
+  AppealParticipant,
   MessageInit,
   UserID,
 } from "service/models";
@@ -20,6 +21,12 @@ export const routerAppeal = router({
   list: procedure.output(z.array(AppealHead)).query(({ ctx }) => {
     return services.appeal.auth(ctx.user.email).getAppealHeads();
   }),
+  getParticipants: procedure
+    .input(AppealID)
+    .output(z.array(AppealParticipant))
+    .query(({ input, ctx }) => {
+      return services.appeal.auth(ctx.user.email).getAppealParticipants(input);
+    }),
   create: procedure
     .input(
       z.object({
@@ -66,4 +73,22 @@ export const routerAppeal = router({
         .getAppeal(input.appealID);
       await services.notification.notifyAppealInvite(appeal, input.invitee);
     }),
+  requestClose: procedure
+    .input(
+      z.object({
+        appealID: AppealID,
+        result: z.string().nonempty("The appeal result cannot be empty."),
+      }),
+    )
+    .mutation(({ input, ctx }) => {
+      return services.appeal
+        .auth(ctx.user.email)
+        .requestClose(input.appealID, input.result);
+    }),
+  agreeClose: procedure.input(AppealID).mutation(({ input, ctx }) => {
+    return services.appeal.auth(ctx.user.email).agreeClose(input);
+  }),
+  declineClose: procedure.input(AppealID).mutation(({ input, ctx }) => {
+    return services.appeal.auth(ctx.user.email).declineClose(input);
+  }),
 });

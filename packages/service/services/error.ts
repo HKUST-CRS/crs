@@ -99,7 +99,7 @@ export class AppealPermissionError extends Error {
 
 export class AppealClosedError extends Error {
   constructor(appealID: AppealID) {
-    super(`Appeal ${appealID} is closed and no longer accepts invitations`);
+    super(`Appeal ${appealID} is closed`);
     this.name = "AppealClosedError";
   }
 }
@@ -108,5 +108,29 @@ export class AppealParticipantExistsError extends Error {
   constructor(appealID: AppealID, userID: UserID) {
     super(`User ${userID} is already a participant of appeal ${appealID}`);
     this.name = "AppealParticipantExistsError";
+  }
+}
+
+export class AppealClosePendingError extends Error {
+  constructor(appealID: AppealID) {
+    super(`Appeal ${appealID} already has a pending close request`);
+    this.name = "AppealClosePendingError";
+  }
+}
+
+export class AppealCloseRequestNotFoundError extends Error {
+  constructor(appealID: AppealID) {
+    super(`Appeal ${appealID} has no pending close request`);
+    this.name = "AppealCloseRequestNotFoundError";
+  }
+}
+
+export class AppealCloseRequiresStudentError extends Error {
+  constructor(userID: UserID, appealID: AppealID) {
+    super(
+      `User ${userID} is not the student of appeal ${appealID} and cannot ` +
+        "agree to or decline its close request",
+    );
+    this.name = "AppealCloseRequiresStudentError";
   }
 }

@@ -29,26 +29,36 @@ export function AppealList() {
           <button
             type="button"
             onClick={() => router.push(`/appeal/${appeal.id}`)}
-            className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-md border px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            className="flex w-full cursor-pointer flex-col gap-1 rounded-md border px-4 py-3 text-left transition-colors hover:bg-black/5 dark:hover:bg-white/5"
           >
-            <span>
-              <strong>{Courses.formatID(appeal.course)}</strong> ·{" "}
-              {appeal.assignment}
-            </span>
-            <span className="flex items-center gap-3 text-sm">
-              <span className="text-gray-500">
-                {formatDateTime(appeal.openedAt)}
+            <span className="flex items-center justify-between gap-4">
+              <span>
+                <strong>{Courses.formatID(appeal.course)}</strong> ·{" "}
+                {appeal.assignment}
               </span>
-              <span
-                className={
-                  appeal.state === "open"
-                    ? "font-medium text-green-800 dark:text-green-400"
-                    : "text-gray-500"
-                }
-              >
-                {appeal.state}
+              <span className="flex items-center gap-3 text-sm">
+                <span className="text-gray-500">
+                  {formatDateTime(appeal.openedAt)}
+                </span>
+                <span
+                  className={
+                    appeal.state === "open"
+                      ? "font-medium text-green-800 dark:text-green-400"
+                      : "text-gray-500"
+                  }
+                >
+                  {appeal.state}
+                </span>
               </span>
             </span>
+            {appeal.closeRequest && (
+              <span className="truncate text-gray-500 text-sm">
+                <span className="font-medium">
+                  {appeal.state === "closed" ? "Result" : "Proposed result"}:
+                </span>{" "}
+                {appeal.closeRequest.result}
+              </span>
+            )}
           </button>
         </li>
       ))}

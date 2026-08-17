@@ -1,6 +1,24 @@
 import { z } from "zod";
 import { CourseID } from "./course";
-import { Role, UserID } from "./user";
+import { UserID } from "./user";
+
+/**
+ * The role a participant holds in an appeal.
+ *
+ * Extends the system `Role` (student/instructor/observer/admin) with the two
+ * appeal-specific categories: `ta` (a TA of the appealed assignment, who has
+ * no distinct system role) and `lecturer` (a lecturer of the student's lecture
+ * section who holds no course enrollment).
+ */
+export const AppealRole = z.enum([
+  "admin",
+  "instructor",
+  "observer",
+  "student",
+  "ta",
+  "lecturer",
+]);
+export type AppealRole = z.infer<typeof AppealRole>;
 
 export const AppealID = z.string().meta({
   description:
@@ -32,12 +50,20 @@ export const AppealAttachmentAccept = [
 export const AppealMessage = z
   .object({
     id: AppealID,
+    kind: z
+      .enum(["system"])
+      .optional()
+      .meta({
+        description:
+          "Marks the message as a system record rather than a user post. " +
+          "Absent for regular chat messages.",
+      }),
     from: UserID,
-    role: Role.optional().meta({
+    role: AppealRole.optional().meta({
       description:
-        "The sender's role in the appeal's course at the time the message was posted. " +
-        "Stored (frozen) at post time; absent if the " +
-        "sender has no enrollment in the course.",
+        "The sender's role in the appeal at the time the message was posted. " +
+        "Stored (frozen) at post time: the appealing student, a TA of the " +
+        "assignment, or a lecturer.",
     }),
     timestamp: z.iso.datetime({ offset: true }),
     content: z
@@ -61,6 +87,7 @@ export type AppealMessage = z.infer<typeof AppealMessage>;
 
 export const MessageInit = AppealMessage.omit({
   id: true,
+  kind: true,
   from: true,
   role: true,
   timestamp: true,
@@ -96,6 +123,22 @@ export const Appeal = z
     state: z.enum(["open", "closed"]).meta({
       description: "The current state of the appeal.",
     }),
+    closeRequest: z
+      .object({
+        result: z.string().nonempty("The appeal result cannot be empty.").meta({
+          description: "The proposed resolution of the appeal.",
+        }),
+        requestedBy: UserID,
+        requestedAt: z.iso.datetime({ offset: true }),
+      })
+      .nullable()
+      .optional()
+      .meta({
+        description:
+          "A pending request to close the appeal with an agreed result. " +
+          "Absent or null when no close has been requested; retained after " +
+          "closing so the final result is preserved.",
+      }),
     messages: z.array(AppealMessage).meta({
       description: "The messages in the appeal thread.",
     }),
@@ -108,3 +151,16 @@ export type Appeal = z.infer<typeof Appeal>;
 
 export const AppealHead = Appeal.omit({ messages: true });
 export type AppealHead = z.infer<typeof AppealHead>;
+
+export const AppealParticipant = z.object({
+  email: UserID,
+  name: z.string().meta({
+    description: "The participant's display name, or their email if unknown.",
+  }),
+  role: AppealRole.meta({
+    description:
+      "The participant's role in the appeal: the appealing student, a TA " +
+      "of the assignment, or a lecturer.",
+  }),
+});
+export type AppealParticipant = z.infer<typeof AppealParticipant>;

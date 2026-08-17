@@ -3,12 +3,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
+import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   AppealAttachment,
   AppealAttachmentAccept,
   type AppealMessage,
+  type AppealRole,
   type CourseID,
   Courses,
   type Role,
@@ -38,11 +40,13 @@ const PostSchema = z.object({
 type PostSchema = z.infer<typeof PostSchema>;
 
 const ROLE_PRIORITY: Role[] = ["admin", "instructor", "observer", "student"];
-const ROLE_LABEL: Record<Role, string> = {
+const ROLE_LABEL: Record<AppealRole, string> = {
   admin: "Admin",
   instructor: "Instructor",
   observer: "Observer",
   student: "Student",
+  ta: "TA",
+  lecturer: "Lecturer",
 };
 
 const IMAGE_MIME: Record<string, string> = {
@@ -97,9 +101,14 @@ export function AppealThread({
 
   const postMessage = useMutation(trpc.appeal.post.mutationOptions());
   const invite = useMutation(trpc.appeal.invite.mutationOptions());
+  const requestClose = useMutation(trpc.appeal.requestClose.mutationOptions());
+  const agreeClose = useMutation(trpc.appeal.agreeClose.mutationOptions());
+  const declineClose = useMutation(trpc.appeal.declineClose.mutationOptions());
 
   const [inviting, setInviting] = useState(false);
   const [invitee, setInvitee] = useState("");
+  const [closing, setClosing] = useState(false);
+  const [closeResult, setCloseResult] = useState("");
 
   const form = useForm<PostSchema>({
     resolver: zodResolver(PostSchema),
@@ -109,7 +118,7 @@ export function AppealThread({
   const currentUser = currentUserQuery.data;
   const currentUserRole =
     appeal && currentUser ? resolveRole(currentUser, appeal.course) : undefined;
-  const canInvite =
+  const isStaff =
     currentUserRole === "instructor" || currentUserRole === "admin";
 
   const handleSubmit = (data: PostSchema) => {
@@ -146,6 +155,45 @@ export function AppealThread({
     });
   };
 
+  const handleRequestClose = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const promise = requestClose.mutateAsync({ appealID, result: closeResult });
+    toast.promise(promise, {
+      loading: "Requesting close...",
+      success: () => {
+        setCloseResult("");
+        setClosing(false);
+        appealQuery.refetch();
+        return "Close requested";
+      },
+      error: (err) => `Cannot request close: ${err.message}`,
+    });
+  };
+
+  const handleAgree = () => {
+    const promise = agreeClose.mutateAsync(appealID);
+    toast.promise(promise, {
+      loading: "Closing appeal...",
+      success: () => {
+        appealQuery.refetch();
+        return "Appeal closed";
+      },
+      error: (err) => `Failed to close: ${err.message}`,
+    });
+  };
+
+  const handleDecline = () => {
+    const promise = declineClose.mutateAsync(appealID);
+    toast.promise(promise, {
+      loading: "Declining close...",
+      success: () => {
+        appealQuery.refetch();
+        return "Close declined";
+      },
+      error: (err) => `Failed to decline: ${err.message}`,
+    });
+  };
+
   // Keep the latest message in view whenever the thread grows.
   const scrollRef = useRef<HTMLDivElement>(null);
   const messageCount = appeal?.messages.length ?? 0;
@@ -158,34 +206,61 @@ export function AppealThread({
 
   return (
     <div className={clsx("flex min-h-0 flex-col", className)}>
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h4 className="typo-h4">
-            {Courses.formatID(appeal.course)} · {appeal.assignment}
-          </h4>
-          <span
-            className={
-              appeal.state === "open"
-                ? "font-medium text-green-800 dark:text-green-400"
-                : "text-gray-500"
-            }
-          >
-            {appeal.state}
-          </span>
+      <header className="flex flex-col gap-2 border-b px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h4 className="typo-h4">
+              {Courses.formatID(appeal.course)} · {appeal.assignment}
+            </h4>
+            <span
+              className={
+                appeal.state === "open"
+                  ? "font-medium text-green-800 dark:text-green-400"
+                  : "text-gray-500"
+              }
+            >
+              {appeal.state}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/appeal/${appealID}/participants`}>
+                Participants
+              </Link>
+            </Button>
+            {isStaff && appeal.state === "open" && !appeal.closeRequest && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setClosing((v) => !v)}
+              >
+                Close
+              </Button>
+            )}
+            {isStaff && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setInviting((v) => !v)}
+              >
+                Invite
+              </Button>
+            )}
+          </div>
         </div>
-        {canInvite && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setInviting((v) => !v)}
-          >
-            Invite
-          </Button>
+        {appeal.closeRequest && (
+          <p className="break-words text-gray-500 text-sm">
+            <span className="font-medium">
+              {appeal.state === "closed" ? "Result" : "Proposed result"}:
+            </span>{" "}
+            {appeal.closeRequest.result}
+          </p>
         )}
       </header>
 
-      {canInvite && inviting && (
+      {isStaff && inviting && (
         <form
           onSubmit={handleInvite}
           className="flex items-center gap-2 border-b px-4 py-2"
@@ -202,104 +277,169 @@ export function AppealThread({
         </form>
       )}
 
+      {isStaff &&
+        closing &&
+        appeal.state === "open" &&
+        !appeal.closeRequest && (
+          <form
+            onSubmit={handleRequestClose}
+            className="flex items-center gap-2 border-b px-4 py-2"
+          >
+            <Textarea
+              rows={2}
+              placeholder="Appeal result..."
+              value={closeResult}
+              onChange={(e) => setCloseResult(e.target.value)}
+              className="flex-1"
+            />
+            <Button type="submit" size="sm">
+              Request close
+            </Button>
+          </form>
+        )}
+
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <ul className="flex flex-col gap-3">
           {appeal.messages.map((m) => (
             <li key={m.id}>
-              <MessageBubble
-                message={m}
-                sender={usersByEmail.get(m.from)}
-                // A message is "own" only when the sender is the current user
-                // under the role they currently hold. This lets a single
-                // account test different roles: messages posted under another
-                // role appear on the left as if from a different participant.
-                isOwn={
-                  m.from === currentUser?.email && m.role === currentUserRole
-                }
-              />
+              {m.kind === "system" ? (
+                <p className="py-1 text-center text-gray-500 text-xs">
+                  {m.content}
+                </p>
+              ) : (
+                <MessageBubble
+                  message={m}
+                  sender={usersByEmail.get(m.from)}
+                  // A message is "own" only when the sender is the current user
+                  // under the role they currently hold. This lets a single
+                  // account test different roles: messages posted under another
+                  // role appear on the left as if from a different participant.
+                  isOwn={
+                    m.from === currentUser?.email && m.role === currentUserRole
+                  }
+                />
+              )}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="border-t px-4 py-3">
-        <form
-          onSubmit={form.handleSubmit(handleSubmit)}
-          className="flex flex-col gap-2"
-        >
-          <Controller
-            name="content"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel>Message</FieldLabel>
-                <Textarea
-                  rows={2}
-                  placeholder="Write a message..."
-                  {...field}
-                />
-                <FieldError errors={[fieldState.error]} />
-              </Field>
-            )}
-          />
-          <Controller
-            name="attachments"
-            control={form.control}
-            render={({ field, fieldState }) => (
-              <Field>
-                <FieldLabel>Attachments</FieldLabel>
-                <Input
-                  type="file"
-                  multiple
-                  accept={AppealAttachmentAccept.join(",")}
-                  onChange={async (e) => {
-                    const files = e.target.files ? [...e.target.files] : [];
-                    if (files.length === 0) return;
-                    const attachments = await Promise.all(
-                      files.slice(0, 4).map(async (f) => {
-                        const content = await readFileAsBase64(f);
-                        return { name: f.name, size: f.size, content };
-                      }),
-                    );
-                    field.onChange(attachments);
-                    e.target.value = "";
-                  }}
-                />
-                {field.value && field.value.length > 0 && (
-                  <ul className="flex flex-col gap-1">
-                    {field.value.map((att, i) => (
-                      <li
-                        key={att.name + String(i)}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <span className="truncate">{att.name}</span>
-                        <span className="text-gray-500">
-                          ({(att.size / 1024 / 1024).toFixed(2)} MiB)
-                        </span>
-                        <button
-                          type="button"
-                          className="cursor-pointer text-gray-500 underline"
-                          onClick={() =>
-                            field.onChange(
-                              field.value?.filter((_, j) => j !== i),
-                            )
-                          }
+      {appeal.state === "open" && appeal.closeRequest && (
+        <div className="border-b bg-card px-4 py-3">
+          <p className="font-medium text-gray-500 text-sm">
+            {usersByEmail.get(appeal.closeRequest.requestedBy)?.name ??
+              appeal.closeRequest.requestedBy}{" "}
+            proposed an appeal result
+          </p>
+          <p className="mt-1 whitespace-pre-wrap break-words text-sm">
+            {appeal.closeRequest.result}
+          </p>
+          {currentUser?.email === appeal.student ? (
+            <div className="mt-3 flex gap-2">
+              <Button type="button" size="sm" onClick={handleAgree}>
+                Agree
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleDecline}
+              >
+                Decline
+              </Button>
+            </div>
+          ) : (
+            <p className="mt-2 text-gray-500 text-sm">
+              Waiting for student&apos;s agreement...
+            </p>
+          )}
+        </div>
+      )}
+
+      {appeal.state === "open" ? (
+        <div className="border-t px-4 py-3">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="flex flex-col gap-2"
+          >
+            <Controller
+              name="content"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel>Message</FieldLabel>
+                  <Textarea
+                    rows={2}
+                    placeholder="Write a message..."
+                    {...field}
+                  />
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
+              )}
+            />
+            <Controller
+              name="attachments"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field>
+                  <FieldLabel>Attachments</FieldLabel>
+                  <Input
+                    type="file"
+                    multiple
+                    accept={AppealAttachmentAccept.join(",")}
+                    onChange={async (e) => {
+                      const files = e.target.files ? [...e.target.files] : [];
+                      if (files.length === 0) return;
+                      const attachments = await Promise.all(
+                        files.slice(0, 4).map(async (f) => {
+                          const content = await readFileAsBase64(f);
+                          return { name: f.name, size: f.size, content };
+                        }),
+                      );
+                      field.onChange(attachments);
+                      e.target.value = "";
+                    }}
+                  />
+                  {field.value && field.value.length > 0 && (
+                    <ul className="flex flex-col gap-1">
+                      {field.value.map((att, i) => (
+                        <li
+                          key={att.name + String(i)}
+                          className="flex items-center gap-2 text-sm"
                         >
-                          remove
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <FieldError errors={[fieldState.error]} />
-              </Field>
-            )}
-          />
-          <div className="flex justify-end">
-            <Button type="submit">Send</Button>
-          </div>
-        </form>
-      </div>
+                          <span className="truncate">{att.name}</span>
+                          <span className="text-gray-500">
+                            ({(att.size / 1024 / 1024).toFixed(2)} MiB)
+                          </span>
+                          <button
+                            type="button"
+                            className="cursor-pointer text-gray-500 underline"
+                            onClick={() =>
+                              field.onChange(
+                                field.value?.filter((_, j) => j !== i),
+                              )
+                            }
+                          >
+                            remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <FieldError errors={[fieldState.error]} />
+                </Field>
+              )}
+            />
+            <div className="flex justify-end">
+              <Button type="submit">Send</Button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <p className="border-t px-4 py-3 text-center text-gray-500 text-sm">
+          This appeal is closed. No further messages can be posted.
+        </p>
+      )}
     </div>
   );
 }
