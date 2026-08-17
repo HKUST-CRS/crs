@@ -75,10 +75,15 @@ export default function StudentsView() {
           )}
         </div>
       </header>
-      <section className="mx-auto">
+      <section className="mx-auto flex justify-center gap-4">
         <Link href="/request">
           <Button className="cursor-pointer">
             <FilePlus /> New Request
+          </Button>
+        </Link>
+        <Link href="/appeal">
+          <Button variant="outline" className="cursor-pointer">
+            My Appeals
           </Button>
         </Link>
       </section>

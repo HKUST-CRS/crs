@@ -14,7 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
-import { AssignmentForm, type AssignmentFormSchema } from "./assignment-form";
+import {
+  AssignmentForm,
+  type AssignmentSubmissionSchema,
+} from "./assignment-form";
 import { type AssignmentRow, AssignmentTable } from "./assignment-table";
 
 export function AssignmentsConfig({
@@ -36,7 +39,7 @@ export function AssignmentsConfig({
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
-  const handleSave = (newAssignment: AssignmentFormSchema) => {
+  const handleSave = (newAssignment: AssignmentSubmissionSchema) => {
     const assignment = focusAssignment;
 
     const { [assignment?.code ?? ""]: _, ...assignments } = course.assignments;

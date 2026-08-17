@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
-import { SectionForm, type SectionFormSchema } from "./section-form";
+import { SectionForm, type SectionSubmissionSchema } from "./section-form";
 import { type SectionRow, SectionTable } from "./section-table";
 
 export function SectionsConfig({
@@ -34,7 +34,7 @@ export function SectionsConfig({
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
-  const handleSave = (newSection: SectionFormSchema) => {
+  const handleSave = (newSection: SectionSubmissionSchema) => {
     const section = focusSection;
 
     const { [section?.code ?? ""]: _, ...sections } = course.sections;

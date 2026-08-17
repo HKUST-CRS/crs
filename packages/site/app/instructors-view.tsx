@@ -145,14 +145,21 @@ export default function InstructorsView() {
       <section>
         <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
-          <Button
-            onClick={() => void handleExportRequests()}
-            size="sm"
-            disabled={isExporting}
-          >
-            <ArrowRightFromLine className="h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export Requests"}
-          </Button>
+          <div className="flex gap-2">
+            <Link href="/appeal">
+              <Button variant="outline" size="sm" className="cursor-pointer">
+                My Appeals
+              </Button>
+            </Link>
+            <Button
+              onClick={() => void handleExportRequests()}
+              size="sm"
+              disabled={isExporting}
+            >
+              <ArrowRightFromLine className="h-4 w-4" />
+              {isExporting ? "Exporting..." : "Export Requests"}
+            </Button>
+          </div>
         </div>
 
         {requests ? (
