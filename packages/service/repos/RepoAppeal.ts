@@ -8,6 +8,7 @@ import type {
   AppealInit,
   CourseID,
   MessageInit,
+  Role,
   UserID,
 } from "../models";
 import { toISO } from "../utils/datetime";
@@ -87,6 +88,7 @@ export class AppealRepo {
     userID: UserID,
     appealID: AppealID,
     message: MessageInit,
+    role?: Role,
   ): Promise<void> {
     await this.collections.appeals.updateOne(
       { id: appealID },
@@ -97,9 +99,25 @@ export class AppealRepo {
             id: new ObjectId().toHexString(),
             from: userID,
             timestamp: toISO(DateTime.now()),
+            // `role` is undefined for participants with no course enrollment;
+            // skip it so Mongo never stores an undefined field.
+            ...(role ? { role } : {}),
           },
         },
       },
+    );
+  }
+
+  /**
+   * Add a user to the participants of an appeal.
+   *
+   * `$addToSet` makes the operation idempotent: a user who is already a
+   * participant is left unchanged.
+   */
+  async addParticipant(appealID: AppealID, userID: UserID): Promise<void> {
+    await this.collections.appeals.updateOne(
+      { id: appealID },
+      { $addToSet: { participants: userID } },
     );
   }
 }

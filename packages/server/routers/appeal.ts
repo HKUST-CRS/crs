@@ -4,6 +4,7 @@ import {
   AppealID,
   AppealInit,
   MessageInit,
+  UserID,
 } from "service/models";
 import z from "zod";
 import { services } from "../services";
@@ -48,5 +49,21 @@ export const routerAppeal = router({
       return services.appeal
         .auth(ctx.user.email)
         .postMessage(input.appealID, input.message);
+    }),
+  invite: procedure
+    .input(
+      z.object({
+        appealID: AppealID,
+        invitee: UserID,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      await services.appeal
+        .auth(ctx.user.email)
+        .inviteParticipant(input.appealID, input.invitee);
+      const appeal = await services.appeal
+        .auth(ctx.user.email)
+        .getAppeal(input.appealID);
+      await services.notification.notifyAppealInvite(appeal, input.invitee);
     }),
 });

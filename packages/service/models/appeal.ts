@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { CourseID } from "./course";
-import { UserID } from "./user";
+import { Role, UserID } from "./user";
 
 export const AppealID = z.string().meta({
   description:
@@ -9,16 +9,49 @@ export const AppealID = z.string().meta({
 });
 export type AppealID = z.infer<typeof AppealID>;
 
+export const AppealAttachment = z
+  .object({
+    name: z.string().meta({ description: "The name of the file." }),
+    size: z
+      .number()
+      .meta({ description: "The size of the file in bytes." })
+      .max(2 * 1024 * 1024, "At most 2 MiB per file is allowed."),
+    content: z.base64().meta({
+      description: "The base64-encoded content of the file.",
+    }),
+  })
+  .meta({ description: "A file attached to an appeal message." });
+export type AppealAttachment = z.infer<typeof AppealAttachment>;
+
+export const AppealAttachmentAccept = [
+  "image/*",
+  "application/pdf",
+  "text/plain",
+];
+
 export const AppealMessage = z
   .object({
     id: AppealID,
     from: UserID,
+    role: Role.optional().meta({
+      description:
+        "The sender's role in the appeal's course at the time the message was posted. " +
+        "Stored (frozen) at post time; absent if the " +
+        "sender has no enrollment in the course.",
+    }),
     timestamp: z.iso.datetime({ offset: true }),
     content: z
       .string()
       .nonempty("The content of the appeal message cannot be empty.")
       .meta({
         description: "The content of the appeal message.",
+      }),
+    attachments: z
+      .array(AppealAttachment)
+      .max(4, "At most 4 files per message are allowed.")
+      .optional()
+      .meta({
+        description: "Optional files attached to the message.",
       }),
   })
   .meta({
@@ -29,6 +62,7 @@ export type AppealMessage = z.infer<typeof AppealMessage>;
 export const MessageInit = AppealMessage.omit({
   id: true,
   from: true,
+  role: true,
   timestamp: true,
 });
 export type MessageInit = z.infer<typeof MessageInit>;

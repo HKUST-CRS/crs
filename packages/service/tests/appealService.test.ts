@@ -15,9 +15,12 @@ import { createRepos } from "../repos";
 import { AppealAlreadyExistsError } from "../repos/error";
 import { AppealService } from "../services";
 import {
+  AppealClosedError,
+  AppealParticipantExistsError,
   AppealPermissionError,
   AssignmentNotFoundError,
   AssignmentNotGradedError,
+  CoursePermissionError,
 } from "../services/error";
 import { clearData, insertData } from "./tests";
 
@@ -109,6 +112,36 @@ describe("AppealService", () => {
     ],
     sudoer: false,
   };
+  const instructor: User = {
+    email: "instructor1@ust.hk",
+    name: "instructor1",
+    enrollment: [
+      {
+        role: "instructor",
+        course: { code: "COMP 1023", term: "2510" },
+        section: "*",
+      },
+    ],
+    sudoer: false,
+  };
+
+  /**
+   * A course whose lecture section is taught by `instructor`, so the
+   * instructor is a participant of any appeal opened for it.
+   */
+  const instructorCourse = (): Course => {
+    return {
+      ...gradedCourse(),
+      sections: {
+        L1: {
+          schedule: [],
+          type: "Lecture",
+          lecturers: ["instructor1@ust.hk"],
+        },
+        T1: { schedule: [] },
+      },
+    };
+  };
 
   describe("createAppeal", () => {
     test("creates an appeal with frozen participants and the opening message", async () => {
@@ -136,6 +169,7 @@ describe("AppealService", () => {
       expect(appeal.closedAt).toBeNull();
       expect(appeal.messages).toHaveLength(1);
       expect(appeal.messages[0]?.content).toBe("I think my grade is wrong");
+      expect(appeal.messages[0]?.role).toBe("student");
     });
 
     test("throws AssignmentNotFoundError when the assignment does not exist", async () => {
@@ -256,6 +290,44 @@ describe("AppealService", () => {
       expect(appeal.messages[1]?.from).toBe("ta1@ust.hk");
     });
 
+    test("stamps the sender's role in the course at post time", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor],
+        courses: [instructorCourse()],
+      });
+
+      const appealID = await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+
+      // The opening message is posted by the student, so it is stamped "student".
+      const created = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(created.messages[0]?.role).toBe("student");
+
+      // An instructor participant's message is stamped "instructor".
+      await appealService
+        .auth(instructor.email)
+        .postMessage(appealID, { content: "I'll take a look." });
+      const updated = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(updated.messages[1]?.from).toBe("instructor1@ust.hk");
+      expect(updated.messages[1]?.role).toBe("instructor");
+
+      // A participant with no course enrollment (the TA) gets no role badge.
+      await appealService
+        .auth(ta.email)
+        .postMessage(appealID, { content: "Let me check the rubric." });
+      const final = await appealService.auth(student.email).getAppeal(appealID);
+      expect(final.messages[2]?.from).toBe("ta1@ust.hk");
+      expect(final.messages[2]?.role).toBeUndefined();
+    });
+
     test("throws AppealPermissionError when a non-participant posts", async () => {
       await insertData(testConn, {
         users: [student, ta, lecturer, otherStudent],
@@ -303,6 +375,147 @@ describe("AppealService", () => {
       const heads = await appealService.auth(student.email).getAppealHeads();
       expect(heads).toHaveLength(1);
       expect(heads[0]?.id).toBe(myAppealID);
+    });
+  });
+
+  describe("inviteParticipant", () => {
+    const observer: User = {
+      email: "observer1@ust.hk",
+      name: "observer1",
+      enrollment: [
+        {
+          role: "observer",
+          course: { code: "COMP 1023", term: "2510" },
+          section: "*",
+        },
+      ],
+      sudoer: false,
+    };
+
+    async function createAppealAsStudent(): Promise<string> {
+      return await appealService
+        .auth(student.email)
+        .createAppeal(
+          { course: { code: "COMP 1023", term: "2510" }, assignment: "A1" },
+          { content: "I think my grade is wrong" },
+        );
+    }
+
+    test("an instructor participant can invite an observer, who gains view and post access", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+
+      await appealService
+        .auth(instructor.email)
+        .inviteParticipant(appealID, observer.email);
+
+      const appeal = await appealService
+        .auth(student.email)
+        .getAppeal(appealID);
+      expect(appeal.participants).toContain(observer.email);
+
+      // The invitee can now view and post.
+      await appealService
+        .auth(observer.email)
+        .postMessage(appealID, { content: "I'll look into it." });
+      const updated = await appealService
+        .auth(observer.email)
+        .getAppeal(appealID);
+      expect(updated.messages[updated.messages.length - 1]?.content).toBe(
+        "I'll look into it.",
+      );
+    });
+
+    test("throws AppealPermissionError when a non-participant invites", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer, otherStudent],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+
+      try {
+        await appealService
+          .auth(otherStudent.email)
+          .inviteParticipant(appealID, observer.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealPermissionError);
+      }
+    });
+
+    test("throws CoursePermissionError when a student participant invites", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+
+      try {
+        await appealService
+          .auth(student.email)
+          .inviteParticipant(appealID, observer.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("throws CoursePermissionError when the invitee is not an instructor or observer", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer, otherStudent],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+
+      try {
+        await appealService
+          .auth(instructor.email)
+          .inviteParticipant(appealID, otherStudent.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoursePermissionError);
+      }
+    });
+
+    test("throws AppealParticipantExistsError when the invitee is already a participant", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+
+      try {
+        await appealService
+          .auth(instructor.email)
+          .inviteParticipant(appealID, ta.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealParticipantExistsError);
+      }
+    });
+
+    test("throws AppealClosedError when the appeal is closed", async () => {
+      await insertData(testConn, {
+        users: [student, ta, instructor, observer],
+        courses: [instructorCourse()],
+      });
+      const appealID = await createAppealAsStudent();
+      await testConn.collections.appeals.updateOne(
+        { id: appealID },
+        { $set: { state: "closed" } },
+      );
+
+      try {
+        await appealService
+          .auth(instructor.email)
+          .inviteParticipant(appealID, observer.email);
+        expect.unreachable("should have thrown an error");
+      } catch (error) {
+        expect(error).toBeInstanceOf(AppealClosedError);
+      }
     });
   });
 });

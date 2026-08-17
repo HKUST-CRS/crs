@@ -96,3 +96,17 @@ export class AppealPermissionError extends Error {
     this.name = "AppealPermissionError";
   }
 }
+
+export class AppealClosedError extends Error {
+  constructor(appealID: AppealID) {
+    super(`Appeal ${appealID} is closed and no longer accepts invitations`);
+    this.name = "AppealClosedError";
+  }
+}
+
+export class AppealParticipantExistsError extends Error {
+  constructor(appealID: AppealID, userID: UserID) {
+    super(`User ${userID} is already a participant of appeal ${appealID}`);
+    this.name = "AppealParticipantExistsError";
+  }
+}

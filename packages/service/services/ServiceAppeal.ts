@@ -4,17 +4,23 @@ import type {
   AppealID,
   AppealInit,
   Course,
+  CourseID,
   MessageInit,
+  Role,
   User,
   UserID,
 } from "../models";
 import type { Repos } from "../repos";
 import {
+  AppealClosedError,
+  AppealParticipantExistsError,
   AppealPermissionError,
   AssignmentNotFoundError,
   AssignmentNotGradedError,
 } from "./error";
 import { assertCourseRole } from "./permission";
+
+const ROLE_PRIORITY: Role[] = ["admin", "instructor", "observer", "student"];
 
 export class AppealService<TUser extends UserID | null = null> {
   public user: TUser;
@@ -66,7 +72,8 @@ export class AppealService<TUser extends UserID | null = null> {
       init,
       participants,
     );
-    await this.repos.appeal.postMessage(this.user, appealID, message);
+    const role = this.resolveRole(user, init.course);
+    await this.repos.appeal.postMessage(this.user, appealID, message, role);
     return appealID;
   }
 
@@ -113,6 +120,28 @@ export class AppealService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Resolves the role the user holds in the course, or undefined
+   * if the user has no enrollment in the course.
+   *
+   * The role is stamped on a message at post time (frozen), so a badge shows
+   * the sender's role when the message was written rather than their current
+   * role.
+   *
+   * @param user The user whose role is being resolved.
+   * @param course The course in which the role is being resolved.
+   * @returns The most senior role, or undefined if the user has no enrollment.
+   */
+  private resolveRole(user: User, course: CourseID): Role | undefined {
+    const enrollments = user.enrollment.filter(
+      (e) => e.course.code === course.code && e.course.term === course.term,
+    );
+    for (const role of ROLE_PRIORITY) {
+      if (enrollments.some((e) => e.role === role)) return role;
+    }
+    return undefined;
+  }
+
+  /**
    * Gets an appeal by its ID.
    *
    * The current user can access an appeal if they are a participant of the appeal.
@@ -150,7 +179,8 @@ export class AppealService<TUser extends UserID | null = null> {
     if (!appeal.participants.includes(user.email)) {
       throw new AppealPermissionError(this.user, appealID);
     }
-    await this.repos.appeal.postMessage(this.user, appealID, message);
+    const role = this.resolveRole(user, appeal.course);
+    await this.repos.appeal.postMessage(this.user, appealID, message, role);
   }
 
   /**
@@ -160,5 +190,48 @@ export class AppealService<TUser extends UserID | null = null> {
    */
   async getAppealHeads(this: AppealService<UserID>): Promise<AppealHead[]> {
     return await this.repos.appeal.getAppealHeadsFromUser(this.user);
+  }
+
+  /**
+   * Invites an instructor or observer of the appeal's course to join the appeal.
+   *
+   * The current user must be a participant of the appeal and hold the
+   * instructor or admin role in the appeal's course. The appeal must be open.
+   * The invitee must hold the instructor or observer role in the appeal's
+   * course, and must not already be a participant.
+   *
+   * @param appealID The ID of the appeal to invite to.
+   * @param invitee The email of the user to invite.
+   */
+  async inviteParticipant(
+    this: AppealService<UserID>,
+    appealID: AppealID,
+    invitee: UserID,
+  ): Promise<void> {
+    const inviter = await this.repos.user.requireUser(this.user);
+    const appeal = await this.repos.appeal.requireAppeal(appealID);
+    if (!appeal.participants.includes(inviter.email)) {
+      throw new AppealPermissionError(this.user, appealID);
+    }
+    assertCourseRole(
+      inviter,
+      appeal.course,
+      ["instructor", "admin"],
+      "inviting a participant to the appeal",
+    );
+    if (appeal.state !== "open") {
+      throw new AppealClosedError(appealID);
+    }
+    if (appeal.participants.includes(invitee)) {
+      throw new AppealParticipantExistsError(appealID, invitee);
+    }
+    const inviteeUser = await this.repos.user.requireUser(invitee);
+    assertCourseRole(
+      inviteeUser,
+      appeal.course,
+      ["instructor", "observer"],
+      "being invited to the appeal",
+    );
+    await this.repos.appeal.addParticipant(appealID, invitee);
   }
 }

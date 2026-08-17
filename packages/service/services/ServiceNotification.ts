@@ -11,6 +11,7 @@ import {
   type Request,
   type RequestDetails,
   type User,
+  type UserID,
 } from "../models";
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
@@ -125,6 +126,21 @@ export class NotificationService {
     );
   }
 
+  /**
+   * Notify a user that they have been invited to an appeal.
+   * @param appeal The appeal the user was invited to.
+   * @param inviteeID The email of the invited user.
+   */
+  async notifyAppealInvite(appeal: Appeal, inviteeID: UserID) {
+    const subject = `Appeal Invitation - ${Courses.formatID(appeal.course)}`;
+
+    const invitee = await this.repos.user.requireUser(inviteeID);
+
+    const content = await this.renderAppealInvite(appeal, invitee);
+
+    await this.sendEmail([inviteeID], [], subject, content, []);
+  }
+
   private async renderNewRequest(
     request: Request,
     {
@@ -202,6 +218,26 @@ export class NotificationService {
         StaffLine,
         Link,
         Message,
+      }),
+    );
+  }
+
+  private async renderAppealInvite(
+    appeal: Appeal,
+    invitee: User,
+  ): Promise<string> {
+    const InviteeLine = invitee.name || invitee.email;
+    const Link = this.urlToAppeal(appeal.id);
+
+    const templatePath = path.join(this.templateDir, "appeal_invite.mdx");
+    const templateFile = Bun.file(templatePath);
+
+    const module = await evaluate(await templateFile.text(), runtime);
+
+    return renderToStaticMarkup(
+      createElement(module.default, {
+        InviteeLine,
+        Link,
       }),
     );
   }
