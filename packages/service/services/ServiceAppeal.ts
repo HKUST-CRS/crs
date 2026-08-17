@@ -131,8 +131,8 @@ export class AppealService<TUser extends UserID | null = null> {
   /**
    * Resolves the role a user holds in an appeal.
    *
-   * Priority: a TA of the appealed assignment; 
-   * the appealing student (only if they hold no course enrollment); 
+   * Priority: a TA of the appealed assignment;
+   * the appealing student (only if they hold no course enrollment);
    * otherwise a lecturer of the student's lecture section.
    *
    * The enrollment role comes before the "appealing student" marker so a
