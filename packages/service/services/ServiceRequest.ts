@@ -51,6 +51,20 @@ function resolveAppealParticipants(
   return [...new Set([student, ...lecturers, ...tas])];
 }
 
+/**
+ * Whether the user has an admin role in the request's course. Admins may view
+ * and decide every appeal in the courses they administer, even those they are
+ * not a participant of.
+ */
+function isCourseAdmin(user: User, request: Request): boolean {
+  return user.enrollment.some(
+    (e) =>
+      e.role === "admin" &&
+      e.course.code === request.class.course.code &&
+      e.course.term === request.class.course.term,
+  );
+}
+
 export class RequestService<TUser extends UserID | null = null> {
   public user: TUser;
 
@@ -69,8 +83,8 @@ export class RequestService<TUser extends UserID | null = null> {
 
   /**
    * Checks that the user may access a request. Appeal requests (those with a
-   * participant list) are visible only to their participants; every other
-   * request uses the usual class-role rule.
+   * participant list) are visible to their participants and to admins of the
+   * request's course; every other request uses the usual class-role rule.
    */
   private assertRequestAccess(
     user: User,
@@ -79,10 +93,13 @@ export class RequestService<TUser extends UserID | null = null> {
     op: string,
   ): void {
     if (request.participants) {
-      if (!request.participants.includes(user.email)) {
-        throw new RequestParticipantError(user.email, request.id);
+      if (
+        request.participants.includes(user.email) ||
+        isCourseAdmin(user, request)
+      ) {
+        return;
       }
-      return;
+      throw new RequestParticipantError(user.email, request.id);
     }
     assertClassRole(user, request.class, roles, op);
   }
@@ -121,7 +138,8 @@ export class RequestService<TUser extends UserID | null = null> {
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no requests.
+   * Admins additionally see every appeal request in the courses they
+   * administer, even those they are not a participant of.
    *
    * @param roles The roles to fetch requests as.
    * @returns The requests visible to the user for the specified roles.
@@ -161,6 +179,16 @@ export class RequestService<TUser extends UserID | null = null> {
           continue;
         }
         push(request);
+      }
+      // Admins can see every appeal in the courses they administer, even those
+      // they are not a participant of.
+      const adminEnrollments = user.enrollment.filter(
+        (clazz) => clazz.role === "admin",
+      );
+      for (const request of await this.repos.request.getRequestsInClasses(
+        adminEnrollments,
+      )) {
+        if (request.participants) push(request);
       }
     }
     // Appeals are also visible to every participant regardless of enrollment —
@@ -324,8 +352,11 @@ export class RequestService<TUser extends UserID | null = null> {
     const request = await this.repos.request.requireRequest(requestID);
     if (request.participants) {
       // An appeal is decided by a participant who is not the appealing student
-      // — i.e. a responsible lecturer or TA.
-      if (!request.participants.includes(user.email)) {
+      // — i.e. a responsible lecturer or TA — or by an admin of the course.
+      if (
+        !request.participants.includes(user.email) &&
+        !isCourseAdmin(user, request)
+      ) {
         throw new RequestParticipantError(user.email, requestID);
       }
       if (user.email === request.from) {

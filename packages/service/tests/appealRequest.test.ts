@@ -52,7 +52,7 @@ const appealCourse: Course = {
 
 function makeUser(
   email: string,
-  role: "student" | "instructor" | "observer",
+  role: "student" | "instructor" | "observer" | "admin",
   section = "L1",
 ): User {
   return {
@@ -429,6 +429,85 @@ describe("Assignment Appeal requests", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(PermissionError);
       }
+    });
+  });
+
+  // ── admin access ─────────────────────────────────────────────────────────
+  describe("admin access", () => {
+    const admin = makeUser("admin1@ust.hk", "admin", "L1");
+    const otherCourseAdmin: User = {
+      email: "admin2@ust.hk",
+      name: "admin2",
+      enrollment: [
+        {
+          role: "admin",
+          course: { code: "OTHER 0000", term: "2510" },
+          section: "*",
+        },
+      ],
+      sudoer: false,
+    };
+
+    test("an admin of the course can get an appeal they are not a participant of", async () => {
+      await insertData(testConn, {
+        users: [student, admin],
+        courses: [appealCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeAppealInit(), makeAppealComment());
+      const r = await requestService.auth(admin.email).getRequest(id);
+      expect(r.id).toBe(id);
+    });
+
+    test("an admin of the course can comment and decide on an appeal", async () => {
+      await insertData(testConn, {
+        users: [student, admin],
+        courses: [appealCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeAppealInit(), makeAppealComment());
+      await requestService.auth(admin.email).comment(id, { text: "reviewing" });
+      await requestService.auth(admin.email).approve(id);
+      expect(
+        (await requestService.auth(student.email).getRequest(id)).status,
+      ).toBe("approved");
+    });
+
+    test("an admin sees every appeal in their course in the instructor listing", async () => {
+      await insertData(testConn, {
+        users: [student, admin],
+        courses: [appealCourse],
+      });
+      await requestService
+        .auth(student.email)
+        .createRequest(makeAppealInit(), makeAppealComment());
+      const requests = await requestService
+        .auth(admin.email)
+        .getRequestsAs(["instructor", "observer"]);
+      expect(requests).toHaveLength(1);
+      expect(requests[0]?.id).toBeTruthy();
+    });
+
+    test("an admin of another course cannot see the appeal", async () => {
+      await insertData(testConn, {
+        users: [student, otherCourseAdmin],
+        courses: [appealCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeAppealInit(), makeAppealComment());
+      try {
+        await requestService.auth(otherCourseAdmin.email).getRequest(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(RequestParticipantError);
+      }
+      const requests = await requestService
+        .auth(otherCourseAdmin.email)
+        .getRequestsAs(["instructor", "observer"]);
+      expect(requests).toHaveLength(0);
     });
   });
 });

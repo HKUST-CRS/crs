@@ -101,7 +101,18 @@ export default function RequestThread({ request }: RequestThreadProps) {
         e.role === "instructor",
     );
   const isAppeal = !!request.participants;
-  const isParticipant = !!user && !!request.participants?.includes(user.email);
+  // "Participant" here includes course admins, who can view and decide every
+  // appeal in the courses they administer even if they are not a participant.
+  const isAdminInCourse =
+    !!user &&
+    user.enrollment.some(
+      (e) =>
+        e.role === "admin" &&
+        e.course.code === request.class.course.code &&
+        e.course.term === request.class.course.term,
+    );
+  const isParticipant =
+    (!!user && !!request.participants?.includes(user.email)) || isAdminInCourse;
   const status = request.status;
   // The latest status-change entry is the current decision; every earlier
   // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
@@ -211,7 +222,7 @@ function AppealTAList({ request }: { request: Request }) {
   if (!course || request.type !== "Assignment Appeal") return null;
   return (
     <section className="flex flex-col gap-2">
-      <h4 className="typo-small">Teaching Assistants</h4>
+      <h4 className="typo-small">TA in charge</h4>
       {tas.length === 0 ? (
         <p className="typo-muted text-sm">
           No teaching assistants are assigned to this assignment.
