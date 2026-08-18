@@ -36,6 +36,13 @@ const DateFormatter = "LLL dd, yyyy";
  */
 const TimeFormatter = "HH:mm";
 
+/**
+ * The month formatter used across the site.
+ *
+ * It is designed to be human-readable and clear so that users won't confuse the month.
+ */
+const MonthFormatter = "MMM";
+
 type DateTimeInput = string | DateTime;
 
 export const fromISO = (value: string): DateTime => {
@@ -56,6 +63,14 @@ export const formatDate = (value: DateTimeInput) =>
 
 export const formatTime = (value: DateTimeInput) =>
   parse(value).toFormat(TimeFormatter);
+
+export const formatMonth = (value: DateTimeInput | Date) =>
+  (value instanceof Date
+    ? DateTime.fromJSDate(value)
+        .setZone("Asia/Hong_Kong", { keepLocalTime: true })
+        .setLocale("en-HK")
+    : parse(value)
+  ).toFormat(MonthFormatter);
 
 export const formatDateTime = (value: DateTimeInput) =>
   parse(value).toFormat(DateTimeFormatter);
