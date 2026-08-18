@@ -52,9 +52,9 @@ function resolveAppealParticipants(
 }
 
 /**
- * Whether the user has an admin role in the request's course. Admins may view
- * and decide every appeal in the courses they administer, even those they are
- * not a participant of.
+ * For testing purpose. Whether the user has an admin role in the request's course. 
+ * Admins may view and decide every appeal in the courses they administer, 
+ * even those they are not a participant of.
  */
 function isCourseAdmin(user: User, request: Request): boolean {
   return user.enrollment.some(
@@ -359,7 +359,9 @@ export class RequestService<TUser extends UserID | null = null> {
       ) {
         throw new RequestParticipantError(user.email, requestID);
       }
-      if (user.email === request.from) {
+      // The appealing student cannot decide their own appeal — unless they are
+      // an admin of the course, who may decide any appeal in it.
+      if (user.email === request.from && !isCourseAdmin(user, request)) {
         throw new PermissionError(
           this.user,
           [],

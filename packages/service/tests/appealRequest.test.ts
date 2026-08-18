@@ -475,6 +475,38 @@ describe("Assignment Appeal requests", () => {
       ).toBe("approved");
     });
 
+    test("an admin who filed the appeal can decide it", async () => {
+      const adminStudent: User = {
+        email: "adminstudent@ust.hk",
+        name: "adminstudent",
+        enrollment: [
+          {
+            role: "admin",
+            course: { code: appealCourse.code, term: appealCourse.term },
+            section: "L1",
+          },
+          {
+            role: "student",
+            course: { code: appealCourse.code, term: appealCourse.term },
+            section: "L1",
+          },
+        ],
+        sudoer: false,
+      };
+      await insertData(testConn, {
+        users: [adminStudent],
+        courses: [appealCourse],
+      });
+      const id = await requestService
+        .auth(adminStudent.email)
+        .createRequest(makeAppealInit(), makeAppealComment());
+      // The requester is also an admin, so they may decide their own appeal.
+      await requestService.auth(adminStudent.email).approve(id);
+      expect(
+        (await requestService.auth(adminStudent.email).getRequest(id)).status,
+      ).toBe("approved");
+    });
+
     test("an admin sees every appeal in their course in the instructor listing", async () => {
       await insertData(testConn, {
         users: [student, admin],

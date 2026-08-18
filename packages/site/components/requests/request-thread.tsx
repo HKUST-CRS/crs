@@ -127,7 +127,9 @@ export default function RequestThread({ request }: RequestThreadProps) {
   const canComment = isAppeal ? isParticipant : isRequester || isInstructor;
   const canDecide =
     status !== "cancelled" &&
-    (isAppeal ? isParticipant && !isRequester : isInstructor);
+    (isAppeal
+      ? isParticipant && (!isRequester || isAdminInCourse)
+      : isInstructor);
   const canCancel = isRequester && status !== "cancelled";
   const canAppeal =
     !isAppeal &&
