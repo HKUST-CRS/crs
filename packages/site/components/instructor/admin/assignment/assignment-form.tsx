@@ -134,8 +134,7 @@ export function AssignmentForm({
                     endMonth={new Date(2030, 11)}
                     className="rounded-lg border shadow-sm"
                     formatters={{
-                      formatMonthDropdown: (date) =>
-                        formatMonth(date),
+                      formatMonthDropdown: (date) => formatMonth(date),
                     }}
                   />
                 </PopoverContent>
@@ -218,8 +217,7 @@ export function AssignmentForm({
                     endMonth={new Date(2030, 11)}
                     className="rounded-lg border shadow-sm"
                     formatters={{
-                      formatMonthDropdown: (date) =>
-                        formatMonth(date),
+                      formatMonthDropdown: (date) => formatMonth(date),
                     }}
                   />
                 )}
