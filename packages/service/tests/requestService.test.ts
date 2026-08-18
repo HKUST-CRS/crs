@@ -125,7 +125,12 @@ async function expectStoredProof(
 }
 
 // A bare legacy body (pre-thread: no status/updates, reason+proof in details).
-function legacyBody(id: string, from: string, response: unknown) {
+function legacyBody(
+  id: string,
+  from: string,
+  response: unknown,
+  proof: unknown = [],
+) {
   return {
     id,
     from,
@@ -140,7 +145,7 @@ function legacyBody(id: string, from: string, response: unknown) {
       toSection: "L2",
       toDate: "2025-11-26",
     },
-    details: { reason: "legacy reason", proof: [] },
+    details: { reason: "legacy reason", proof },
     timestamp: "2025-01-01T00:00:00+08:00",
     response,
   } as unknown as Request;
@@ -1066,6 +1071,70 @@ describe("RequestService", () => {
       ).rejects.toThrow(StatusConflictError);
       const orphaned = await testConn.collections.proofs.find().toArray();
       expect(orphaned).toHaveLength(0);
+    });
+
+    test("migrates a pre-thread doc's inline proof content to GridFS", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      await insertData(testConn, {
+        requests: [
+          legacyBody("l-proof", student.email, null, [
+            {
+              name: "old.txt",
+              size: 2,
+              content: Buffer.from("hi").toString("base64"),
+            },
+          ]),
+        ],
+      });
+      await migrateRequests(testConn.collections);
+      const r = await requestService.auth(student.email).getRequest("l-proof");
+      const opening = r.updates[0];
+      if (opening?.kind === "comment") {
+        await expectStoredProof(
+          opening.proof,
+          [
+            {
+              name: "old.txt",
+              size: 2,
+              content: Buffer.from("hi").toString("base64"),
+            },
+          ],
+          requestService.auth(student.email),
+        );
+      }
+    });
+
+    test("sweeps orphaned proof files an interrupted run left behind", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit("L1", sampleProof));
+      // Simulate the crash window: bytes in the bucket that no document
+      // references (an upload whose document write never happened).
+      const { promise, resolve, reject } = Promise.withResolvers<void>();
+      const upload = testConn.collections.proofs.openUploadStream("orphan.txt");
+      upload.once("error", reject);
+      upload.once("finish", resolve);
+      upload.end(Buffer.from("junk"));
+      await promise;
+
+      const report = await migrateRequests(testConn.collections);
+      expect(report.orphansRemoved).toBe(1);
+
+      const files = await testConn.collections.proofs.find().toArray();
+      expect(files).toHaveLength(1);
+      const r = await requestService.auth(student.email).getRequest(id);
+      const opening = r.updates[0];
+      if (opening?.kind === "comment") {
+        const fileId = opening.proof?.[0]?.fileId;
+        if (!fileId) throw new Error("opening proof missing a fileId");
+        const { content } = await requestService
+          .auth(student.email)
+          .readProof(fileId);
+        expect(content).toBe(Buffer.from("hi").toString("base64"));
+      }
     });
   });
 });

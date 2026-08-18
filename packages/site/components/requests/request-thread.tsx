@@ -368,14 +368,24 @@ function Composer({
       );
       return;
     }
-    const converted = await Promise.all(
-      fileArray.map(async (f) => ({
-        name: f.name,
-        size: f.size,
-        content: await readFileAsBase64(f),
-      })),
-    );
-    if (token === selectionToken.current) setProof(converted);
+    try {
+      const converted = await Promise.all(
+        fileArray.map(async (f) => ({
+          name: f.name,
+          size: f.size,
+          content: await readFileAsBase64(f),
+        })),
+      );
+      if (token === selectionToken.current) setProof(converted);
+    } catch (e) {
+      // A failed read must clear the previous selection too, or the input
+      // would show the new files while the old proof would be submitted.
+      if (token === selectionToken.current) {
+        setProof(undefined);
+        setProofKey((k) => k + 1);
+        toast.error(`Failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
   };
 
   const run = async (

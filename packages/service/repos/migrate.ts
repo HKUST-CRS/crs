@@ -246,12 +246,14 @@ function hasInlineProof(updates: NormalizedEntry[] | RawEntry[]): boolean {
 export interface MigrationReport {
   scanned: number;
   migrated: number;
+  orphansRemoved: number;
 }
 
 /**
  * Migrates all request documents to the thread schema and moves inline proof
  * bytes into GridFS. Idempotent: documents already in the new shape with
- * `fileId` proof references are left untouched.
+ * `fileId` proof references are left untouched, and any orphaned GridFS bytes
+ * (e.g. from an interrupted earlier run) are swept.
  */
 export async function migrateRequests(
   collections: Collections,
@@ -260,6 +262,7 @@ export async function migrateRequests(
     .find({})
     .toArray()) as unknown as RawDoc[];
   let migrated = 0;
+  const referenced = new Set<string>();
   for (const doc of docs) {
     const needsShape = hasLegacyShape(doc);
     const normalized = needsShape
@@ -269,18 +272,35 @@ export async function migrateRequests(
         >)
       : doc;
     const needsProof = hasInlineProof(normalized.updates ?? []);
-    if (!needsShape && !needsProof) continue;
     if (needsProof) {
       await convertProofsToGridFS(
         (normalized.updates ?? []) as NormalizedEntry[],
         collections.proofs,
       );
     }
-    await collections.requests.replaceOne(
-      { id: doc.id },
-      normalized as unknown as WithoutId<Request>,
-    );
-    migrated++;
+    if (needsShape || needsProof) {
+      await collections.requests.replaceOne(
+        { id: doc.id },
+        normalized as unknown as WithoutId<Request>,
+      );
+      migrated++;
+    }
+    for (const entry of normalized.updates ?? []) {
+      if (entry.kind !== "comment" || !entry.proof) continue;
+      for (const file of entry.proof) {
+        if (file.fileId) referenced.add(file.fileId);
+      }
+    }
   }
-  return { scanned: docs.length, migrated };
+  // A crash between a GridFS upload and its document write leaves orphaned
+  // bytes (and a re-run would upload duplicates), so delete any file that no
+  // document references. Run with the old code stopped so nothing is
+  // mid-upload while this sweeps.
+  let orphansRemoved = 0;
+  for await (const file of collections.proofs.find()) {
+    if (referenced.has(file._id.toHexString())) continue;
+    await collections.proofs.delete(file._id).catch(() => {});
+    orphansRemoved++;
+  }
+  return { scanned: docs.length, migrated, orphansRemoved };
 }
