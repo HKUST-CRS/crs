@@ -205,6 +205,10 @@ function AppealTAList({ request }: { request: Request }) {
       enabled: tas.length > 0,
     }),
   ).data;
+  // Only render once the course has loaded. A viewer who cannot load the
+  // course (e.g. a TA with no course enrollment) gets no section at all rather
+  // than a misleading "no teaching assistants assigned" message.
+  if (!course || request.type !== "Assignment Appeal") return null;
   return (
     <section className="flex flex-col gap-2">
       <h4 className="typo-small">Teaching Assistants</h4>
