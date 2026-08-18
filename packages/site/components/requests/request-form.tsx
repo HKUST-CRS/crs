@@ -18,6 +18,10 @@ import {
   AbsentFromSectionRequestForm,
 } from "./request-form-absent-from-section";
 import {
+  AssignmentAppealFormSchema,
+  AssignmentAppealRequestForm,
+} from "./request-form-assignment-appeal";
+import {
   DeadlineExtensionFormSchema,
   DeadlineExtensionRequestForm,
 } from "./request-form-deadline-extension";
@@ -37,6 +41,7 @@ const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
   AbsentFromSectionFormSchema,
   DeadlineExtensionFormSchema,
+  AssignmentAppealFormSchema,
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
 
@@ -80,6 +85,12 @@ export default function RequestForm(props: RequestFormProps) {
               metadata: meta.meta,
             };
           case "Deadline Extension":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
+          case "Assignment Appeal":
             return {
               class: base.class,
               type: meta.type,
@@ -164,6 +175,27 @@ export default function RequestForm(props: RequestFormProps) {
               : undefined;
           return (
             <DeadlineExtensionRequestForm
+              base={base}
+              default={defMeta ?? defProps}
+              viewonly={viewonly}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
+            />
+          );
+        }
+        case "Assignment Appeal": {
+          const defMeta = meta?.type === "Assignment Appeal" ? meta : undefined;
+          const defProps =
+            props.default?.type === "Assignment Appeal"
+              ? {
+                  type: base.type,
+                  meta: props.default?.metadata,
+                }
+              : undefined;
+          return (
+            <AssignmentAppealRequestForm
               base={base}
               default={defMeta ?? defProps}
               viewonly={viewonly}

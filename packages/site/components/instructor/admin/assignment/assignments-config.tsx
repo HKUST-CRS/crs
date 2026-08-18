@@ -14,7 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
-import { AssignmentForm, type AssignmentFormSchema } from "./assignment-form";
+import {
+  AssignmentForm,
+  type AssignmentSubmissionSchema,
+} from "./assignment-form";
 import { type AssignmentRow, AssignmentTable } from "./assignment-table";
 
 export function AssignmentsConfig({
@@ -36,7 +39,7 @@ export function AssignmentsConfig({
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
-  const handleSave = (newAssignment: AssignmentFormSchema) => {
+  const handleSave = (newAssignment: AssignmentSubmissionSchema) => {
     const assignment = focusAssignment;
 
     const { [assignment?.code ?? ""]: _, ...assignments } = course.assignments;
@@ -80,7 +83,9 @@ export function AssignmentsConfig({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-row items-end justify-between">
-        <CardTitle>Assignments (for request type Deadline Extension)</CardTitle>
+        <CardTitle>
+          Assignments (for request types Deadline Extension & Assignment Appeal)
+        </CardTitle>
         <Button onClick={handleNew} size="sm">
           <Plus className="mr-2 h-4 w-4" /> Add Assignment
         </Button>
@@ -88,9 +93,10 @@ export function AssignmentsConfig({
       <AssignmentTable assignments={assignments} onClickRow={handleEdit} />
 
       <FieldDescription>
-        This configures the assignments in the course. This only affects the
-        request type <b>Deadline Extension</b>. Therefore, only assignments that
-        can have deadline extensions should be added here.
+        This configures the assignments in the course, affecting the request
+        types <b>Deadline Extension</b> and <b>Assignment Appeal</b>. Mark an
+        assignment as <b>Graded</b> to allow students to appeal its grade, and
+        list the responsible teaching assistants (one email per line).
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

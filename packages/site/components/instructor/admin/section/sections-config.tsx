@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
-import { SectionForm, type SectionFormSchema } from "./section-form";
+import { SectionForm, type SectionSubmissionSchema } from "./section-form";
 import { type SectionRow, SectionTable } from "./section-table";
 
 export function SectionsConfig({
@@ -34,7 +34,7 @@ export function SectionsConfig({
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
-  const handleSave = (newSection: SectionFormSchema) => {
+  const handleSave = (newSection: SectionSubmissionSchema) => {
     const section = focusSection;
 
     const { [section?.code ?? ""]: _, ...sections } = course.sections;
@@ -78,7 +78,8 @@ export function SectionsConfig({
     <section className="flex flex-col gap-4">
       <div className="flex flex-row items-end justify-between">
         <CardTitle>
-          Sections (for request types Swap Section & Absent from Section)
+          Sections (for request types Swap Section, Absent from Section &
+          Assignment Appeal)
         </CardTitle>
         <Button onClick={handleNew} size="sm">
           <Plus className="mr-2 h-4 w-4" /> Add Section
@@ -87,10 +88,10 @@ export function SectionsConfig({
       <SectionTable sections={sections} onClickRow={handleEdit} />
 
       <FieldDescription>
-        This configures the sections in the course. This only affects the
-        request type <b>Swap Section</b> and <b>Absent from Section</b>.
-        Therefore, only sections that can be swapped from/to or absent from
-        should be added here.
+        This configures the sections in the course, affecting the request types{" "}
+        <b>Swap Section</b>, <b>Absent from Section</b> and{" "}
+        <b>Assignment Appeal</b>. The lecturers listed for a section are the
+        instructors involved in appeals raised from that section.
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

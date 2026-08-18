@@ -6,7 +6,12 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -16,6 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { emailsToText, parseEmails } from "../emails";
+import type { SectionRow } from "./section-table";
 
 export const SectionFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -26,26 +34,47 @@ export const SectionFormSchema = z.object({
       to: z.string().min(1, "To is required"),
     }),
   ),
+  type: z.enum(["Lecture", "Tutorial", "Lab"]).optional(),
+  lecturers: z.string(),
 });
 
 export type SectionFormSchema = z.infer<typeof SectionFormSchema>;
+
+export const SectionSubmissionSchema = SectionFormSchema.omit({
+  lecturers: true,
+}).extend({
+  lecturers: z.array(z.string()).optional(),
+});
+
+export type SectionSubmissionSchema = z.infer<typeof SectionSubmissionSchema>;
 
 export function SectionForm({
   defaultValues,
   onSubmit,
   onRemove,
 }: {
-  defaultValues?: SectionFormSchema;
-  onSubmit: (v: SectionFormSchema) => void;
+  defaultValues?: SectionRow;
+  onSubmit: (v: SectionSubmissionSchema) => void;
   onRemove: () => void;
 }) {
   const form = useForm<SectionFormSchema>({
     resolver: zodResolver(SectionFormSchema),
-    defaultValues: defaultValues ?? {
-      code: "",
-      schedule: [],
-    },
+    defaultValues: defaultValues
+      ? {
+          ...defaultValues,
+          lecturers: emailsToText(defaultValues.lecturers),
+        }
+      : {
+          code: "",
+          schedule: [],
+          lecturers: "",
+        },
   });
+
+  const handleSubmit = (data: SectionFormSchema) => {
+    const { lecturers, ...rest } = data;
+    onSubmit({ ...rest, lecturers: parseEmails(lecturers) });
+  };
 
   const schedule = useFieldArray({
     control: form.control,
@@ -54,7 +83,7 @@ export function SectionForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit(handleSubmit)}
       className="flex flex-col gap-4"
     >
       <Controller
@@ -64,6 +93,47 @@ export function SectionForm({
           <Field>
             <FieldLabel>Code</FieldLabel>
             <Input placeholder="L1/T1/LA1/..." {...field} />
+            <FieldError errors={[fieldState.error]} />
+          </Field>
+        )}
+      />
+
+      <Controller
+        name="type"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field>
+            <FieldLabel>Type</FieldLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a section type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Lecture">Lecture</SelectItem>
+                <SelectItem value="Tutorial">Tutorial</SelectItem>
+                <SelectItem value="Lab">Lab</SelectItem>
+              </SelectContent>
+            </Select>
+            <FieldError errors={[fieldState.error]} />
+          </Field>
+        )}
+      />
+
+      <Controller
+        name="lecturers"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field>
+            <FieldLabel>Lecturers</FieldLabel>
+            <Textarea
+              placeholder={"lecturer@ust.hk\nother@ust.hk"}
+              {...field}
+            />
+            <FieldDescription>
+              The emails of the lecturers responsible for this section, one per
+              line. These lecturers are the instructors involved in any appeal
+              raised from this section.
+            </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
