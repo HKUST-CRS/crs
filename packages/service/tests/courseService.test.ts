@@ -9,7 +9,7 @@ import {
 } from "bun:test";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import type { Course, User } from "../models";
+import { Course, type User } from "../models";
 import { createRepos } from "../repos";
 import { CourseNotFoundError, UserNotFoundError } from "../repos/error";
 import { CourseService } from "../services";
@@ -80,6 +80,27 @@ describe("CourseService", () => {
         .auth(student.email)
         .getCourse(courseID);
       expect(courseResult.code).toEqual(courseID.code);
+    });
+
+    test("Course.parse fills a legacy effectiveRequestTypes missing the Assignment Appeal key", () => {
+      // A course document created before "Assignment Appeal" existed. The
+      // schema must not reject it (the enum-keyed record requires every key);
+      // the missing type defaults to enabled. This is what guards the tRPC
+      // output validation for legacy courses.
+      const legacy = {
+        code: "COMP 1023",
+        term: "2510",
+        title: "Python",
+        sections: { L1: { schedule: [] } },
+        assignments: {},
+        effectiveRequestTypes: {
+          "Swap Section": true,
+          "Absent from Section": true,
+          "Deadline Extension": true,
+        },
+      };
+      const parsed = Course.parse(legacy);
+      expect(parsed.effectiveRequestTypes["Assignment Appeal"]).toBe(true);
     });
 
     test("admins should be able to get course by id", async () => {

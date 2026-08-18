@@ -64,10 +64,25 @@ export const Course = z
         }),
       }),
     ),
-    effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
-      description:
-        "A mapping of request types that are effective for this course.",
-    }),
+    effectiveRequestTypes: z
+      .preprocess(
+        (value) => {
+          // Backward compatibility: `z.record` over the request-type enum
+          // requires every enum value to be present as a key, which would
+          // reject course documents created before "Assignment Appeal"
+          // existed. Fill in any missing type (defaulting to enabled).
+          const stored = (value ?? {}) as Partial<Record<RequestType, boolean>>;
+          const defaults = Object.fromEntries(
+            RequestType.options.map((type) => [type, true]),
+          ) as Record<RequestType, boolean>;
+          return { ...defaults, ...stored };
+        },
+        z.record(RequestType, z.boolean()),
+      )
+      .meta({
+        description:
+          "A mapping of request types that are effective for this course.",
+      }),
   })
   .meta({
     description: "An *offering* of a course in a specific term.",
