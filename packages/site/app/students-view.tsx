@@ -48,7 +48,7 @@ export default function StudentsView() {
   );
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex max-w-4xl flex-col gap-8 md:my-32 lg:my-64">
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>

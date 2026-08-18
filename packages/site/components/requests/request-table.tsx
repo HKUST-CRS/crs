@@ -351,8 +351,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             className="max-w-full"
           />
         </div>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Field className="col-span-1">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Field>
             <FieldLabel>Status</FieldLabel>
             <Select
               value={statusFilter ?? "__all"}
@@ -377,7 +377,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-1">
+          <Field>
             <FieldLabel>Type</FieldLabel>
             <Select
               value={typeFilter ?? "__all"}
@@ -401,7 +401,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-1">
+          <Field>
             <FieldLabel>Term</FieldLabel>
             <Select
               value={termFilter ?? "__all"}
@@ -424,7 +424,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-2">
+          <Field>
             <FieldLabel>Course</FieldLabel>
             <Select
               value={courseFilter ? Courses.id2str(courseFilter) : "__all"}
@@ -455,7 +455,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             <FieldLabel>From</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {fromFilter ? (
                     formatDate(fromFilter)
@@ -485,7 +485,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             <FieldLabel>To</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {toFilter ? formatDate(toFilter) : <span>Pick a date</span>}
                 </Button>
@@ -538,7 +538,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                     className="cursor-pointer"
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell key={cell.id} className="whitespace-nowrap">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
