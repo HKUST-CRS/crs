@@ -15,7 +15,12 @@
  *   cd packages/server && bun run scripts/seed-data.ts
  */
 import { DbConn } from "service/db";
-import type { ProofUpload, RequestInit, User } from "service/models";
+import type {
+  CommentInit,
+  ProofListInit,
+  RequestInit,
+  User,
+} from "service/models";
 import { createRepos } from "service/repos";
 import { RequestService } from "service/services";
 
@@ -41,7 +46,7 @@ const users: User[] = [
   },
 ];
 
-const note: ProofUpload = [
+const note: ProofListInit = [
   {
     name: "medical-cert.txt",
     size: 5,
@@ -53,15 +58,10 @@ function makeClass(section: string) {
   return { course: { ...COURSE }, section };
 }
 
-function makeSwapInit(
-  reason: string,
-  to: string,
-  proof: ProofUpload = [],
-): RequestInit {
+function makeSwapInit(to: string): RequestInit {
   return {
     type: "Swap Section",
     class: makeClass("LA1"),
-    details: { reason, proof },
     metadata: {
       fromSection: "LA1",
       fromDate: "2026-03-16",
@@ -71,29 +71,27 @@ function makeSwapInit(
   };
 }
 
-function makeAbsentInit(reason: string): RequestInit {
+function makeAbsentInit(): RequestInit {
   return {
     type: "Absent from Section",
     class: makeClass("LA1"),
-    details: { reason, proof: [] },
     metadata: { fromSection: "LA1", fromDate: "2026-03-15" },
   };
 }
 
-function makeDeadlineInit(
-  reason: string,
-  assignment: string,
-  proof: ProofUpload = [],
-): RequestInit {
+function makeDeadlineInit(assignment: string): RequestInit {
   return {
     type: "Deadline Extension",
     class: makeClass("LA1"),
-    details: { reason, proof },
     metadata: {
       assignment,
       deadline: "2026-05-03T23:59:59.999+08:00",
     },
   };
+}
+
+function makeComment(text: string, proofs: ProofListInit = []): CommentInit {
+  return { text, proofs };
 }
 
 async function main() {
@@ -121,25 +119,22 @@ async function main() {
 
     // R1 — OPEN: a back-and-forth that is still undecided.
     const r1 = await student().createRequest(
-      makeSwapInit(
+      makeSwapInit("LA2"),
+      makeComment(
         "I'd like to swap into LA2 for the week of Mar 16 to join my project group.",
-        "LA2",
       ),
     );
-    await student().addComment(r1, {
+    await student().comment(r1, {
       text: "Monday's LA1 clashes with my capstone defense.",
     });
-    await instructor().addComment(r1, {
+    await instructor().comment(r1, {
       text: "Could you confirm the exact lecture date you'd miss?",
     });
 
     // R2 — APPROVED: instructor approves with a comment.
     const r2 = await student().createRequest(
-      makeDeadlineInit(
-        "Requesting a 2-day extension on PA1 due to illness.",
-        "PA1",
-        note,
-      ),
+      makeDeadlineInit("PA1"),
+      makeComment("Requesting a 2-day extension on PA1 due to illness.", note),
     );
     await instructor().approve(r2, {
       text: "Granted — please submit by the new deadline.",
@@ -147,7 +142,8 @@ async function main() {
 
     // R3 — REJECTED: instructor rejects, asking for more evidence.
     const r3 = await student().createRequest(
-      makeAbsentInit("I'll be away at a conference on Mar 15."),
+      makeAbsentInit(),
+      makeComment("I'll be away at a conference on Mar 15."),
     );
     await instructor().reject(r3, {
       text: "Please attach the conference invitation as proof.",
@@ -155,7 +151,8 @@ async function main() {
 
     // R4 — APPEALED: rejected, then the student appeals.
     const r4 = await student().createRequest(
-      makeSwapInit("LA3 fits my timetable better this term.", "LA3"),
+      makeSwapInit("LA3"),
+      makeComment("LA3 fits my timetable better this term."),
     );
     await instructor().reject(r4, { text: "LA3 is currently full." });
     await student().appeal(r4, {
@@ -164,7 +161,8 @@ async function main() {
 
     // R5 — CANCELLED: approved, then the student withdraws.
     const r5 = await student().createRequest(
-      makeDeadlineInit("May I extend the PA2 deadline by a day?", "PA2"),
+      makeDeadlineInit("PA2"),
+      makeComment("May I extend the PA2 deadline by a day?"),
     );
     await instructor().approve(r5, { text: "Provisionally approved." });
     await student().cancel(r5, {
@@ -175,7 +173,7 @@ async function main() {
     for (const id of [r1, r2, r3, r4, r5]) {
       const r = await student().getRequest(id);
       console.log(
-        `  ${r.status.padEnd(9)}  ${r.type.padEnd(20)} entries=${r.updates.length}  id=${id}`,
+        `  ${r.status.padEnd(9)}  ${r.type.padEnd(20)} entries=${r.thread.length}  id=${id}`,
       );
     }
   } finally {

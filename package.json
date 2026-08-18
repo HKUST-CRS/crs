@@ -10,7 +10,6 @@
   "scripts": {
     "dev": "concurrently --names Server,Site 'cd packages/server && bun run dev' 'cd packages/site && bun run dev'",
     "lint:fix": "bunx --bun biome check --write",
-    "typecheck": "bun run --filter='*' typecheck",
-    "seed": "cd packages/server && bun run scripts/seed.ts"
+    "typecheck": "bun run --filter='*' typecheck"
   }
 }

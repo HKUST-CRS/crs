@@ -5,8 +5,8 @@
  * 2) create or reset a dev user with a fixed enrollment
  *
  * Usage (from the repo root):
- *   bun run seed                       # seeds the default dev user (god@ust.hk)
- *   bun run seed <email>               # seeds a specific user
+ *   bun run --filter=server seed        # seeds the default dev user (god@ust.hk)
+ *   bun run --filter=server seed <email> # seeds a specific user
  *
  * - The course is always (re)applied, so the local DB matches the project fixture.
  * - The user defaults to god@ust.hk, a sudoer that can administer
