@@ -1,14 +1,32 @@
 import type {
+  Comment,
+  CommentInit,
   Request,
-  RequestHead,
   RequestID,
   RequestInit,
-  ResponseInit,
+  RequestStatus,
   Role,
+  ThreadEntry,
   UserID,
 } from "../models";
 import type { Repos } from "../repos";
+import { ProofNotFoundError } from "../repos/error";
+import { PermissionError } from "./error";
 import { assertClassRole } from "./permission";
+
+// Statuses from which each status change is admissible. The lifecycle is
+// intentionally permissive: an instructor may re-decide (approve/reject from a
+// decided or appealed state), a requester may cancel from any non-cancelled
+// state, and a requester may appeal a decision to flag it for re-review.
+// "cancelled" is terminal for status changes, but authorized participants may
+// still comment.
+const DECISION_FROM: RequestStatus[] = [
+  "open",
+  "appealed",
+  "approved",
+  "rejected",
+];
+const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
 
 export class RequestService<TUser extends UserID | null = null> {
   public user: TUser;
@@ -52,27 +70,27 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Get all request heads of a user, as specific roles.
+   * Get all requests visible to a user, as specific roles.
    *
-   * If the role is "student", this returns request heads for all requests made by the user.
+   * If the role is "student", this returns all requests made by the user.
    *
-   * If the role is "instructor" or "observer", this returns request heads for all requests for
+   * If the role is "instructor" or "observer", this returns all requests for
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no request heads.
+   * If the role is "admin", this returns no requests.
    *
-   * @param roles The roles to fetch request heads as.
-   * @returns The list of request heads visible to the user for the specified roles.
+   * @param roles The roles to fetch requests as.
+   * @returns The requests visible to the user for the specified roles.
    */
-  async getRequestHeadsAs(
+  async getRequestsAs(
     this: RequestService<UserID>,
     roles: Role[],
-  ): Promise<RequestHead[]> {
+  ): Promise<Request[]> {
     const user = await this.repos.user.requireUser(this.user);
-    const requests: RequestHead[] = [];
+    const requests: Request[] = [];
     if (roles.includes("student")) {
-      const studentRequests = await this.repos.request.getRequestHeadsFromUser(
+      const studentRequests = await this.repos.request.getRequestsFromUser(
         this.user,
       );
       requests.push(...studentRequests);
@@ -84,7 +102,7 @@ export class RequestService<TUser extends UserID | null = null> {
           roles.includes(clazz.role),
       );
       requests.push(
-        ...(await this.repos.request.getRequestHeadsInClasses(enrollments)),
+        ...(await this.repos.request.getRequestsInClasses(enrollments)),
       );
     }
     return requests;
@@ -126,43 +144,189 @@ export class RequestService<TUser extends UserID | null = null> {
    * Creates a request.
    *
    * The user must be a student in the class that the request is for in order to create the request.
+   * The opening reason + proofs are recorded as the first comment in the thread.
    *
-   * @param data The request data.
+   * @param request The request data.
+   * @param comment The opening comment.
    * @returns The ID of the created request.
    */
   async createRequest(
     this: RequestService<UserID>,
-    data: RequestInit,
+    request: RequestInit,
+    comment: CommentInit,
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
     // only students in the class can create requests
-    assertClassRole(user, data.class, ["student"], "creating request");
-    return this.repos.request.createRequest(this.user, data);
+    assertClassRole(user, request.class, ["student"], "creating request");
+    return this.repos.request.createRequest(this.user, request, comment);
   }
 
   /**
-   * Creates a response to a request.
+   * Adds a comment (optionally with supporting documents) to the request thread.
    *
-   * The user must be an instructor of the class that the request is for in order to create a
-   * response to the request.
+   * The requester or an instructor in the class may comment at any point —
+   * including after the request is cancelled — to provide more information.
+   * Observers have read-only access to the thread. The request body itself is
+   * never edited; clarification is given via comments.
    *
-   * @param requestID The ID of the request to respond to.
-   * @param response The response data.
+   * @returns The created comment entry.
    */
-  async createResponse(
+  async comment(
     this: RequestService<UserID>,
     requestID: RequestID,
-    response: ResponseInit,
-  ): Promise<void> {
+    payload: CommentInit,
+  ): Promise<Comment> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    // only instructors of the class can create responses
+    if (this.user !== request.from) {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor"],
+        `commenting on request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendComment(this.user, requestID, payload);
+  }
+
+  /**
+   * Approves the request. Only an instructor of the class may approve, and the
+   * request must be in a state open to a decision (open, appealed, or already
+   * decided — re-decisions are allowed). An optional comment is recorded
+   * immediately before the status change.
+   *
+   * @returns The created thread entries (comment, if any, then the status change).
+   */
+  async approve(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    comment?: CommentInit,
+  ): Promise<ThreadEntry[]> {
+    return this.decide(requestID, "approved", comment);
+  }
+
+  /**
+   * Rejects the request. See {@link approve} for authorization and comments.
+   */
+  async reject(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    comment?: CommentInit,
+  ): Promise<ThreadEntry[]> {
+    return this.decide(requestID, "rejected", comment);
+  }
+
+  private async decide(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    status: "approved" | "rejected",
+    comment?: CommentInit,
+  ): Promise<ThreadEntry[]> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
     assertClassRole(
       user,
       request.class,
       ["instructor"],
-      `creating response to request ${requestID}`,
+      `${status === "approved" ? "approving" : "rejecting"} request ${requestID}`,
     );
-    await this.repos.request.createResponse(this.user, requestID, response);
+    return this.repos.request.appendStatusChange(
+      this.user,
+      requestID,
+      { status },
+      DECISION_FROM,
+      status === "approved" ? "approve" : "reject",
+      comment,
+    );
+  }
+
+  /**
+   * Cancels the request. Only the requester may cancel, and only from a
+   * non-cancelled state; cancellation is terminal for status changes (though
+   * comments may still follow). An optional comment is recorded immediately
+   * before the status change.
+   *
+   * @returns The created thread entries (comment, if any, then the status change).
+   */
+  async cancel(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    comment?: CommentInit,
+  ): Promise<ThreadEntry[]> {
+    await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
+    if (this.user !== request.from) {
+      throw new PermissionError(
+        this.user,
+        [],
+        `cancelling request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendStatusChange(
+      this.user,
+      requestID,
+      { status: "cancelled" },
+      DECISION_FROM,
+      "cancel",
+      comment,
+    );
+  }
+
+  /**
+   * Appeals a decision, flagging the request for re-review. Only the requester
+   * may appeal, and only from a decided state (approved or rejected). The
+   * justification (text + proofs) is recorded as a comment preceding the status
+   * change.
+   *
+   * @returns The created thread entries (justification comment, then the status change).
+   */
+  async appeal(
+    this: RequestService<UserID>,
+    requestID: RequestID,
+    payload: CommentInit,
+  ): Promise<ThreadEntry[]> {
+    await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.requireRequest(requestID);
+    if (this.user !== request.from) {
+      throw new PermissionError(
+        this.user,
+        [],
+        `appealing request ${requestID}`,
+      );
+    }
+    return this.repos.request.appendStatusChange(
+      this.user,
+      requestID,
+      { status: "appealed" },
+      APPEAL_FROM,
+      "appeal",
+      payload,
+    );
+  }
+
+  /**
+   * Reads the bytes of a stored proof file. Only a participant of the request
+   * that owns the file (the requester or an instructor/observer in the class)
+   * may download it; the file must belong to a visible request's thread.
+   *
+   * @returns The file content as base64.
+   */
+  async fetchProof(
+    this: RequestService<UserID>,
+    proofID: string,
+  ): Promise<{ content: string }> {
+    const user = await this.repos.user.requireUser(this.user);
+    const request = await this.repos.request.getRequestByProof(proofID);
+    if (!request) throw new ProofNotFoundError(proofID);
+    if (this.user !== request.from) {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor", "observer"],
+        `downloading proof ${proofID}`,
+      );
+    }
+    const content = await this.repos.request.fetchProof(proofID);
+    return { content };
   }
 }

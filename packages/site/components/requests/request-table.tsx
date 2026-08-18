@@ -23,9 +23,9 @@ import {
 import {
   type CourseID,
   Courses,
-  type RequestHead,
-  type Response,
-  ResponseDecision,
+  type Request,
+  type RequestStatus,
+  RequestStatus as RequestStatusSchema,
   Terms,
 } from "service/models";
 import { formatDate, formatDateTime, fromISO } from "service/utils/datetime";
@@ -54,28 +54,38 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
-  data: RequestHead[];
-  onClick?: (row: RequestHead) => void;
+  data: Request[];
+  onClick?: (row: Request) => void;
 }
 
 export interface RequestTableHandle {
   getExportIDs: () => string[];
 }
 
+/** Sort order for the Status column (open first, cancelled last). */
+const STATUS_ORDER: Record<RequestStatus, number> = {
+  open: 0,
+  appealed: 1,
+  approved: 2,
+  rejected: 3,
+  cancelled: 4,
+};
+
 const requestFilter =
   (filterOptions: {
-    decision: ResponseDecision | null;
+    status: RequestStatus | null;
     term: string | null;
     course: CourseID | null;
     from: DateTime | null;
     to: DateTime | null;
   }) =>
-  (request: RequestHead) => {
+  (request: Request) => {
     if (
-      filterOptions.decision !== null &&
-      request.response?.decision !== filterOptions.decision
+      filterOptions.status !== null &&
+      request.status !== filterOptions.status
     ) {
       return false;
     }
@@ -106,7 +116,7 @@ const requestFilter =
     return true;
   };
 
-const columns: ColumnDef<RequestHead>[] = [
+const columns: ColumnDef<Request>[] = [
   {
     accessorKey: "from",
     header: ({ column }) => {
@@ -197,10 +207,8 @@ const columns: ColumnDef<RequestHead>[] = [
     },
   },
   {
-    id: "decision",
-    accessorFn: (row) => {
-      return row.response?.decision || "Pending";
-    },
+    id: "status",
+    accessorFn: (row) => REQUEST_STATUS_LABEL[row.status],
     header: ({ column }) => {
       return (
         <Button
@@ -208,43 +216,28 @@ const columns: ColumnDef<RequestHead>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className={cn(column.getIsSorted() && "underline")}
         >
-          Decision
+          Status
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
     cell: ({ row }) => {
-      const response = row.original.response;
-      return response ? (
-        response.decision === "Approve" ? (
-          <span>
-            <span className="text-green-800 dark:text-green-400">Approve</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : response.decision === "Reject" ? (
-          <span>
-            <span className="text-red-800 dark:text-red-400">Reject</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : (
-          <span>
-            <span className="text-yellow-800 dark:text-yellow-400">
-              Unknown ({response.decision})
-            </span>{" "}
-            <span>({response.from})</span>
-          </span>
-        )
-      ) : (
-        <span className="text-yellow-800 dark:text-yellow-400">Pending</span>
-      );
+      const status = row.original.status;
+      const label = REQUEST_STATUS_LABEL[status];
+      const color =
+        status === "approved"
+          ? "text-green-800 dark:text-green-400"
+          : status === "rejected"
+            ? "text-red-800 dark:text-red-400"
+            : status === "cancelled"
+              ? "text-gray-500 dark:text-gray-400"
+              : "text-yellow-800 dark:text-yellow-400";
+      return <span className={color}>{label}</span>;
     },
     sortingFn: (rowA, rowB) => {
-      function toStatus(r: Response | null) {
-        return r?.decision ?? "pending";
-      }
-      return toStatus(rowA.original.response) > toStatus(rowB.original.response)
-        ? 1
-        : -1;
+      const a = STATUS_ORDER[rowA.original.status];
+      const b = STATUS_ORDER[rowB.original.status];
+      return a - b;
     },
   },
 ];
@@ -262,8 +255,9 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       pageIndex: 0,
       pageSize: 50,
     });
-    const [decisionFilter, setDecisionFilter] =
-      useState<ResponseDecision | null>(null);
+    const [statusFilter, setStatusFilter] = useState<RequestStatus | null>(
+      null,
+    );
     const [termFilter, setTermFilter] = useState<string | null>(null);
     const [courseFilter, setCourseFilter] = useState<CourseID | null>(null);
     const [fromFilter, setFromFilter] = useState<DateTime | null>(null);
@@ -295,14 +289,14 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       () =>
         rawData.filter(
           requestFilter({
-            decision: decisionFilter,
+            status: statusFilter,
             term: termFilter,
             course: courseFilter,
             from: fromFilter,
             to: toFilter,
           }),
         ),
-      [rawData, decisionFilter, fromFilter, courseFilter, termFilter, toFilter],
+      [rawData, statusFilter, fromFilter, courseFilter, termFilter, toFilter],
     );
 
     const table = useReactTable({
@@ -344,24 +338,24 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field className="col-span-1">
-            <FieldLabel>Decision</FieldLabel>
+            <FieldLabel>Status</FieldLabel>
             <Select
-              value={decisionFilter ?? "__all"}
+              value={statusFilter ?? "__all"}
               onValueChange={(value) => {
-                setDecisionFilter(
-                  value === "__all" ? null : (value as ResponseDecision),
+                setStatusFilter(
+                  value === "__all" ? null : (value as RequestStatus),
                 );
               }}
               disabled={!termOptions.length}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Choose a decision" />
+                <SelectValue placeholder="Choose a status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all">All decisions</SelectItem>
-                {[...ResponseDecision.values].map((term) => (
-                  <SelectItem key={term} value={term}>
-                    {term}
+                <SelectItem value="__all">All statuses</SelectItem>
+                {RequestStatusSchema.options.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {REQUEST_STATUS_LABEL[s]}
                   </SelectItem>
                 ))}
               </SelectContent>

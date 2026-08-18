@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import {
   CompactSign,
   type CryptoKey,
@@ -96,14 +95,14 @@ export namespace Signature {
 
   export async function sign(r: Request): Promise<string> {
     const rr = Request.parse(structuredClone(r));
-    rr.details.proof = rr.details.proof?.map((p) => {
-      const hash = crypto.createHash("sha256");
-      hash.update(Buffer.from(p.content, "base64"));
-      return {
-        ...p,
-        content: hash.digest("hex"),
-      };
-    });
+    rr.thread = rr.thread.map((entry) =>
+      entry.kind === "comment"
+        ? {
+            ...entry,
+            proofs: entry.proofs?.map((p) => ({ ...p, id: p.hash })),
+          }
+        : entry,
+    );
     const jws = await new CompactSign(
       new TextEncoder().encode(JSON.stringify(rr)),
     )

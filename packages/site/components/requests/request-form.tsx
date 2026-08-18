@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { isEqual } from "es-toolkit";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type { Request } from "service/models";
+import type { Request, RequestInit } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
 import { useTRPC } from "@/lib/trpc-client";
@@ -65,32 +65,29 @@ export default function RequestForm(props: RequestFormProps) {
       if (!base) {
         throw new Error("base is undefined");
       }
-      switch (meta.type) {
-        case "Swap Section": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
+      const request: RequestInit = (() => {
+        switch (meta.type) {
+          case "Swap Section":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
+          case "Absent from Section":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
+          case "Deadline Extension":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
         }
-        case "Absent from Section": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
-        }
-        case "Deadline Extension": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
-        }
-      }
+      })();
+      return createRequest.mutateAsync({ request, comment: meta.comment });
     }
     toast.promise(mutate(), {
       loading: "Submitting the request...",
@@ -119,7 +116,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -142,7 +138,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -165,7 +160,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (

@@ -21,9 +21,23 @@ export class RequestNotFoundError extends Error {
   }
 }
 
-export class ResponseAlreadyExistsError extends Error {
-  constructor(requestID: RequestID) {
-    super(`Request ${requestID} already has a response`);
-    this.name = "ResponseAlreadyExistsError";
+export class StatusConflictError extends Error {
+  constructor(
+    requestID: RequestID,
+    expected: string,
+    actual: string,
+    op: string,
+  ) {
+    super(
+      `Cannot ${op} on request ${requestID}: expected status "${expected}", but it is "${actual}".`,
+    );
+    this.name = "StatusConflictError";
+  }
+}
+
+export class ProofNotFoundError extends Error {
+  constructor(proofID: string) {
+    super(`Proof file ${proofID} not found`);
+    this.name = "ProofNotFoundError";
   }
 }

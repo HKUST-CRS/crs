@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { RequestFormDetails } from "./details-request-form";
+import { RequestFormComment } from "./request-form-comment";
 import { FormSchema } from "./schema";
 
 export const SwapSectionFormSchema = FormSchema(
@@ -44,7 +44,7 @@ export type SwapSectionFormSchema = z.infer<typeof SwapSectionFormSchema>;
 export type SwapSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: SwapSectionFormSchema;
+  default?: Partial<SwapSectionFormSchema>;
 
   onSubmit?: (data: SwapSectionFormSchema) => void;
 
@@ -58,9 +58,9 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
     resolver: zodResolver(SwapSectionFormSchema),
     defaultValues: {
       type: "Swap Section",
-      details: {
-        reason: "",
-        proof: [],
+      comment: {
+        text: "",
+        proofs: [],
       },
       ...props.default,
     },
@@ -317,7 +317,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
               </div>
             );
           })()}
-        {isMetaDone && <RequestFormDetails form={form} viewonly={viewonly} />}
+        {isMetaDone && <RequestFormComment form={form} viewonly={viewonly} />}
       </Wrapper>
     </Form>
   );

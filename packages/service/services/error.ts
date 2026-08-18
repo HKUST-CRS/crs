@@ -3,7 +3,6 @@ import {
   Classes,
   type CourseID,
   Courses,
-  type RequestID,
   type Role,
   type UserID,
 } from "../models";
@@ -61,12 +60,5 @@ export class SudoerPermissionError extends Error {
   constructor(userID: UserID, operation: string) {
     super(`User ${userID} is not a sudoer and cannot perform ${operation}.`);
     this.name = "SudoerPermissionError";
-  }
-}
-
-export class ResponseNotFoundError extends Error {
-  constructor(requestID: RequestID) {
-    super(`Request ${requestID} does not have a response yet`);
-    this.name = "ResponseNotFoundError";
   }
 }

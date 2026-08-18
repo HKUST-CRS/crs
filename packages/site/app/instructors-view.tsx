@@ -52,7 +52,7 @@ export default function InstructorsView() {
 
   // Requests
   const requestsQuery = useQuery(
-    trpc.request.getAllHeadsAs.queryOptions(["instructor", "observer"]),
+    trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
   );
   const requests = requestsQuery.data;
   const tableRef = useRef<RequestTableHandle>(null);
@@ -160,7 +160,7 @@ export default function InstructorsView() {
             ref={tableRef}
             data={requests}
             onClick={(request) => {
-              router.push(`/response/${request.id}`);
+              router.push(`/request/${request.id}?from=instructor`);
             }}
           />
         ) : (

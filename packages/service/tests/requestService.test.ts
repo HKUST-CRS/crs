@@ -1,23 +1,128 @@
 import {
   afterAll,
-  afterEach,
   beforeAll,
   beforeEach,
   describe,
   expect,
   test,
 } from "bun:test";
+import crypto from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import type { Course, RequestInit, ResponseInit, User } from "../models";
+import type {
+  CommentInit,
+  Course,
+  ProofFile,
+  ProofFileInit,
+  ProofListInit,
+  RequestInit,
+  User,
+} from "../models";
 import { createRepos } from "../repos";
-import {
-  RequestNotFoundError,
-  ResponseAlreadyExistsError,
-} from "../repos/error";
+import { RequestNotFoundError, StatusConflictError } from "../repos/error";
 import { RequestService } from "../services";
-import { ClassPermissionError } from "../services/error";
+import { ClassPermissionError, PermissionError } from "../services/error";
 import { clearData, insertData } from "./tests";
+
+const baseCourse: Course = {
+  code: "COMP 1023",
+  term: "2510",
+  title: "Python",
+  sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+  assignments: {},
+  effectiveRequestTypes: {
+    "Swap Section": true,
+    "Absent from Section": true,
+    "Deadline Extension": true,
+  },
+};
+
+function makeUser(
+  email: string,
+  role: "student" | "instructor" | "observer",
+  section = "L1",
+): User {
+  return {
+    email,
+    name: email.split("@")[0] ?? email,
+    enrollment: [
+      {
+        role,
+        course: { code: baseCourse.code, term: baseCourse.term },
+        section,
+      },
+    ],
+    sudoer: false,
+  };
+}
+
+function makeAdmin(email: string): User {
+  return {
+    email,
+    name: email.split("@")[0] ?? email,
+    enrollment: [
+      {
+        role: "admin",
+        course: { code: baseCourse.code, term: baseCourse.term },
+        section: "L1",
+      },
+    ],
+    sudoer: false,
+  };
+}
+
+function makeSwapInit(section = "L1"): RequestInit {
+  return {
+    type: "Swap Section",
+    class: {
+      course: { code: baseCourse.code, term: baseCourse.term },
+      section,
+    },
+    metadata: {
+      fromSection: "L1",
+      fromDate: "2025-11-25",
+      toSection: "L2",
+      toDate: "2025-11-26",
+    },
+  };
+}
+
+function makeSwapComment(proofs: ProofListInit = []): CommentInit {
+  return { text: "I need to swap.", proofs };
+}
+
+const sampleProofs: ProofListInit = [
+  {
+    name: "note.txt",
+    size: 2,
+    content: Buffer.from("hi").toString("base64"),
+  },
+];
+
+// Stored proof entries use stable attachment IDs, so compare against the
+// uploaded payload by name/size and verify the bytes round-trip via fetchProof.
+async function expectStoredProofs(
+  proofs: ProofFile[] | undefined,
+  uploads: ProofFileInit[],
+  svc: RequestService<string>,
+) {
+  expect(proofs).toHaveLength(uploads.length);
+  for (const [i, f] of (proofs ?? []).entries()) {
+    const expected = uploads[i];
+    if (!expected) continue;
+    expect(f.name).toBe(expected.name);
+    expect(f.size).toBe(expected.size);
+    expect(f.hash).toBe(
+      crypto
+        .createHash("sha256")
+        .update(Buffer.from(expected.content, "base64"))
+        .digest("hex"),
+    );
+    expect(typeof f.id).toBe("string");
+    const { content } = await svc.fetchProof(f.id);
+    expect(content).toBe(expected.content);
+  }
+}
 
 describe("RequestService", () => {
   let testConn: DbConn;
@@ -41,1676 +146,710 @@ describe("RequestService", () => {
     await clearData(testConn);
   });
 
-  afterEach(async () => {
-    await clearData(testConn);
-  });
-
+  // ── createRequest ────────────────────────────────────────────────────────
   describe("createRequest", () => {
-    test("should create and get a request successfully", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-
+    test("creates a request and seeds the opening reason as the first comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(request);
-      const requestInDb = await requestService
-        .auth(student.email)
-        .getRequest(id);
-      expect(requestInDb).toBeDefined();
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const stored = await testConn.collections.requests.findOne({ id });
+      expect(stored).not.toHaveProperty("status");
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.from).toBe(student.email);
+      expect(r.status).toBe("open");
+      expect(r.thread).toHaveLength(1);
+      expect(r.thread[0]?.kind).toBe("comment");
+      if (r.thread[0]?.kind === "comment") {
+        expect(r.thread[0].text).toBe("I need to swap.");
+      }
     });
 
-    test("should throw permission error when user is not in the class", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student2@connect.ust.hk",
-        name: "student2",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
+    test("stores the opening proofs on the first comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment(sampleProofs));
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.thread[0]?.kind).toBe("comment");
+      if (r.thread[0]?.kind === "comment") {
+        await expectStoredProofs(
+          r.thread[0].proofs,
+          sampleProofs,
+          requestService.auth(student.email),
+        );
+      }
+    });
 
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
+    test("throws a permission error when the user is not in the class", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student", "L1");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
       try {
-        await requestService.auth(student.email).createRequest(request);
-        expect.unreachable("should have thrown an error");
+        await requestService
+          .auth(student.email)
+          .createRequest(makeSwapInit("L2"), makeSwapComment());
+        expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
 
-    test("should throw permission error when user is instructor but not student", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
+    test("throws a permission error when an instructor tries to create", async () => {
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [instructor],
+        courses: [baseCourse],
+      });
       try {
-        await requestService.auth(instructor.email).createRequest(request);
-        expect.unreachable("should have thrown an error");
+        await requestService
+          .auth(instructor.email)
+          .createRequest(makeSwapInit(), makeSwapComment());
+        expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
   });
 
+  // ── getRequest ───────────────────────────────────────────────────────────
   describe("getRequest", () => {
-    test("should allow requester to get their own request", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
-
-      const requestInit: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("requester can get their own request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(requestInit);
-
-      const requestResult = await requestService
-        .auth(student.email)
-        .getRequest(requestID);
-      expect(requestResult).toBeDefined();
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.id).toBe(id);
     });
 
-    test("should allow observers to get requests in their class", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const observer: User = {
-        email: "observer1@connect.ust.hk",
-        name: "observer1",
-        enrollment: [
-          {
-            role: "observer",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, observer] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("observers can get requests in their class", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const observer = makeUser("o1@ust.hk", "observer");
+      await insertData(testConn, {
+        users: [student, observer],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(request);
-      const requestResult = await requestService
-        .auth(observer.email)
-        .getRequest(requestID);
-      expect(requestResult).toBeDefined();
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const r = await requestService.auth(observer.email).getRequest(id);
+      expect(r.id).toBe(id);
     });
 
-    test("should allow instructors to get requests in their class", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("instructors can get requests in their class", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(request);
-      const requestResult = await requestService
-        .auth(instructor.email)
-        .getRequest(requestID);
-      expect(requestResult).toBeDefined();
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const r = await requestService.auth(instructor.email).getRequest(id);
+      expect(r.id).toBe(id);
     });
 
-    test("admins should not be able to get requests in their class", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const admin: User = {
-        email: "admin1@ust.hk",
-        name: "admin1",
-        enrollment: [
-          {
-            role: "admin",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, admin] });
-
-      const requestInit: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("a non-participant cannot get the request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student", "L1");
+      const other = makeUser("s2@connect.ust.hk", "student", "L2");
+      await insertData(testConn, {
+        users: [student, other],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(requestInit);
-
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
-        await requestService.auth(admin.email).getRequest(requestID);
-        expect.unreachable("should have thrown an error");
+        await requestService.auth(other.email).getRequest(id);
+        expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
 
-    test("should throw permission error when user is neither requester nor instructor/observer", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const requester: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const otherStudent: User = {
-        email: "student2@connect.ust.hk",
-        name: "student2",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [requester, otherStudent] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
-        .auth(requester.email)
-        .createRequest(request);
-
+    test("throws request-not-found when the request does not exist", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
       try {
-        await requestService.auth(otherStudent.email).getRequest(requestID);
-        expect.unreachable("should have thrown an error");
-      } catch (error) {
-        expect(error).toBeInstanceOf(ClassPermissionError);
-      }
-    });
-
-    test("should throw request not found when request does not exist", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
-
-      try {
-        await requestService.auth(student.email).getRequest("REQ-NOT-FOUND");
-        expect.unreachable("should have thrown an error");
+        await requestService.auth(student.email).getRequest("nope");
+        expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(RequestNotFoundError);
       }
     });
   });
 
-  describe("request list projections", () => {
-    test("should get request heads as student", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+  // ── request lists ─────────────────────────────────────────────────────────
+  describe("request lists", () => {
+    test("return full requests", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      await requestService
         .auth(student.email)
-        .createRequest(request);
-
-      const requestHeads = await requestService
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const requests = await requestService
         .auth(student.email)
-        .getRequestHeadsAs(["student"]);
-
-      expect(requestHeads).toHaveLength(1);
-      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
-        requestID,
-      ]);
+        .getRequestsAs(["student"]);
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toHaveProperty("thread");
+      expect(requests[0]).toHaveProperty("metadata");
+      expect(requests[0]?.status).toBe("open");
     });
 
-    test("should get request heads as observer", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const observer: User = {
-        email: "observer1@connect.ust.hk",
-        name: "observer1",
-        enrollment: [
-          {
-            role: "observer",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, observer] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
-        .auth(student.email)
-        .createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(observer.email)
-        .getRequestHeadsAs(["observer"]);
-
-      expect(requestHeads).toHaveLength(1);
-      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
-        requestID,
-      ]);
-    });
-
-    test("should get request heads as instructor", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
+    test("instructors see requests for their class, including section '*'", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
       const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
+        ...makeUser("i1@ust.hk", "instructor"),
         enrollment: [
           {
             role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
-        .auth(student.email)
-        .createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(instructor.email)
-        .getRequestHeadsAs(["instructor"]);
-
-      expect(requestHeads).toHaveLength(1);
-      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual([
-        requestID,
-      ]);
-    });
-
-    test("students should not get other students' request heads", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const requester: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const otherStudent: User = {
-        email: "student3@connect.ust.hk",
-        name: "student3",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [requester, otherStudent] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      await requestService.auth(requester.email).createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(otherStudent.email)
-        .getRequestHeadsAs(["student"]);
-
-      expect(requestHeads).toHaveLength(0);
-    });
-
-    test("observers should not get other classes' request heads", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const requester: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const observer: User = {
-        email: "observer2@connect.ust.hk",
-        name: "observer2",
-        enrollment: [
-          {
-            role: "observer",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [requester, observer] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      await requestService.auth(requester.email).createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(observer.email)
-        .getRequestHeadsAs(["observer"]);
-
-      expect(requestHeads).toHaveLength(0);
-    });
-
-    test("instructors should not get other classes' request heads", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const requester: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor2@ust.hk",
-        name: "instructor2",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [requester, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      await requestService.auth(requester.email).createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(instructor.email)
-        .getRequestHeadsAs(["instructor"]);
-
-      expect(requestHeads).toHaveLength(0);
-    });
-
-    test("admins should get no request heads", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const admin: User = {
-        email: "admin1@ust.hk",
-        name: "admin1",
-        enrollment: [
-          {
-            role: "admin",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, admin] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      await requestService.auth(student.email).createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(admin.email)
-        .getRequestHeadsAs(["admin"]);
-
-      expect(requestHeads).toHaveLength(0);
-    });
-
-    test("should return empty request heads when no roles are provided", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      await requestService.auth(student.email).createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(student.email)
-        .getRequestHeadsAs([]);
-
-      expect(requestHeads).toHaveLength(0);
-    });
-
-    test("should merge request heads across student and instructor roles", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const dualRoleUser: User = {
-        email: "dual@ust.hk",
-        name: "dual",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      const otherStudent: User = {
-        email: "student2@connect.ust.hk",
-        name: "student2",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [dualRoleUser, otherStudent] });
-
-      const requestFromDual: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestFromOther: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L2",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L2",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-
-      const requestFromDualID = await requestService
-        .auth(dualRoleUser.email)
-        .createRequest(requestFromDual);
-      const requestFromOtherID = await requestService
-        .auth(otherStudent.email)
-        .createRequest(requestFromOther);
-
-      const requestHeads = await requestService
-        .auth(dualRoleUser.email)
-        .getRequestHeadsAs(["student", "instructor"]);
-
-      expect(requestHeads).toHaveLength(2);
-      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual(
-        expect.arrayContaining([requestFromDualID, requestFromOtherID]),
-      );
-    });
-
-    test("should get all request heads in course if instructor section is *", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const instructor: User = {
-        email: "instructor@ust.hk",
-        name: "instructor",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
+            course: { code: baseCourse.code, term: baseCourse.term },
             section: "*",
           },
         ],
-        sudoer: false,
       };
-      const student1: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const student2: User = {
-        email: "student2@connect.ust.hk",
-        name: "student2",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L2",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [instructor, student1, student2] });
-
-      const req1: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: "1", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const req2: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L2",
-        },
-        details: { reason: "2", proof: [] },
-        metadata: {
-          fromSection: "L2",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-
-      const req1ID = await requestService
-        .auth(student1.email)
-        .createRequest(req1);
-      const req2ID = await requestService
-        .auth(student2.email)
-        .createRequest(req2);
-
-      const requestHeads = await requestService
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const requests = await requestService
         .auth(instructor.email)
-        .getRequestHeadsAs(["instructor"]);
-
-      expect(requestHeads).toHaveLength(2);
-      expect(requestHeads.map((requestHead) => requestHead.id)).toEqual(
-        expect.arrayContaining([req1ID, req2ID]),
-      );
+        .getRequestsAs(["instructor"]);
+      expect(requests).toHaveLength(1);
     });
 
-    test("should omit details and metadata when getting request heads", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student-head@connect.ust.hk",
-        name: "student-head",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor-head@ust.hk",
-        name: "instructor-head",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: {
-          reason: "Need to swap sections",
-          proof: [
-            {
-              name: "proof.txt",
-              size: 7,
-              content: "cHJvb2YtMQ==",
-            },
-          ],
-        },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-
-      const requestID = await requestService
+    test("getRequestsByID preserves the input order and ignores missing ids", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const a = await requestService
         .auth(student.email)
-        .createRequest(request);
-
-      const requestHeads = await requestService
-        .auth(instructor.email)
-        .getRequestHeadsAs(["instructor"]);
-
-      expect(requestHeads).toHaveLength(1);
-      expect(requestHeads[0]).toMatchObject({
-        id: requestID,
-        from: student.email,
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        type: "Swap Section",
-        response: null,
-      });
-      expect(requestHeads[0]).not.toHaveProperty("details");
-      expect(requestHeads[0]).not.toHaveProperty("metadata");
-    });
-
-    test("should return requests by ID in requested order with proof", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] }, L2: { schedule: [] } },
-        assignments: {
-          A1: {
-            name: "Assignment 1",
-            due: "2025-11-28T23:59:00+08:00",
-            maxExtension: "P7D",
-          },
-        },
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student-export@connect.ust.hk",
-        name: "student-export",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor-export@ust.hk",
-        name: "instructor-export",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const swapRequest: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: {
-          reason: "Need to swap sections",
-          proof: [
-            {
-              name: "swap-proof.txt",
-              size: 7,
-              content: "cHJvb2YtMQ==",
-            },
-          ],
-        },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L2",
-          toDate: "2025-11-26",
-        },
-      };
-      const deadlineRequest: RequestInit = {
-        type: "Deadline Extension",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: {
-          reason: "Need more time",
-          proof: [
-            {
-              name: "deadline-proof.txt",
-              size: 7,
-              content: "cHJvb2YtMg==",
-            },
-          ],
-        },
-        metadata: {
-          assignment: "A1",
-          deadline: "2025-11-30T23:59:00+08:00",
-        },
-      };
-
-      const swapRequestID = await requestService
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const b = await requestService
         .auth(student.email)
-        .createRequest(swapRequest);
-      const deadlineRequestID = await requestService
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const got = await requestService
         .auth(student.email)
-        .createRequest(deadlineRequest);
-
-      const requestsByID = await requestService
-        .auth(instructor.email)
-        .getRequestsByID([deadlineRequestID, swapRequestID]);
-      const firstRequest = requestsByID[0];
-      const secondRequest = requestsByID[1];
-      if (firstRequest === undefined || secondRequest === undefined) {
-        throw new Error("expected two requests");
-      }
-
-      expect(requestsByID.map((request) => request.id)).toEqual([
-        deadlineRequestID,
-        swapRequestID,
-      ]);
-      expect(firstRequest).toHaveProperty("metadata");
-      expect(firstRequest.details).toEqual({
-        reason: "Need more time",
-        proof: [
-          {
-            name: "deadline-proof.txt",
-            size: 7,
-            content: "cHJvb2YtMg==",
-          },
-        ],
-      });
-      expect(secondRequest).toHaveProperty("metadata");
-      expect(secondRequest.details).toEqual({
-        reason: "Need to swap sections",
-        proof: [
-          {
-            name: "swap-proof.txt",
-            size: 7,
-            content: "cHJvb2YtMQ==",
-          },
-        ],
-      });
+        .getRequestsByID([b, "missing", a]);
+      expect(got.map((r) => r.id)).toEqual([b, a]);
     });
   });
 
-  describe("createResponse", () => {
-    test("should add response to request successfully", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const requestInit: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+  // ── comment ───────────────────────────────────────────────────────────────
+  describe("comment", () => {
+    test("a student can comment on an open request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(requestInit);
-
-      const response: ResponseInit = { decision: "Approve", remarks: "^^" };
-      await requestService
-        .auth(instructor.email)
-        .createResponse(requestID, response);
-      const requestInDb = await requestService
-        .auth(instructor.email)
-        .getRequest(requestID);
-      expect(requestInDb.response).toMatchObject(response);
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).comment(id, { text: "more" });
+      const r = await requestService.auth(student.email).getRequest(id);
+      // opening comment + the new comment
+      expect(r.thread).toHaveLength(2);
+      expect(r.thread.at(-1)?.kind).toBe("comment");
+      expect(r.status).toBe("open");
     });
 
-    test("should throw error and preserve original response if there is one", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("an instructor can comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(request);
-
-      const response: ResponseInit = { decision: "Approve", remarks: "^^" };
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService
         .auth(instructor.email)
-        .createResponse(requestID, response);
+        .comment(id, { text: "noted" });
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.thread).toHaveLength(2);
+    });
+
+    test("an observer cannot comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const observer = makeUser("o1@ust.hk", "observer");
+      await insertData(testConn, {
+        users: [student, observer],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
-        await requestService.auth(instructor.email).createResponse(requestID, {
-          ...response,
-          decision: "Reject",
+        await requestService
+          .auth(observer.email)
+          .comment(id, { text: "observing" });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("a comment is allowed on a cancelled request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).cancel(id);
+      await requestService.auth(student.email).comment(id, { text: "bye" });
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.status).toBe("cancelled");
+      expect(r.thread.at(-1)?.kind).toBe("comment");
+    });
+
+    test("a non-participant cannot comment", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student", "L1");
+      const other = makeUser("s2@connect.ust.hk", "student", "L2");
+      await insertData(testConn, {
+        users: [student, other],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      try {
+        await requestService.auth(other.email).comment(id, { text: "hi" });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("comment proofs round-trip through getRequest", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).comment(id, {
+        text: "see attached",
+        proofs: sampleProofs,
+      });
+      const r = await requestService.auth(student.email).getRequest(id);
+      const entry = r.thread.at(-1);
+      expect(entry?.kind).toBe("comment");
+      if (entry?.kind === "comment")
+        await expectStoredProofs(
+          entry.proofs,
+          sampleProofs,
+          requestService.auth(student.email),
+        );
+    });
+  });
+
+  // ── approve / reject ─────────────────────────────────────────────────────
+  describe("approve / reject", () => {
+    test("an instructor can approve an open request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).approve(id);
+      const r = await requestService.auth(instructor.email).getRequest(id);
+      expect(r.status).toBe("approved");
+      expect(r.thread.at(-1)?.kind).toBe("status");
+    });
+
+    test("a student cannot approve", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      try {
+        await requestService.auth(student.email).approve(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("an observer cannot approve", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const observer = makeUser("o1@ust.hk", "observer");
+      await insertData(testConn, {
+        users: [student, observer],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      try {
+        await requestService.auth(observer.email).approve(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("an admin cannot approve", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const admin = makeAdmin("admin1@ust.hk");
+      await insertData(testConn, {
+        users: [student, admin],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      try {
+        await requestService.auth(admin.email).approve(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("approving on a cancelled request throws", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).cancel(id);
+      try {
+        await requestService.auth(instructor.email).approve(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StatusConflictError);
+      }
+    });
+
+    test("action text is recorded as a comment followed by the status change", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService
+        .auth(instructor.email)
+        .reject(id, { text: "insufficient evidence", proofs: sampleProofs });
+      const r = await requestService.auth(instructor.email).getRequest(id);
+      expect(r.status).toBe("rejected");
+      const tail = r.thread.slice(-2);
+      expect(tail[0]?.kind).toBe("comment");
+      expect(tail[1]?.kind).toBe("status");
+      if (tail[0]?.kind === "comment") {
+        expect(tail[0].text).toBe("insufficient evidence");
+        await expectStoredProofs(
+          tail[0].proofs,
+          sampleProofs,
+          requestService.auth(instructor.email),
+        );
+      }
+      if (tail[1]?.kind === "status") expect(tail[1].status).toBe("rejected");
+    });
+
+    test("an instructor can change their decision (approve then reject)", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).approve(id);
+      expect(
+        (await requestService.auth(instructor.email).getRequest(id)).status,
+      ).toBe("approved");
+      // re-decision is allowed: the instructor flips to reject
+      await requestService.auth(instructor.email).reject(id);
+      expect(
+        (await requestService.auth(instructor.email).getRequest(id)).status,
+      ).toBe("rejected");
+    });
+  });
+
+  // ── cancel ───────────────────────────────────────────────────────────────
+  describe("cancel", () => {
+    test("the requester can cancel an open request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).cancel(id);
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.status).toBe("cancelled");
+      expect(r.thread.at(-1)?.kind).toBe("status");
+    });
+
+    test("an instructor cannot cancel", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      try {
+        await requestService.auth(instructor.email).cancel(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(PermissionError);
+      }
+    });
+
+    test("the requester can cancel an already-decided request", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).approve(id);
+      await requestService.auth(student.email).cancel(id);
+      expect(
+        (await requestService.auth(student.email).getRequest(id)).status,
+      ).toBe("cancelled");
+    });
+
+    test("cancelling a cancelled request throws", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).cancel(id);
+      try {
+        await requestService.auth(student.email).cancel(id);
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StatusConflictError);
+      }
+    });
+  });
+
+  // ── appeal ───────────────────────────────────────────────────────────────
+  describe("appeal", () => {
+    test("the requester can appeal a rejected request, flagging it for review", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).reject(id);
+      await requestService
+        .auth(student.email)
+        .appeal(id, { text: "please reconsider" });
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.status).toBe("appealed");
+      const tail = r.thread.slice(-2);
+      expect(tail[0]?.kind).toBe("comment");
+      expect(tail[1]?.kind).toBe("status");
+    });
+
+    test("an instructor cannot appeal", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).reject(id);
+      try {
+        await requestService.auth(instructor.email).appeal(id, { text: "no" });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(PermissionError);
+      }
+    });
+
+    test("appealing an open request throws", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const before = await requestService.auth(student.email).getRequest(id);
+      const filesBefore = await testConn.collections.proofs.find({}).toArray();
+      try {
+        await requestService.auth(student.email).appeal(id, {
+          text: "no",
+          proofs: sampleProofs,
         });
-        expect.unreachable("should have thrown an error");
+        expect.unreachable("should have thrown");
       } catch (error) {
-        expect(error).toBeInstanceOf(ResponseAlreadyExistsError);
+        expect(error).toBeInstanceOf(StatusConflictError);
       }
-      const requestInDb = await requestService
-        .auth(instructor.email)
-        .getRequest(requestID);
-      expect(requestInDb.response).toMatchObject(response);
+      const after = await requestService.auth(student.email).getRequest(id);
+      const filesAfter = await testConn.collections.proofs.find({}).toArray();
+      expect(after.thread).toEqual(before.thread);
+      expect(filesAfter).toHaveLength(filesBefore.length);
     });
 
-    test("should throw permission error when responder is not instructor of the class", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const instructor: User = {
-        email: "instructor1@ust.hk",
-        name: "instructor1",
-        enrollment: [
-          {
-            role: "instructor",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, instructor] });
-
-      const request: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("appeal proofs round-trip through getRequest", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(request);
-
-      const response: ResponseInit = { decision: "Approve", remarks: "^^" };
-      try {
-        await requestService
-          .auth(student.email)
-          .createResponse(requestID, response);
-        expect.unreachable("should have thrown an error");
-      } catch (error) {
-        expect(error).toBeInstanceOf(ClassPermissionError);
-      }
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).reject(id);
+      await requestService.auth(student.email).appeal(id, {
+        text: "reconsider",
+        proofs: sampleProofs,
+      });
+      const r = await requestService.auth(student.email).getRequest(id);
+      const comment = r.thread.at(-2);
+      expect(comment?.kind).toBe("comment");
+      if (comment?.kind === "comment")
+        await expectStoredProofs(
+          comment.proofs,
+          sampleProofs,
+          requestService.auth(student.email),
+        );
     });
 
-    test("admins should not be able to create responses", async () => {
-      const course: Course = {
-        code: "COMP 1023",
-        term: "2510",
-        title: "Python",
-        sections: { L1: { schedule: [] } },
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-        },
-      };
-      const student: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [
-          {
-            role: "student",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      const admin: User = {
-        email: "admin1@ust.hk",
-        name: "admin1",
-        enrollment: [
-          {
-            role: "admin",
-            course: { code: course.code, term: course.term },
-            section: "L1",
-          },
-        ],
-        sudoer: false,
-      };
-      await insertData(testConn, { users: [student, admin] });
-
-      const requestInit: RequestInit = {
-        type: "Swap Section",
-        class: {
-          course: { code: course.code, term: course.term },
-          section: "L1",
-        },
-        details: { reason: ">.<", proof: [] },
-        metadata: {
-          fromSection: "L1",
-          fromDate: "2025-11-25",
-          toSection: "L1",
-          toDate: "2025-11-26",
-        },
-      };
-      const requestID = await requestService
+    test("status guards ignore comments after the latest status", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
         .auth(student.email)
-        .createRequest(requestInit);
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).reject(id);
+      await requestService.auth(student.email).comment(id, {
+        text: "one more detail",
+      });
 
-      const response: ResponseInit = { decision: "Approve", remarks: "^^" };
-      try {
-        await requestService
-          .auth(admin.email)
-          .createResponse(requestID, response);
-        expect.unreachable("should have thrown an error");
-      } catch (error) {
-        expect(error).toBeInstanceOf(ClassPermissionError);
+      await requestService.auth(student.email).appeal(id, {
+        text: "please reconsider",
+      });
+
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.status).toBe("appealed");
+    });
+  });
+
+  // ── appeal cycle ─────────────────────────────────────────────────────────
+  describe("appeal cycle", () => {
+    test("reject → appeal → approve changes the status and thread", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+
+      await requestService.auth(instructor.email).reject(id);
+      await requestService
+        .auth(student.email)
+        .appeal(id, { text: "reconsider" });
+      await requestService.auth(instructor.email).approve(id);
+
+      const r = await requestService.auth(instructor.email).getRequest(id);
+      expect(r.status).toBe("approved");
+      // opening comment, status(rejected), comment(appeal), status(appealed),
+      // status(approved)
+      const kinds = r.thread.map((u) => u.kind);
+      expect(kinds).toEqual([
+        "comment",
+        "status",
+        "comment",
+        "status",
+        "status",
+      ]);
+    });
+  });
+
+  // ── immutability ─────────────────────────────────────────────────────────
+  describe("immutability", () => {
+    test("thread actions never mutate the request body", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const original = await requestService.auth(student.email).getRequest(id);
+
+      await requestService.auth(student.email).comment(id, { text: "c" });
+      await requestService.auth(instructor.email).approve(id);
+      await requestService.auth(student.email).appeal(id, { text: "a" });
+      await requestService.auth(instructor.email).reject(id);
+      await requestService.auth(student.email).cancel(id);
+
+      const after = await requestService.auth(student.email).getRequest(id);
+      expect(after.from).toBe(original.from);
+      expect(after.class).toEqual(original.class);
+      expect(after.type).toBe(original.type);
+      expect(after.metadata).toEqual(original.metadata);
+      expect(after.timestamp).toBe(original.timestamp);
+    });
+  });
+
+  // ── proof storage ─────────────────────────────────────────────────────────
+  describe("proof storage", () => {
+    test("persists the decoded byte length and content hash, ignoring client claims", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const lying: ProofListInit = [
+        {
+          name: "note.txt",
+          size: 1,
+          content: Buffer.from("hi").toString("base64"),
+        },
+      ];
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment(lying));
+      const r = await requestService.auth(student.email).getRequest(id);
+      const opening = r.thread[0];
+      if (opening?.kind === "comment" && opening.proofs?.[0]) {
+        expect(opening.proofs[0].size).toBe(2);
+        expect(opening.proofs[0].hash).toBe(
+          crypto.createHash("sha256").update("hi").digest("hex"),
+        );
       }
     });
   });

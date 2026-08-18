@@ -1,4 +1,4 @@
-import { RequestDetails, type RequestType } from "service/models";
+import { CommentInit, type RequestType } from "service/models";
 import z from "zod";
 
 export const FormSchema = <T extends RequestType, S extends z.ZodRawShape>(
@@ -7,7 +7,7 @@ export const FormSchema = <T extends RequestType, S extends z.ZodRawShape>(
 ) => {
   return z.object({
     type: z.literal(type),
-    details: RequestDetails,
+    comment: CommentInit,
     meta: meta,
   });
 };

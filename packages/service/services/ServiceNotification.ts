@@ -1,20 +1,29 @@
 import path from "node:path";
 import { evaluate } from "@mdx-js/mdx";
 import nodemailer from "nodemailer";
-import { createElement } from "react";
+import { createElement, Fragment } from "react";
 import * as runtime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   Classes,
+  type ProofFile,
   type Request,
-  type RequestDetails,
+  type RequestStatus,
+  type ThreadEntry,
   type User,
 } from "../models";
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
-import { formatRequest } from "../templates/Formatter";
+import { formatRequest, formatUpdate } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
-import { ResponseNotFoundError } from "./error";
+
+const STATUS_SUBJECT: Record<RequestStatus, string> = {
+  open: "Reopened",
+  approved: "Approved",
+  rejected: "Rejected",
+  appealed: "Appealed",
+  cancelled: "Cancelled",
+};
 
 export class NotificationService {
   private templateDir: string;
@@ -61,17 +70,23 @@ export class NotificationService {
     this.baseUrl = Bun.env.BASE_URL;
   }
 
-  private urlToResponse(rid: string): string {
-    return new URL(`/response/${rid}`, this.baseUrl).toString();
+  private urlToRequest(rid: string): string {
+    return new URL(`/request/${rid}`, this.baseUrl).toString();
   }
 
   /**
-   * Notify the responsible instructors, observers, and the requester, for a new request.
-   * @param request The request made.
+   * Notify the relevant parties of a thread update. A single action may
+   * append multiple entries (e.g. a decision with a comment records the
+   * comment then a status change); all are rendered together in one
+   * email. Student actions notify the instructors (with the student and
+   * observers CC'd); instructor actions notify the student (with
+   * instructors and observers CC'd).
+   *
+   * @param request The request on which the update was made.
+   * @param entries The thread entries describing the update. Omit for a
+   * new request.
    */
-  async notifyNewRequest(request: Request) {
-    const subject = `Request - ${Classes.format(request.class)}`;
-
+  async notifyRequestUpdate(request: Request, entries: ThreadEntry[] = []) {
     const student = await this.repos.user.requireUser(request.from);
     const instructors = await this.repos.user.getUsersInClass(
       request.class,
@@ -82,38 +97,58 @@ export class NotificationService {
       "observer",
     );
 
-    const content = await this.renderNewRequest(request, {
+    const actor = entries[0]?.from ?? request.from;
+    const statusEntry = entries.find((e) => e.kind === "status");
+    const subjectPrefix = statusEntry
+      ? STATUS_SUBJECT[statusEntry.status]
+      : entries.length === 0
+        ? "Request"
+        : "Comment";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}`;
+
+    const content = await this.renderUpdate(
+      request,
+      entries,
       student,
       instructors,
-    });
-
-    await this.sendEmail(
-      instructors.map((i) => i.email),
-      [student.email, ...observers.map((i) => i.email)],
-      subject,
-      content,
-      request.details.proof ?? [],
+      observers,
     );
+
+    const notificationEntries = entries.length > 0 ? entries : request.thread;
+    const attachments = notificationEntries.flatMap((e) =>
+      e.kind === "comment" ? (e.proofs ?? []) : [],
+    );
+
+    if (actor === request.from) {
+      await this.sendEmail(
+        instructors.map((i) => i.email),
+        [student.email, ...observers.map((i) => i.email)],
+        subject,
+        content,
+        attachments,
+      );
+    } else {
+      await this.sendEmail(
+        [student.email],
+        [...instructors.map((i) => i.email), ...observers.map((i) => i.email)],
+        subject,
+        content,
+        attachments,
+      );
+    }
   }
 
-  private async renderNewRequest(
+  private async renderUpdate(
     request: Request,
-    {
-      student,
-      instructors,
-    }: {
-      student: User;
-      instructors: User[];
-    },
+    entries: ThreadEntry[],
+    student: User,
+    instructors: User[],
+    observers: User[],
   ): Promise<string> {
-    const StudentLine = (() => {
-      if (student.name) {
-        return student.name;
-      } else {
-        return "Student";
-      }
-    })();
-    const InstructorLine = (() => {
+    const actor = entries[0]?.from ?? request.from;
+    const isStudentAction = actor === request.from;
+
+    const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
       if (is.length === 0) {
         return "Course Instructors";
@@ -121,108 +156,36 @@ export class NotificationService {
         return is.sort(compareString).join(", ");
       }
     })();
-    const Link = this.urlToResponse(request.id);
-    const Summary = formatRequest(request, {
-      student,
-      instructors,
-    });
+    const studentLine = student.name || "Student";
 
-    const templatePath = path.join(this.templateDir, "new_request.mdx");
+    const Recipient = isStudentAction ? instructorLine : studentLine;
+    const Sender = isStudentAction ? studentLine : instructorLine;
+    const Link = this.urlToRequest(request.id);
+    const isNewRequest = entries.length === 0;
+    const Update = isNewRequest
+      ? formatRequest(request, { student, instructors, observers })
+      : createElement(
+          Fragment,
+          null,
+          ...entries.map((e) =>
+            formatUpdate(e, { student, instructors, observers }),
+          ),
+        );
+    const Summary = isNewRequest
+      ? null
+      : formatRequest(request, { student, instructors, observers });
+
+    const templatePath = path.join(this.templateDir, "new_update.mdx");
     const templateFile = Bun.file(templatePath);
 
     const module = await evaluate(await templateFile.text(), runtime);
 
     return renderToStaticMarkup(
       createElement(module.default, {
-        StudentLine,
-        InstructorLine,
+        Recipient,
+        Sender,
         Link,
-        Summary,
-        ID: request.id,
-        Sig: await Signature.sign(request),
-      }),
-    );
-  }
-
-  /**
-   * Notify the requester, and the responsible instructors and observers, for a new response.
-   * @param request The request on which the response is made.
-   */
-  async notifyNewResponse(request: Request) {
-    if (!request.response) {
-      throw new ResponseNotFoundError(request.id);
-    }
-    const subject = `Response - ${Classes.format(request.class)}`;
-
-    const student = await this.repos.user.requireUser(request.from);
-    const instructors = await this.repos.user.getUsersInClass(
-      request.class,
-      "instructor",
-    );
-    const observers = await this.repos.user.getUsersInClass(
-      request.class,
-      "observer",
-    );
-
-    const content = await this.renderNewResponse(request, {
-      student,
-      instructors,
-    });
-
-    await this.sendEmail(
-      [student.email],
-      [...instructors.map((i) => i.email), ...observers.map((i) => i.email)],
-      subject,
-      content,
-      request.details.proof ?? [],
-    );
-  }
-
-  private async renderNewResponse(
-    request: Request,
-    {
-      student,
-      instructors,
-    }: {
-      student: User;
-      instructors: User[];
-    },
-  ): Promise<string> {
-    const response = request.response;
-    if (!response) {
-      throw new ResponseNotFoundError(request.id);
-    }
-    const StudentLine = (() => {
-      if (student.name) {
-        return student.name;
-      } else {
-        return "Student";
-      }
-    })();
-    const InstructorLine = (() => {
-      const is = instructors.map((i) => i.name).filter((name) => name !== "");
-      if (is.length === 0) {
-        return "Course Instructors";
-      } else {
-        return is.sort(compareString).join(", ");
-      }
-    })();
-    const Link = this.urlToResponse(request.id);
-    const Summary = formatRequest(request, {
-      student,
-      instructors,
-    });
-
-    const templatePath = path.join(this.templateDir, "new_response.mdx");
-    const templateFile = Bun.file(templatePath);
-
-    const module = await evaluate(await templateFile.text(), runtime);
-
-    return renderToStaticMarkup(
-      createElement(module.default, {
-        StudentLine,
-        InstructorLine,
-        Link,
+        Update,
         Summary,
         ID: request.id,
         Sig: await Signature.sign(request),
@@ -235,7 +198,7 @@ export class NotificationService {
     cc: string[],
     subject: string,
     content: string,
-    attachments: NonNullable<RequestDetails["proof"]>,
+    attachments: ProofFile[],
   ): Promise<void> {
     if (!this.transporter) {
       console.warn(
@@ -257,11 +220,13 @@ export class NotificationService {
       cc,
       subject,
       html: content,
-      attachments: attachments.map((f) => ({
-        filename: f.name,
-        content: f.content,
-        encoding: "base64",
-      })),
+      attachments: await Promise.all(
+        attachments.map(async (f) => ({
+          filename: f.name,
+          content: await this.repos.request.fetchProof(f.id),
+          encoding: "base64",
+        })),
+      ),
     });
   }
 }

@@ -1,3 +1,5 @@
+import type { ProofFileInit } from "service/models";
+
 export async function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -19,6 +21,16 @@ export async function readFileAsBase64(file: File): Promise<string> {
     };
     reader.readAsArrayBuffer(file);
   });
+}
+
+export function readProofs(files: FileList): Promise<ProofFileInit[]> {
+  return Promise.all(
+    [...files].map(async (file) => ({
+      name: file.name,
+      size: file.size,
+      content: await readFileAsBase64(file),
+    })),
+  );
 }
 
 export function downloadBase64File(content: string, filename: string) {
