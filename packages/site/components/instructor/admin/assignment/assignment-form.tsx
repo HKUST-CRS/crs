@@ -286,7 +286,7 @@ export function AssignmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Teaching Assistants</FieldLabel>
+            <FieldLabel>TA in charge</FieldLabel>
             <Textarea placeholder={"ta1@ust.hk\nta2@ust.hk"} {...field} />
             <FieldDescription>
               The emails of the teaching assistants responsible for this
