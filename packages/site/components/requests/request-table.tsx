@@ -26,6 +26,7 @@ import {
   type Request,
   type RequestStatus,
   RequestStatus as RequestStatusSchema,
+  RequestType,
   Terms,
 } from "service/models";
 import { formatDate, formatDateTime, fromISO } from "service/utils/datetime";
@@ -77,6 +78,7 @@ const STATUS_ORDER: Record<RequestStatus, number> = {
 const requestFilter =
   (filterOptions: {
     status: RequestStatus | null;
+    type: RequestType | null;
     term: string | null;
     course: CourseID | null;
     from: DateTime | null;
@@ -87,6 +89,9 @@ const requestFilter =
       filterOptions.status !== null &&
       request.status !== filterOptions.status
     ) {
+      return false;
+    }
+    if (filterOptions.type !== null && request.type !== filterOptions.type) {
       return false;
     }
     if (
@@ -258,6 +263,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
     const [statusFilter, setStatusFilter] = useState<RequestStatus | null>(
       null,
     );
+    const [typeFilter, setTypeFilter] = useState<RequestType | null>(null);
     const [termFilter, setTermFilter] = useState<string | null>(null);
     const [courseFilter, setCourseFilter] = useState<CourseID | null>(null);
     const [fromFilter, setFromFilter] = useState<DateTime | null>(null);
@@ -290,13 +296,22 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         rawData.filter(
           requestFilter({
             status: statusFilter,
+            type: typeFilter,
             term: termFilter,
             course: courseFilter,
             from: fromFilter,
             to: toFilter,
           }),
         ),
-      [rawData, statusFilter, fromFilter, courseFilter, termFilter, toFilter],
+      [
+        rawData,
+        statusFilter,
+        typeFilter,
+        fromFilter,
+        courseFilter,
+        termFilter,
+        toFilter,
+      ],
     );
 
     const table = useReactTable({
@@ -356,6 +371,30 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                 {RequestStatusSchema.options.map((s) => (
                   <SelectItem key={s} value={s}>
                     {REQUEST_STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field className="col-span-1">
+            <FieldLabel>Type</FieldLabel>
+            <Select
+              value={typeFilter ?? "__all"}
+              onValueChange={(value) => {
+                setTypeFilter(
+                  value === "__all" ? null : (value as RequestType),
+                );
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All types</SelectItem>
+                {RequestType.options.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
                   </SelectItem>
                 ))}
               </SelectContent>
