@@ -13,6 +13,7 @@ import {
   toISO,
 } from "service/utils/datetime";
 import { z } from "zod";
+import { TimePicker } from "@/components/shadcn-studio/date-picker/date-picker-08";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -23,7 +24,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-
 export const AssignmentFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
@@ -54,6 +54,10 @@ export function AssignmentForm({
 
   const due = fromISO(form.watch("due"));
   const dueValid = due.isValid;
+  const maxExtension = Duration.fromISO(form.watch("maxExtension"));
+  const maxDueCandidate =
+    dueValid && maxExtension.isValid ? due.plus(maxExtension) : null;
+  const maxDue = maxDueCandidate?.isValid ? maxDueCandidate : null;
 
   return (
     <form
@@ -65,8 +69,14 @@ export function AssignmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Code</FieldLabel>
-            <Input placeholder="Lab1/PA1/Assignment1/..." {...field} />
+            <FieldLabel htmlFor="assignment-code">Code</FieldLabel>
+            <Input
+              id="assignment-code"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Lab1/PA1/Assignment1…"
+              {...field}
+            />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -77,8 +87,13 @@ export function AssignmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Name</FieldLabel>
-            <Input placeholder="Math Expression Evaluator" {...field} />
+            <FieldLabel htmlFor="assignment-name">Name</FieldLabel>
+            <Input
+              id="assignment-name"
+              autoComplete="off"
+              placeholder="Math Expression Evaluator…"
+              {...field}
+            />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -89,43 +104,41 @@ export function AssignmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Due Date</FieldLabel>
+            <FieldLabel htmlFor="assignment-due-date">Due Date</FieldLabel>
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="flex-1">
+                  <Button
+                    id="assignment-due-date"
+                    variant="outline"
+                    className="flex-1"
+                  >
                     <CalendarIcon />
-                    {field.value ? (
-                      formatDate(field.value)
-                    ) : (
-                      <span>Pick a date</span>
-                    )}
+                    {dueValid ? formatDate(due) : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    selected={fromISO(field.value).toJSDate()}
+                    selected={dueValid ? due.toJSDate() : undefined}
                     defaultMonth={
-                      field.value
-                        ? fromISO(field.value).toJSDate()
-                        : DateTime.now().toJSDate()
+                      dueValid ? due.toJSDate() : DateTime.now().toJSDate()
                     }
                     onSelect={(date) => {
                       if (date) {
-                        const currentValue = field.value
-                          ? fromISO(field.value)
+                        const currentValue = dueValid
+                          ? due
                           : DateTime.now().endOf("day");
 
-                        const updated = DateTime.fromJSDate(date).set({
-                          year: date.getFullYear(),
-                          month: date.getMonth() + 1,
-                          day: date.getDate(),
-                          hour: currentValue.hour,
-                          minute: currentValue.minute,
-                          second: currentValue.second,
-                          millisecond: currentValue.millisecond,
-                        });
+                        const updated = DateTime.fromJSDate(date)
+                          .setZone("Asia/Hong_Kong", { keepLocalTime: true })
+                          .setLocale("en-HK")
+                          .set({
+                            hour: currentValue.hour,
+                            minute: currentValue.minute,
+                            second: currentValue.second,
+                            millisecond: currentValue.millisecond,
+                          });
                         field.onChange(toISO(updated));
                       }
                     }}
@@ -139,26 +152,27 @@ export function AssignmentForm({
                   />
                 </PopoverContent>
               </Popover>
-              <Input
-                type="time"
-                step={60 * 10}
-                disabled={!field.value}
-                value={formatTime(field.value)}
-                onChange={(e) => {
-                  if (field.value) {
-                    const [hour, minute] = e.target.value
-                      .split(":")
-                      .map((str) => Number(str));
-                    const updated = fromISO(field.value).set({
-                      hour: hour,
-                      minute: minute,
-                      second: 59,
-                      millisecond: 999,
-                    });
-                    field.onChange(toISO(updated));
+              <TimePicker
+                id="assignment-due-time"
+                value={dueValid ? formatTime(due) : ""}
+                disabled={!dueValid}
+                label="Due date"
+                className="max-w-none flex-1"
+                onChange={(value) => {
+                  if (dueValid) {
+                    const [hour, minute] = value.split(":").map(Number);
+                    field.onChange(
+                      toISO(
+                        due.set({
+                          hour,
+                          minute,
+                          second: 59,
+                          millisecond: 999,
+                        }),
+                      ),
+                    );
                   }
                 }}
-                className="w-min"
               />
             </div>
             <FieldError errors={[fieldState.error]} />
@@ -171,58 +185,97 @@ export function AssignmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Latest Due Date after Extension</FieldLabel>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" disabled={!dueValid}>
-                  <CalendarIcon />
-                  {field.value && dueValid ? (
-                    formatDateTime(due.plus(Duration.fromISO(field.value)))
-                  ) : (
-                    <span>Pick a date</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                {dueValid && (
-                  <Calendar
-                    mode="single"
-                    selected={due
-                      .plus(Duration.fromISO(field.value))
-                      .toJSDate()}
-                    disabled={(date) =>
-                      DateTime.fromJSDate(date).startOf("day") <
-                      due.startOf("day")
-                    }
-                    defaultMonth={
-                      field.value
-                        ? due.plus(Duration.fromISO(field.value)).toJSDate()
-                        : DateTime.now().toJSDate()
-                    }
-                    onSelect={(date) => {
-                      if (date && dueValid) {
-                        const extensionDateTime = DateTime.fromJSDate(date).set(
-                          {
-                            hour: due.hour,
-                            minute: due.minute,
-                            second: due.second,
-                            millisecond: due.millisecond,
-                          },
-                        );
-                        field.onChange(extensionDateTime.diff(due).toISO());
+            <FieldLabel htmlFor="assignment-max-extension">
+              Latest Due Date after Extension
+            </FieldLabel>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="assignment-max-extension"
+                    variant="outline"
+                    className="flex-1"
+                    disabled={!dueValid}
+                  >
+                    <CalendarIcon />
+                    {maxDue ? (
+                      formatDateTime(maxDue)
+                    ) : dueValid ? (
+                      <span>Pick a date</span>
+                    ) : (
+                      <span>Pick due date first</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  {maxDue && (
+                    <Calendar
+                      mode="single"
+                      selected={maxDue.toJSDate()}
+                      disabled={(date) =>
+                        DateTime.fromJSDate(date)
+                          .setZone("Asia/Hong_Kong", {
+                            keepLocalTime: true,
+                          })
+                          .setLocale("en-HK")
+                          .startOf("day") < due.startOf("day")
                       }
-                    }}
-                    captionLayout="dropdown"
-                    startMonth={new Date(2020, 0)}
-                    endMonth={new Date(2030, 11)}
-                    className="rounded-lg border shadow-sm"
-                    formatters={{
-                      formatMonthDropdown: (date) => formatMonth(date),
-                    }}
-                  />
-                )}
-              </PopoverContent>
-            </Popover>
+                      defaultMonth={maxDue.toJSDate()}
+                      onSelect={(date) => {
+                        if (date) {
+                          const extensionDateTime = DateTime.fromJSDate(date)
+                            .setZone("Asia/Hong_Kong", {
+                              keepLocalTime: true,
+                            })
+                            .setLocale("en-HK")
+                            .set({
+                              hour: maxDue.hour,
+                              minute: maxDue.minute,
+                              second: maxDue.second,
+                              millisecond: maxDue.millisecond,
+                            });
+                          if (extensionDateTime >= due) {
+                            field.onChange(
+                              extensionDateTime.diff(due).toISO() ?? "P0D",
+                            );
+                          }
+                        }
+                      }}
+                      captionLayout="dropdown"
+                      startMonth={new Date(2020, 0)}
+                      endMonth={new Date(2030, 11)}
+                      className="rounded-lg border shadow-sm"
+                      formatters={{
+                        formatMonthDropdown: (date) => formatMonth(date),
+                      }}
+                    />
+                  )}
+                </PopoverContent>
+              </Popover>
+              <TimePicker
+                id="assignment-max-extension-time"
+                value={maxDue ? formatTime(maxDue) : ""}
+                disabled={!maxDue}
+                label="Latest due date after extension"
+                className="max-w-none flex-1"
+                onChange={(value) => {
+                  if (maxDue) {
+                    const [hour, minute] = value.split(":").map(Number);
+                    const extensionDateTime = maxDue.set({
+                      hour,
+                      minute,
+                      second: 59,
+                      millisecond: 999,
+                    });
+                    if (extensionDateTime >= due) {
+                      field.onChange(
+                        extensionDateTime.diff(due).toISO() ?? "P0D",
+                      );
+                    }
+                  }
+                }}
+              />
+            </div>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
