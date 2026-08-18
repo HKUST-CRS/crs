@@ -15,6 +15,9 @@ describe("datetime formatters", () => {
     const value = "2026-01-31T18:00:00+08:00";
     expect(formatMonth(value)).toBe("Jan");
   });
+  test("formatMonth preserves a calendar Date's month", () => {
+    expect(formatMonth(new Date(2026, 0, 1))).toBe("Jan");
+  });
   test("formatTime converts to local timezone (HKT) before formatting", () => {
     const value = "2026-01-31T18:00:00+08:00";
     expect(formatTime(value)).toBe("18:00");

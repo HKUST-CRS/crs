@@ -211,7 +211,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                         className="rounded-lg border shadow-sm"
                         formatters={{
                           formatMonthDropdown: (date) =>
-                            formatMonth(date.toISOString()),
+                            formatMonth(date),
                         }}
                       />
                     )}
@@ -300,7 +300,7 @@ export const SwapSectionRequestForm: FC<SwapSectionRequestFormProps> = (
                         className="rounded-lg border shadow-sm"
                         formatters={{
                           formatMonthDropdown: (date) =>
-                            formatMonth(date.toISOString()),
+                            formatMonth(date),
                         }}
                       />
                     )}

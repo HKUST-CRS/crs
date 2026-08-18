@@ -9,6 +9,7 @@ import { DeadlineExtensionMeta } from "service/models";
 import {
   formatDateTime,
   formatMonth,
+  fromCalendarDate,
   fromISO,
   toISO,
 } from "service/utils/datetime";
@@ -176,7 +177,7 @@ export const DeadlineExtensionRequestForm: FC<
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
-                              toISO(fromISO(date.toISOString()).endOf("day")),
+                              toISO(fromCalendarDate(date).endOf("day")),
                             );
                           }
                         }}
@@ -192,7 +193,7 @@ export const DeadlineExtensionRequestForm: FC<
                         className="rounded-lg border shadow-sm"
                         formatters={{
                           formatMonthDropdown: (date) =>
-                            formatMonth(date.toISOString()),
+                            formatMonth(date),
                         }}
                       />
                     )}

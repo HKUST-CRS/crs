@@ -205,7 +205,7 @@ export const AbsentFromSectionRequestForm: FC<
                         className="rounded-lg border shadow-sm"
                         formatters={{
                           formatMonthDropdown: (date) =>
-                            formatMonth(date.toISOString()),
+                            formatMonth(date),
                         }}
                       />
                     )}

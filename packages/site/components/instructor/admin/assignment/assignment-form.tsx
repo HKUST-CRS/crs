@@ -135,7 +135,7 @@ export function AssignmentForm({
                     className="rounded-lg border shadow-sm"
                     formatters={{
                       formatMonthDropdown: (date) =>
-                        formatMonth(date.toISOString()),
+                        formatMonth(date),
                     }}
                   />
                 </PopoverContent>
@@ -219,7 +219,7 @@ export function AssignmentForm({
                     className="rounded-lg border shadow-sm"
                     formatters={{
                       formatMonthDropdown: (date) =>
-                        formatMonth(date.toISOString()),
+                        formatMonth(date),
                     }}
                   />
                 )}
