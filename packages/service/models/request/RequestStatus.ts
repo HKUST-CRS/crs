@@ -11,7 +11,7 @@ import z from "zod";
  * - "cancelled": the requester has withdrawn the request. Terminal for status
  *   changes, but comments may still be added.
  *
- * Denormalized from the append-only thread; see `BaseRequest.status`.
+ * Derived from the append-only thread; see `Request.status`.
  */
 export const RequestStatus = z.enum([
   "open",

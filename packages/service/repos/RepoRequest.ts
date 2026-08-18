@@ -1,43 +1,40 @@
 import crypto from "node:crypto";
+import { buffer } from "node:stream/consumers";
+import { finished } from "node:stream/promises";
 import { DateTime } from "luxon";
 import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
-import type {
-  Class,
-  CommentEntry,
-  Proof,
-  ProofFile,
-  ProofUpload,
+import {
+  type Class,
+  type Comment,
+  type CommentInit,
+  MAX_PROOF_SIZE,
+  makeComment,
+  makeStatusChange,
+  type ProofFile,
+  type ProofFileInit,
   Request,
-  RequestHead,
-  RequestID,
-  RequestInit,
-  RequestStatus,
-  ThreadEntry,
-  UserID,
+  type RequestDocument,
+  type RequestID,
+  type RequestInit,
+  type RequestStatus,
+  type StatusChangeInit,
+  statusFromThread,
+  type ThreadEntry,
+  type UserID,
 } from "../models";
-import { MAX_PROOF_SIZE } from "../models";
 import { toISO } from "../utils/datetime";
 import { RequestNotFoundError, StatusConflictError } from "./error";
-import { rollbackAttachments, uploadAttachment } from "./gridfs";
-
-type EntryBase = { id: string; from: UserID; timestamp: string };
-
-function makeComment(
-  base: EntryBase,
-  text: string,
-  proof?: Proof,
-): CommentEntry {
-  return {
-    ...base,
-    kind: "comment",
-    text,
-    ...(proof ? { proof } : {}),
-  };
-}
 
 export class RequestRepo {
   constructor(protected collections: Collections) {}
+
+  private parseRequest(document: RequestDocument): Request {
+    return Request.parse({
+      ...document,
+      status: statusFromThread(document.thread),
+    });
+  }
 
   async requireRequest(requestID: RequestID): Promise<Request> {
     const request = await this.collections.requests.findOne(
@@ -45,62 +42,59 @@ export class RequestRepo {
       { projection: { _id: 0 } },
     );
     if (!request) throw new RequestNotFoundError(requestID);
-    return request;
+    return this.parseRequest(request);
   }
 
-  async createRequest(from: UserID, data: RequestInit): Promise<string> {
+  async createRequest(
+    from: UserID,
+    request: RequestInit,
+    comment: CommentInit,
+  ): Promise<string> {
     const id = new ObjectId().toHexString();
-    const timestamp = toISO(DateTime.now());
-    const proof = await this.storeProof(data.details.proof);
-    // The opening reason + proof become the first comment in the thread; the
-    // stored body carries only class/type/metadata.
-    const opening = makeComment(
-      { id: new ObjectId().toHexString(), from, timestamp },
-      data.details.reason,
-      proof,
-    );
-    // Drop `details` from the stored body (the opening comment already holds
-    // the reason + proof); spreading the rest keeps the type/metadata
-    // discriminant correlated for the insert.
-    const { details: _details, ...rest } = data;
-    await this.collections.requests.insertOne({
-      ...rest,
-      id,
-      from,
-      timestamp,
-      status: "open",
-      updates: [opening],
-    });
+    const text = comment.text;
+    const proofs = await this.storeProofs(comment.proofs ?? []);
+    try {
+      await this.collections.requests.insertOne({
+        ...request,
+        id,
+        from,
+        timestamp: toISO(DateTime.now()),
+        thread: [
+          makeComment(
+            {
+              id: new ObjectId().toHexString(),
+              from,
+              timestamp: toISO(DateTime.now()),
+            },
+            text,
+            proofs,
+          ),
+        ],
+      });
+    } catch (error) {
+      await this.deleteProofs(proofs);
+      throw error;
+    }
     return id;
   }
 
-  /**
-   * Gets request heads created by the specified user.
-   *
-   * The returned request heads omit `metadata` and `updates`.
-   */
-  async getRequestHeadsFromUser(userID: UserID): Promise<RequestHead[]> {
+  /** Gets requests created by the specified user. */
+  async getRequestsFromUser(userID: UserID): Promise<Request[]> {
     const requests = await this.collections.requests
-      .find(
-        { from: userID },
-        { projection: { _id: 0, metadata: 0, updates: 0 } },
-      )
+      .find({ from: userID }, { projection: { _id: 0 } })
       .sort({ timestamp: "descending" })
       .toArray();
-    return requests as unknown as RequestHead[];
+    return requests.map((request) => this.parseRequest(request));
   }
 
   /**
-   * Get all request heads in the specified classes.
+   * Get all requests in the specified classes.
    *
-   * If a class has section "*", all request heads in the course are returned regardless of
+   * If a class has section "*", all requests in the course are returned regardless of
    * section.
    *
-   * The returned request heads omit `metadata` and `updates`.
    */
-  async getRequestHeadsInClasses(
-    classes: Array<Class>,
-  ): Promise<RequestHead[]> {
+  async getRequestsInClasses(classes: Array<Class>): Promise<Request[]> {
     if (classes.length === 0) {
       // Ensure that the $or array is non-empty.
       return [];
@@ -122,11 +116,11 @@ export class RequestRepo {
             };
           }),
         },
-        { projection: { _id: 0, metadata: 0, updates: 0 } },
+        { projection: { _id: 0 } },
       )
       .sort({ timestamp: "descending" })
       .toArray();
-    return requests as unknown as RequestHead[];
+    return requests.map((request) => this.parseRequest(request));
   }
 
   /**
@@ -142,11 +136,22 @@ export class RequestRepo {
     }
 
     const requests = await this.collections.requests
-      .find({ id: { $in: requestIDs } }, { projection: { _id: 0 } })
+      .find(
+        {
+          id: {
+            $in: requestIDs,
+          },
+        },
+        {
+          projection: {
+            _id: 0,
+          },
+        },
+      )
       .toArray();
 
     const requestsByID = new Map(
-      requests.map((request) => [request.id, request as Request]),
+      requests.map((request) => [request.id, this.parseRequest(request)]),
     );
 
     return requestIDs.flatMap((requestID) => {
@@ -156,160 +161,202 @@ export class RequestRepo {
   }
 
   /**
-   * Atomically appends one or more thread entries to a request, optionally
-   * guarded by the request's current status and optionally setting a new
-   * denormalized status — all in a single `updateOne`.
+   * Gets the request containing the specified proof.
    *
-   * Pass `expectedStatuses = null` to allow the append from any status (used
-   * for comments). Otherwise the append only applies when the request is in
-   * an admissible state; a conflicting state throws `StatusConflictError`.
+   * If no request contains the proof, `null` is returned.
+   */
+  async getRequestByProof(proofID: string): Promise<Request | null> {
+    const doc = await this.collections.requests.findOne(
+      { "thread.proofs.id": proofID },
+      { projection: { _id: 0 } },
+    );
+    return doc ? this.parseRequest(doc) : null;
+  }
+
+  /**
+   * Atomically appends one or more thread entries to a request,
+   * optionally guarded by its current thread-derived status.
+   *
+   * Pass `expectedStatuses = null` to allow the append from any status
+   * (used for comments). Otherwise the append only applies when the
+   * request is in an admissible state; a conflicting state throws
+   * `StatusConflictError`.
    */
   private async append(
     requestID: RequestID,
     entries: ThreadEntry[],
     expectedStatuses: RequestStatus[] | null,
     op: string,
-    set?: { status: RequestStatus },
   ): Promise<void> {
+    const proofs = entries.flatMap((entry) =>
+      entry.kind === "comment" ? (entry.proofs ?? []) : [],
+    );
     const filter: Record<string, unknown> = expectedStatuses
-      ? { id: requestID, status: { $in: expectedStatuses } }
+      ? {
+          id: requestID,
+          $expr: {
+            $in: [
+              {
+                $ifNull: [
+                  {
+                    $reduce: {
+                      input: "$thread",
+                      initialValue: null,
+                      in: {
+                        $cond: [
+                          { $eq: ["$$this.kind", "status"] },
+                          "$$this.status",
+                          "$$value",
+                        ],
+                      },
+                    },
+                  },
+                  "open",
+                ],
+              },
+              expectedStatuses,
+            ],
+          },
+        }
       : { id: requestID };
-    const result = await this.collections.requests.updateOne(filter, {
-      $push: { updates: { $each: entries } },
-      ...(set ? { $set: set } : {}),
-    });
-    if (result.matchedCount === 0) {
-      // Distinguish "not found" from "wrong status" for a clear error.
-      const request = await this.requireRequest(requestID);
-      throw new StatusConflictError(
-        requestID,
-        expectedStatuses?.join("/") ?? "any",
-        request.status,
-        op,
-      );
+    try {
+      const result = await this.collections.requests.updateOne(filter, {
+        $push: { thread: { $each: entries } },
+      });
+      if (result.matchedCount === 0) {
+        const request = await this.requireRequest(requestID);
+        throw new StatusConflictError(
+          requestID,
+          expectedStatuses?.join("/") ?? "any",
+          request.status,
+          op,
+        );
+      }
+    } catch (error) {
+      await this.deleteProofs(proofs);
+      throw error;
     }
   }
 
-  /**
-   * Appends a comment. Comments are allowed in any status (including
-   * cancelled), by the requester or any instructor/observer in the class.
-   */
-  async appendComment(
+  private async createComment(
     userID: UserID,
-    requestID: RequestID,
-    payload: { text: string; proof?: ProofUpload },
-  ): Promise<CommentEntry> {
-    const proof = await this.storeProof(payload.proof);
-    const entry = makeComment(
+    init: CommentInit,
+  ): Promise<Comment> {
+    return makeComment(
       {
         id: new ObjectId().toHexString(),
         from: userID,
         timestamp: toISO(DateTime.now()),
       },
-      payload.text,
-      proof,
+      init.text,
+      await this.storeProofs(init.proofs ?? []),
     );
+  }
+
+  /**
+   * Appends a comment. Comments are allowed in any status (including
+   * cancelled), by the requester or any instructor/observer in the
+   * class.
+   */
+  async appendComment(
+    userID: UserID,
+    requestID: RequestID,
+    init: CommentInit,
+  ): Promise<Comment> {
+    const entry = await this.createComment(userID, init);
     await this.append(requestID, [entry], null, "append a comment");
     return entry;
   }
 
-  /**
-   * Appends a status change, optionally preceded by a comment. Both entries
-   * are appended atomically. Guarded by the admissible source statuses; sets
-   * the denormalized status.
-   */
+  /** Appends an optional comment and status change as one guarded update. */
   async appendStatusChange(
     userID: UserID,
     requestID: RequestID,
-    status: RequestStatus,
+    init: StatusChangeInit,
     expectedStatuses: RequestStatus[],
     op: string,
-    comment?: { text: string; proof?: ProofUpload },
+    comment?: CommentInit,
   ): Promise<ThreadEntry[]> {
-    const proof = comment ? await this.storeProof(comment.proof) : undefined;
-    const timestamp = toISO(DateTime.now());
-    const entries: ThreadEntry[] = [];
-    if (comment) {
-      entries.push(
-        makeComment(
-          { id: new ObjectId().toHexString(), from: userID, timestamp },
-          comment.text,
-          proof,
-        ),
-      );
-    }
-    entries.push({
-      id: new ObjectId().toHexString(),
-      from: userID,
-      timestamp,
-      kind: "status",
-      status,
-    });
-    await this.append(requestID, entries, expectedStatuses, op, { status });
+    const statusEntry = makeStatusChange(
+      {
+        id: new ObjectId().toHexString(),
+        from: userID,
+        timestamp: toISO(DateTime.now()),
+      },
+      init,
+    );
+    const entries: ThreadEntry[] = comment
+      ? [await this.createComment(userID, comment), statusEntry]
+      : [statusEntry];
+    await this.append(requestID, entries, expectedStatuses, op);
     return entries;
   }
 
-  // ── Proof (GridFS) ───────────────────────────────────────────────────────
-
   /**
-   * Uploads each supplied proof file to GridFS, returning the stored
-   * references (`attachmentId`). The
-   * persisted `size` and `hash` are derived from the decoded bytes rather than
-   * the client-supplied values, so the per-file limit is enforced on the
-   * actual content. If an upload fails partway, any already-uploaded files are
-   * deleted here.
+   * Uploads supplied proof files to GridFS and returns their stored references
+   * (`id`). The persisted `size` and `hash` are derived from the decoded bytes
+   * rather than the client-supplied values, so the per-file limit is enforced
+   * on the actual content.
    */
-  private async storeProof(proof?: ProofUpload): Promise<Proof | undefined> {
-    if (!proof?.length) return undefined;
-    const stored: ProofFile[] = [];
-    const ids: ObjectId[] = [];
-    try {
-      for (const file of proof) {
-        const bytes = Buffer.from(file.content, "base64");
-        if (bytes.length > MAX_PROOF_SIZE) {
-          throw new Error(
-            `Proof "${file.name}" exceeds the ${MAX_PROOF_SIZE}-byte limit`,
-          );
-        }
-        const id = await uploadAttachment(
-          this.collections.proofs,
-          file.name,
-          bytes,
+  private async storeProofs(proofs: ProofFileInit[]): Promise<ProofFile[]> {
+    const files = proofs.map((file) => {
+      const bytes = Buffer.from(file.content, "base64");
+      if (bytes.length > MAX_PROOF_SIZE) {
+        throw new Error(
+          `Proof "${file.name}" exceeds the ${MAX_PROOF_SIZE}-byte limit`,
         );
-        ids.push(id);
-        stored.push({
-          name: file.name,
-          size: bytes.length,
-          hash: crypto.createHash("sha256").update(bytes).digest("hex"),
-          attachmentId: id.toHexString(),
-        });
       }
-    } catch (e) {
-      return rollbackAttachments(this.collections.proofs, ids, e);
+      return {
+        name: file.name,
+        bytes,
+        size: bytes.length,
+        hash: crypto.createHash("sha256").update(bytes).digest("hex"),
+      };
+    });
+    const uploads = files.map(({ name, bytes }) => {
+      const id = new ObjectId();
+      const promise = Promise.resolve().then(async () => {
+        const upload = this.collections.proofs.openUploadStreamWithId(id, name);
+        upload.end(bytes);
+        await finished(upload, { cleanup: true });
+      });
+      return { id, promise };
+    });
+    const results = await Promise.allSettled(
+      uploads.map(({ promise }) => promise),
+    );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") {
+      await Promise.allSettled(
+        uploads.map(({ id }) => this.collections.proofs.delete(id)),
+      );
+      throw failure.reason;
     }
-    return stored;
+    return files.map((file, i) => {
+      const upload = uploads[i];
+      if (!upload) throw new Error("File upload returned an incomplete result");
+      return {
+        name: file.name,
+        size: file.size,
+        hash: file.hash,
+        id: upload.id.toHexString(),
+      };
+    });
+  }
+
+  private async deleteProofs(proofs: ProofFile[]): Promise<void> {
+    await Promise.allSettled(
+      proofs.map((proof) =>
+        this.collections.proofs.delete(new ObjectId(proof.id)),
+      ),
+    );
   }
 
   /** Reads the bytes of a stored proof file, returned as base64. */
-  async readProof(attachmentId: string): Promise<string> {
+  async fetchProof(proofID: string): Promise<string> {
     const stream = this.collections.proofs.openDownloadStream(
-      new ObjectId(attachmentId),
+      new ObjectId(proofID),
     );
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(chunk as Buffer);
-    }
-    return Buffer.concat(chunks).toString("base64");
-  }
-
-  /** Finds the request whose thread carries the given proof file, if any. */
-  async findRequestByAttachmentId(
-    attachmentId: string,
-  ): Promise<Request | null> {
-    const doc = await this.collections.requests.findOne(
-      { "updates.proof.attachmentId": attachmentId },
-      { projection: { _id: 0 } },
-    );
-    return doc as Request | null;
+    return (await buffer(stream)).toString("base64");
   }
 }

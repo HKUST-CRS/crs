@@ -1,6 +1,6 @@
 import z from "zod";
 import { UserID } from "../user";
-import { Proof } from "./Proof";
+import { ProofList, ProofListInit } from "./Proof";
 import { RequestStatus } from "./RequestStatus";
 
 /**
@@ -12,42 +12,83 @@ import { RequestStatus } from "./RequestStatus";
 export const ThreadEntryID = z.string();
 export type ThreadEntryID = z.infer<typeof ThreadEntryID>;
 
-const ThreadEntryBase = z.object({
+export const ThreadEntryBase = z.object({
   id: ThreadEntryID,
   from: UserID,
   timestamp: z.iso.datetime({ offset: true }),
 });
+export type ThreadEntryBase = z.infer<typeof ThreadEntryBase>;
+
+/** A comment supplied before the server assigns thread fields. */
+export const CommentInit = z.object({
+  text: z.string().nonempty("A comment cannot be empty."),
+  proofs: ProofListInit,
+});
+export type CommentInit = z.infer<typeof CommentInit>;
 
 /**
  * The monomorphic content entry of the thread: a message, optionally with
  * supporting documents, posted by the requester or an instructor. The request's
- * opening reason + proof is recorded as the first comment at creation time, so
+ * opening reason + proofs are recorded as the first comment at creation time, so
  * every piece of textual/attachment content on a request lives in one place.
  */
-export const CommentEntry = ThreadEntryBase.extend({
+export const Comment = ThreadEntryBase.extend({
   kind: z.literal("comment"),
   text: z.string().nonempty("A comment cannot be empty."),
-  proof: Proof,
+  proofs: ProofList,
 });
-export type CommentEntry = z.infer<typeof CommentEntry>;
+export type Comment = z.infer<typeof Comment>;
+
+export function makeComment(
+  base: ThreadEntryBase,
+  text: string,
+  proofs?: ProofList,
+): Comment {
+  return {
+    ...base,
+    kind: "comment",
+    text,
+    ...(proofs ? { proofs } : {}),
+  };
+}
+
+/** A status change supplied before the server assigns thread fields. */
+export const StatusChangeInit = z.object({
+  status: RequestStatus,
+});
+export type StatusChangeInit = z.infer<typeof StatusChangeInit>;
 
 /**
  * A change of the request's lifecycle status. Carries only the new status; any
  * text accompanying the change is recorded as a preceding comment entry (so
  * content stays monomorphic). Status changes are append-only: the request's
- * denormalized `status` always reflects the latest status-change entry.
+ * `status` always reflects the latest status-change entry.
  */
-export const StatusChangeEntry = ThreadEntryBase.extend({
+export const StatusChange = ThreadEntryBase.extend({
   kind: z.literal("status"),
   status: RequestStatus,
 });
-export type StatusChangeEntry = z.infer<typeof StatusChangeEntry>;
+export type StatusChange = z.infer<typeof StatusChange>;
+
+export function makeStatusChange(
+  base: ThreadEntryBase,
+  init: StatusChangeInit,
+): StatusChange {
+  return { ...base, kind: "status", ...init };
+}
 
 /**
  * An entry in the append-only thread of a request.
  */
 export const ThreadEntry = z.discriminatedUnion("kind", [
-  CommentEntry,
-  StatusChangeEntry,
+  Comment,
+  StatusChange,
 ]);
 export type ThreadEntry = z.infer<typeof ThreadEntry>;
+
+export function statusFromThread(thread: ThreadEntry[]): RequestStatus {
+  return (
+    thread.findLast((entry): entry is StatusChange => entry.kind === "status")
+      ?.status ?? "open"
+  );
+}

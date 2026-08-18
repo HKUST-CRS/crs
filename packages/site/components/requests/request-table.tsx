@@ -23,8 +23,9 @@ import {
 import {
   type CourseID,
   Courses,
-  type RequestHead,
+  type Request,
   type RequestStatus,
+  RequestStatus as RequestStatusSchema,
   Terms,
 } from "service/models";
 import { formatDate, formatDateTime, fromISO } from "service/utils/datetime";
@@ -56,8 +57,8 @@ import { cn } from "@/lib/utils";
 import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
-  data: RequestHead[];
-  onClick?: (row: RequestHead) => void;
+  data: Request[];
+  onClick?: (row: Request) => void;
 }
 
 export interface RequestTableHandle {
@@ -81,7 +82,7 @@ const requestFilter =
     from: DateTime | null;
     to: DateTime | null;
   }) =>
-  (request: RequestHead) => {
+  (request: Request) => {
     if (
       filterOptions.status !== null &&
       request.status !== filterOptions.status
@@ -115,7 +116,7 @@ const requestFilter =
     return true;
   };
 
-const columns: ColumnDef<RequestHead>[] = [
+const columns: ColumnDef<Request>[] = [
   {
     accessorKey: "from",
     header: ({ column }) => {
@@ -236,7 +237,7 @@ const columns: ColumnDef<RequestHead>[] = [
     sortingFn: (rowA, rowB) => {
       const a = STATUS_ORDER[rowA.original.status];
       const b = STATUS_ORDER[rowB.original.status];
-      return a === b ? 0 : a > b ? 1 : -1;
+      return a - b;
     },
   },
 ];
@@ -352,13 +353,11 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All statuses</SelectItem>
-                {(Object.keys(REQUEST_STATUS_LABEL) as RequestStatus[]).map(
-                  (s) => (
-                    <SelectItem key={s} value={s}>
-                      {REQUEST_STATUS_LABEL[s]}
-                    </SelectItem>
-                  ),
-                )}
+                {RequestStatusSchema.options.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {REQUEST_STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </Field>

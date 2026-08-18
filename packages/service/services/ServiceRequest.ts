@@ -1,8 +1,7 @@
 import type {
-  CommentEntry,
-  ProofUpload,
+  Comment,
+  CommentInit,
   Request,
-  RequestHead,
   RequestID,
   RequestInit,
   RequestStatus,
@@ -71,27 +70,27 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Get all request heads of a user, as specific roles.
+   * Get all requests visible to a user, as specific roles.
    *
-   * If the role is "student", this returns request heads for all requests made by the user.
+   * If the role is "student", this returns all requests made by the user.
    *
-   * If the role is "instructor" or "observer", this returns request heads for all requests for
+   * If the role is "instructor" or "observer", this returns all requests for
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no request heads.
+   * If the role is "admin", this returns no requests.
    *
-   * @param roles The roles to fetch request heads as.
-   * @returns The list of request heads visible to the user for the specified roles.
+   * @param roles The roles to fetch requests as.
+   * @returns The requests visible to the user for the specified roles.
    */
-  async getRequestHeadsAs(
+  async getRequestsAs(
     this: RequestService<UserID>,
     roles: Role[],
-  ): Promise<RequestHead[]> {
+  ): Promise<Request[]> {
     const user = await this.repos.user.requireUser(this.user);
-    const requests: RequestHead[] = [];
+    const requests: Request[] = [];
     if (roles.includes("student")) {
-      const studentRequests = await this.repos.request.getRequestHeadsFromUser(
+      const studentRequests = await this.repos.request.getRequestsFromUser(
         this.user,
       );
       requests.push(...studentRequests);
@@ -103,7 +102,7 @@ export class RequestService<TUser extends UserID | null = null> {
           roles.includes(clazz.role),
       );
       requests.push(
-        ...(await this.repos.request.getRequestHeadsInClasses(enrollments)),
+        ...(await this.repos.request.getRequestsInClasses(enrollments)),
       );
     }
     return requests;
@@ -145,19 +144,21 @@ export class RequestService<TUser extends UserID | null = null> {
    * Creates a request.
    *
    * The user must be a student in the class that the request is for in order to create the request.
-   * The opening reason + proof are recorded as the first comment in the thread.
+   * The opening reason + proofs are recorded as the first comment in the thread.
    *
-   * @param data The request data.
+   * @param request The request data.
+   * @param comment The opening comment.
    * @returns The ID of the created request.
    */
   async createRequest(
     this: RequestService<UserID>,
-    data: RequestInit,
+    request: RequestInit,
+    comment: CommentInit,
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
     // only students in the class can create requests
-    assertClassRole(user, data.class, ["student"], "creating request");
-    return this.repos.request.createRequest(this.user, data);
+    assertClassRole(user, request.class, ["student"], "creating request");
+    return this.repos.request.createRequest(this.user, request, comment);
   }
 
   /**
@@ -170,11 +171,11 @@ export class RequestService<TUser extends UserID | null = null> {
    *
    * @returns The created comment entry.
    */
-  async addComment(
+  async comment(
     this: RequestService<UserID>,
     requestID: RequestID,
-    payload: { text: string; proof?: ProofUpload },
-  ): Promise<CommentEntry> {
+    payload: CommentInit,
+  ): Promise<Comment> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
@@ -199,7 +200,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async approve(
     this: RequestService<UserID>,
     requestID: RequestID,
-    comment?: { text: string; proof?: ProofUpload },
+    comment?: CommentInit,
   ): Promise<ThreadEntry[]> {
     return this.decide(requestID, "approved", comment);
   }
@@ -210,7 +211,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async reject(
     this: RequestService<UserID>,
     requestID: RequestID,
-    comment?: { text: string; proof?: ProofUpload },
+    comment?: CommentInit,
   ): Promise<ThreadEntry[]> {
     return this.decide(requestID, "rejected", comment);
   }
@@ -219,7 +220,7 @@ export class RequestService<TUser extends UserID | null = null> {
     this: RequestService<UserID>,
     requestID: RequestID,
     status: "approved" | "rejected",
-    comment?: { text: string; proof?: ProofUpload },
+    comment?: CommentInit,
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -232,7 +233,7 @@ export class RequestService<TUser extends UserID | null = null> {
     return this.repos.request.appendStatusChange(
       this.user,
       requestID,
-      status,
+      { status },
       DECISION_FROM,
       status === "approved" ? "approve" : "reject",
       comment,
@@ -250,7 +251,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async cancel(
     this: RequestService<UserID>,
     requestID: RequestID,
-    comment?: { text: string; proof?: ProofUpload },
+    comment?: CommentInit,
   ): Promise<ThreadEntry[]> {
     await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -264,7 +265,7 @@ export class RequestService<TUser extends UserID | null = null> {
     return this.repos.request.appendStatusChange(
       this.user,
       requestID,
-      "cancelled",
+      { status: "cancelled" },
       DECISION_FROM,
       "cancel",
       comment,
@@ -274,7 +275,7 @@ export class RequestService<TUser extends UserID | null = null> {
   /**
    * Appeals a decision, flagging the request for re-review. Only the requester
    * may appeal, and only from a decided state (approved or rejected). The
-   * justification (text + proof) is recorded as a comment preceding the status
+   * justification (text + proofs) is recorded as a comment preceding the status
    * change.
    *
    * @returns The created thread entries (justification comment, then the status change).
@@ -282,7 +283,7 @@ export class RequestService<TUser extends UserID | null = null> {
   async appeal(
     this: RequestService<UserID>,
     requestID: RequestID,
-    payload: { text: string; proof?: ProofUpload },
+    payload: CommentInit,
   ): Promise<ThreadEntry[]> {
     await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -296,7 +297,7 @@ export class RequestService<TUser extends UserID | null = null> {
     return this.repos.request.appendStatusChange(
       this.user,
       requestID,
-      "appealed",
+      { status: "appealed" },
       APPEAL_FROM,
       "appeal",
       payload,
@@ -310,23 +311,22 @@ export class RequestService<TUser extends UserID | null = null> {
    *
    * @returns The file content as base64.
    */
-  async readProof(
+  async fetchProof(
     this: RequestService<UserID>,
-    attachmentId: string,
+    proofID: string,
   ): Promise<{ content: string }> {
     const user = await this.repos.user.requireUser(this.user);
-    const request =
-      await this.repos.request.findRequestByAttachmentId(attachmentId);
-    if (!request) throw new ProofNotFoundError(attachmentId);
+    const request = await this.repos.request.getRequestByProof(proofID);
+    if (!request) throw new ProofNotFoundError(proofID);
     if (this.user !== request.from) {
       assertClassRole(
         user,
         request.class,
         ["instructor", "observer"],
-        `downloading proof ${attachmentId}`,
+        `downloading proof ${proofID}`,
       );
     }
-    const content = await this.repos.request.readProof(attachmentId);
+    const content = await this.repos.request.fetchProof(proofID);
     return { content };
   }
 }

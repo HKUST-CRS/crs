@@ -27,19 +27,19 @@ test("request summaries do not claim opening proofs are email attachments", () =
     },
     timestamp: "2025-11-20T09:00:00+08:00",
     status: "open",
-    updates: [
+    thread: [
       {
         id: "opening-comment",
         from: student.email,
         timestamp: "2025-11-20T09:00:00+08:00",
         kind: "comment",
         text: "I need to swap.",
-        proof: [
+        proofs: [
           {
             name: "proof.txt",
             size: 2,
             hash: "0".repeat(64),
-            attachmentId: "proof-file-1",
+            id: "proof-file-1",
           },
         ],
       },
@@ -47,7 +47,7 @@ test("request summaries do not claim opening proofs are email attachments", () =
   };
 
   const summary = renderToStaticMarkup(
-    formatRequest(request, { student, instructors: [] }),
+    formatRequest(request, { student, instructors: [], observers: [] }),
   );
 
   expect(summary).toContain(

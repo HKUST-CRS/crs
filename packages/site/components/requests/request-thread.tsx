@@ -7,9 +7,9 @@ import {
   MAX_PROOF_FILES,
   MAX_PROOF_SIZE,
   type ProofFile,
-  type ProofFileUpload,
+  type ProofFileInit,
+  ProofUploadAccept,
   type Request,
-  RequestDetailsProofAccept,
   type RequestStatus,
   type ThreadEntry,
   type User,
@@ -32,12 +32,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/lib/trpc-client";
 import RequestForm from "./request-form";
 import { REQUEST_STATUS_LABEL } from "./request-status";
-import { downloadBase64File, readFileAsBase64 } from "./utils";
+import { downloadBase64File, readProofs } from "./utils";
 
 /**
  * `RequestThread` renders the immutable request header (via the viewonly
- * `RequestForm`), the append-only thread of updates (comments + status
- * changes), and a GitHub-style composer: a persistent text box and proof
+ * `RequestForm`), the append-only thread (comments + status
+ * changes), and a GitHub-style composer: a persistent text box and proofs
  * uploader whose action buttons (Comment / Approve / Reject / Appeal / Cancel)
  * submit the current content with the chosen action. Which actions are visible
  * depends on the viewer's role and the request's status.
@@ -103,13 +103,9 @@ export default function RequestThread({ request }: RequestThreadProps) {
   const status = request.status;
   // The latest status-change entry is the current decision; every earlier
   // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
-  let lastStatusIndex = -1;
-  for (let i = request.updates.length - 1; i >= 0; i--) {
-    if (request.updates[i].kind === "status") {
-      lastStatusIndex = i;
-      break;
-    }
-  }
+  const lastStatusIndex = request.thread.findLastIndex(
+    (entry) => entry.kind === "status",
+  );
   // Comments are allowed for the requester or an instructor at any point,
   // including after cancellation. Observers have read-only access. Status
   // changes are gated by role and (for re-decision) by the request not being
@@ -131,8 +127,8 @@ export default function RequestThread({ request }: RequestThreadProps) {
 
       {/* Thread */}
       <section className="flex flex-col gap-3">
-        <h4 className="font-medium text-sm">Thread</h4>
-        {request.updates.map((entry, i) => (
+        <h4 className="typo-small">Thread</h4>
+        {request.thread.map((entry, i) => (
           <ThreadEntryView
             key={entry.id}
             entry={entry}
@@ -155,32 +151,22 @@ export default function RequestThread({ request }: RequestThreadProps) {
   );
 }
 
-const STATUS_STYLE: Record<RequestStatus, { className: string }> = {
-  open: {
-    className: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
-  },
-  approved: {
-    className:
-      "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
-  },
-  rejected: {
-    className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  },
-  appealed: {
-    className:
-      "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  },
-  cancelled: {
-    className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  },
+const STATUS_STYLE: Record<RequestStatus, string> = {
+  open: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
+  approved: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
+  rejected: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  appealed: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  cancelled: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
 
 function StatusBanner({ status }: { status: RequestStatus }) {
-  const s = STATUS_STYLE[status];
   return (
     <div className="flex items-center gap-2">
       <span
-        className={clsx("rounded px-2 py-0.5 font-medium text-sm", s.className)}
+        className={clsx(
+          "rounded px-2 py-0.5 font-medium text-sm",
+          STATUS_STYLE[status],
+        )}
       >
         {REQUEST_STATUS_LABEL[status]}
       </span>
@@ -197,23 +183,36 @@ function ThreadEntryView({
   author?: User;
   superseded?: boolean;
 }) {
-  const name = author?.name || entry.from;
+  const authorLabel = author ? (
+    <>
+      <b>{author.name}</b>{" "}
+      <a
+        href={`mailto:${author.email}`}
+        className="underline underline-offset-4"
+      >
+        {`<${author.email}>`}
+      </a>
+    </>
+  ) : (
+    <a href={`mailto:${entry.from}`} className="underline underline-offset-4">
+      {entry.from}
+    </a>
+  );
   const timestamp = formatDateTime(fromISO(entry.timestamp));
   if (entry.kind === "comment") {
     return (
-      <div className="rounded-md border p-3">
+      <div className="flex flex-col gap-2 rounded-md border p-3">
         <div className="typo-muted text-sm">
-          <b>{name}</b> commented · {timestamp}
+          {authorLabel} commented · {timestamp}
         </div>
-        <p className="mt-1 whitespace-pre-wrap text-sm">{entry.text}</p>
-        {entry.proof && entry.proof.length > 0 && (
-          <ProofList proof={entry.proof} />
+        <p className="whitespace-pre-wrap text-sm">{entry.text}</p>
+        {entry.proofs && entry.proofs.length > 0 && (
+          <ProofList proofs={entry.proofs} />
         )}
       </div>
     );
   }
   // status change
-  const s = STATUS_STYLE[entry.status];
   if (superseded) {
     return (
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -221,7 +220,7 @@ function ThreadEntryView({
           {REQUEST_STATUS_LABEL[entry.status]}
         </span>
         <span className="typo-muted">
-          by <b>{name}</b> · {timestamp}
+          by {authorLabel} · {timestamp}
         </span>
         <span className="typo-muted text-xs italic">superseded</span>
       </div>
@@ -229,26 +228,37 @@ function ThreadEntryView({
   }
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className={clsx("rounded px-2 py-0.5 font-medium", s.className)}>
+      <span
+        className={clsx(
+          "rounded px-2 py-0.5 font-medium",
+          STATUS_STYLE[entry.status],
+        )}
+      >
         {REQUEST_STATUS_LABEL[entry.status]}
       </span>
       <span className="typo-muted">
-        by <b>{name}</b> · {timestamp}
+        by {authorLabel} · {timestamp}
       </span>
     </div>
   );
 }
 
-function ProofList({ proof }: { proof: ProofFile[] }) {
+type Proof = ProofFile | ProofFileInit;
+
+function ProofList({ proofs }: { proofs: Proof[] }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   // The bytes live in GridFS, not on the entry, so fetch on click then trigger
   // the browser download.
-  const download = async (file: ProofFile) => {
+  const download = async (file: Proof) => {
     try {
+      if ("content" in file) {
+        downloadBase64File(file.content, file.name);
+        return;
+      }
       const { content } = await queryClient.fetchQuery(
-        trpc.request.proofContent.queryOptions({
-          attachmentId: file.attachmentId,
+        trpc.request.getProof.queryOptions({
+          attachmentId: file.id,
         }),
       );
       downloadBase64File(content, file.name);
@@ -257,16 +267,17 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
     }
   };
   return (
-    <ul className="mt-2 flex flex-col gap-1">
-      {proof.map((file) => (
-        <li key={file.attachmentId}>
+    <ul className="typo-muted">
+      {proofs.map((file, i) => (
+        <li key={file.name + String(i)}>
           <button
             type="button"
-            className="wrap-anywhere max-w-full cursor-pointer text-left text-sm underline"
+            className="pointer-events-auto cursor-pointer underline"
             onClick={() => void download(file)}
           >
             {file.name}
-          </button>
+          </button>{" "}
+          ({(file.size / 1024 / 1024).toFixed(2)} MiB)
         </li>
       ))}
     </ul>
@@ -302,7 +313,7 @@ function Composer({
   const cancelM = useMutation(trpc.request.cancel.mutationOptions());
 
   const [text, setText] = useState("");
-  const [proof, setProof] = useState<ProofFileUpload[] | undefined>(undefined);
+  const [proofs, setProofs] = useState<ProofFileInit[] | undefined>(undefined);
   const [readingProof, setReadingProof] = useState(false);
   const [proofKey, setProofKey] = useState(0);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -315,8 +326,8 @@ function Composer({
     appealM.isPending ||
     cancelM.isPending;
   const busy = mutationPending || readingProof;
-  const hasProof = !!proof?.length;
-  // A comment is required to attach proof (see StatusActionInput), so block the
+  const hasProof = !!proofs?.length;
+  // A comment is required to attach proofs, so block the
   // status actions until text is added instead of letting the server reject.
   const proofNeedsText = hasProof && !hasText;
   const selectionToken = useRef(0);
@@ -324,7 +335,7 @@ function Composer({
   const clear = () => {
     selectionToken.current++;
     setText("");
-    setProof(undefined);
+    setProofs(undefined);
     setReadingProof(false);
     setProofKey((k) => k + 1);
   };
@@ -334,12 +345,12 @@ function Composer({
     // Token guards the async conversion: a newer selection invalidates an
     // in-flight one so out-of-order resolution can't overwrite the latest pick.
     const token = ++selectionToken.current;
-    setProof(undefined);
+    setProofs(undefined);
     const fileArray = [...files];
     const tooMany = fileArray.length > MAX_PROOF_FILES;
     const oversized = fileArray.find((f) => f.size > MAX_PROOF_SIZE);
     if (tooMany || oversized) {
-      // Clear the previously accepted proof and reset the input on failure, so
+      // Clear the previously accepted proofs and reset the input on failure, so
       // the displayed selection never diverges from what will be submitted.
       setReadingProof(false);
       setProofKey((k) => k + 1);
@@ -352,15 +363,9 @@ function Composer({
     }
     setReadingProof(true);
     try {
-      const converted = await Promise.all(
-        fileArray.map(async (f) => ({
-          name: f.name,
-          size: f.size,
-          content: await readFileAsBase64(f),
-        })),
-      );
+      const converted = await readProofs(files);
       if (token === selectionToken.current) {
-        setProof(converted);
+        setProofs(converted);
       }
     } catch (e) {
       if (token === selectionToken.current) {
@@ -424,7 +429,7 @@ function Composer({
           id="composer-proof"
           type="file"
           multiple
-          accept={RequestDetailsProofAccept.join(",")}
+          accept={ProofUploadAccept.join(",")}
           onChange={(e) => void onFiles(e.target.files)}
           disabled={busy}
         />
@@ -432,6 +437,7 @@ function Composer({
           Please provide up to {MAX_PROOF_FILES} supporting documents for your
           request. The maximum file size is {MAX_PROOF_SIZE_MIB} MiB each.
         </FieldDescription>
+        {proofs && proofs.length > 0 && <ProofList proofs={proofs} />}
       </Field>
       <div className="flex flex-wrap justify-end gap-2">
         {canCancel && (
@@ -457,8 +463,9 @@ function Composer({
                   () =>
                     approveM.mutateAsync({
                       id: request.id,
-                      text: text || undefined,
-                      proof,
+                      comment: text.trim()
+                        ? { text: text.trim(), proofs }
+                        : undefined,
                     }),
                   {
                     loading: "Approving request...",
@@ -479,8 +486,9 @@ function Composer({
                   () =>
                     rejectM.mutateAsync({
                       id: request.id,
-                      text: text || undefined,
-                      proof,
+                      comment: text.trim()
+                        ? { text: text.trim(), proofs }
+                        : undefined,
                     }),
                   {
                     loading: "Rejecting request...",
@@ -500,7 +508,7 @@ function Composer({
             disabled={busy || !hasText}
             onClick={() =>
               void run(
-                () => appealM.mutateAsync({ id: request.id, text, proof }),
+                () => appealM.mutateAsync({ id: request.id, text, proofs }),
                 {
                   loading: "Submitting appeal...",
                   success: "Appeal submitted.",
@@ -518,7 +526,7 @@ function Composer({
             disabled={busy || !hasText}
             onClick={() =>
               void run(
-                () => commentM.mutateAsync({ id: request.id, text, proof }),
+                () => commentM.mutateAsync({ id: request.id, text, proofs }),
                 { loading: "Posting comment...", success: "Comment posted." },
               )
             }
@@ -553,8 +561,9 @@ function Composer({
                   () =>
                     cancelM.mutateAsync({
                       id: request.id,
-                      text: text || undefined,
-                      proof,
+                      comment: text.trim()
+                        ? { text: text.trim(), proofs }
+                        : undefined,
                     }),
                   {
                     loading: "Cancelling request...",

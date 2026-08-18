@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import {
   CompactSign,
   type CryptoKey,
@@ -7,7 +6,6 @@ import {
   importJWK,
   type JWK,
 } from "jose";
-import type { ProofFile } from "./Proof";
 import { Request } from "./Request";
 
 export namespace Signature {
@@ -97,17 +95,14 @@ export namespace Signature {
 
   export async function sign(r: Request): Promise<string> {
     const rr = Request.parse(structuredClone(r));
-    const hashProofs = (proofs?: ProofFile[]): ProofFile[] | undefined =>
-      proofs?.map((p) => {
-        const hash = crypto.createHash("sha256");
-        hash.update(p.attachmentId);
-        return { ...p, attachmentId: hash.digest("hex") };
-      });
-    for (const entry of rr.updates) {
-      if (entry.kind === "comment") {
-        entry.proof = hashProofs(entry.proof);
-      }
-    }
+    rr.thread = rr.thread.map((entry) =>
+      entry.kind === "comment"
+        ? {
+            ...entry,
+            proofs: entry.proofs?.map((p) => ({ ...p, id: p.hash })),
+          }
+        : entry,
+    );
     const jws = await new CompactSign(
       new TextEncoder().encode(JSON.stringify(rr)),
     )

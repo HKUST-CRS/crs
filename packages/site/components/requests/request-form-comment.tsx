@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import {
+  type CommentInit,
   MAX_PROOF_FILES,
   MAX_PROOF_SIZE,
-  type RequestDetails,
-  RequestDetailsProofAccept,
+  ProofUploadAccept,
 } from "service/models";
 import { toast } from "sonner";
 import {
@@ -18,10 +18,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "../ui/button";
-import { downloadBase64File, readFileAsBase64 } from "./utils";
+import { downloadBase64File, readProofs } from "./utils";
 
-export type RequestFormDetailsProps<
-  TFieldValues extends { details: RequestDetails } = never,
+export type RequestFormCommentProps<
+  TFieldValues extends { comment: CommentInit } = never,
   TContext = unknown,
   TTransformedValues = TFieldValues,
 > = {
@@ -29,29 +29,29 @@ export type RequestFormDetailsProps<
   form: UseFormReturn<TFieldValues, TContext, TTransformedValues>;
 };
 
-export function RequestFormDetails<
-  TFieldValues extends { details: RequestDetails },
+export function RequestFormComment<
+  TFieldValues extends { comment: CommentInit },
   TContext,
   TTransformedValues extends TFieldValues,
->(props: RequestFormDetailsProps<TFieldValues, TContext, TTransformedValues>) {
+>(props: RequestFormCommentProps<TFieldValues, TContext, TTransformedValues>) {
   const maxProofSizeMiB = MAX_PROOF_SIZE / 1024 / 1024;
   const proofSelectionToken = useRef(0);
   const [readingProof, setReadingProof] = useState(false);
   const [proofKey, setProofKey] = useState(0);
   const viewonly = props.viewonly ?? false;
-  // In viewonly mode the reason + proof live in the thread (as the opening
+  // In viewonly mode the reason + proofs live in the thread (as the opening
   // comment), not on the request body, so there is nothing to render here.
   if (viewonly) return null;
   const form = props.form as unknown as UseFormReturn<
-    { details: RequestDetails },
+    { comment: CommentInit },
     TContext,
     TTransformedValues
   >;
-  const details = form.watch("details");
+  const comment = form.watch("comment");
   return (
     <>
       <FormField
-        name={"details.reason"}
+        name="comment.text"
         control={form.control}
         render={({ field }) => (
           <FormItem className="col-span-full">
@@ -68,7 +68,7 @@ export function RequestFormDetails<
         )}
       />
       <FormField
-        name="details.proof"
+        name="comment.proofs"
         control={form.control}
         render={({ field }) => (
           <FormItem className="col-span-full">
@@ -83,18 +83,11 @@ export function RequestFormDetails<
                       field.onChange(undefined);
                       setReadingProof(true);
                       try {
-                        const proof = (await Promise.all(
-                          [...e.target.files].map(async (f) => {
-                            const content = await readFileAsBase64(f);
-                            return {
-                              name: f.name,
-                              size: f.size,
-                              content,
-                            };
-                          }),
-                        )) satisfies RequestDetails["proof"];
+                        const proofs = (await readProofs(
+                          e.target.files,
+                        )) satisfies CommentInit["proofs"];
                         if (token === proofSelectionToken.current) {
-                          field.onChange(proof);
+                          field.onChange(proofs);
                         }
                       } catch (error) {
                         if (token === proofSelectionToken.current) {
@@ -111,7 +104,7 @@ export function RequestFormDetails<
                     }
                   }}
                   type="file"
-                  accept={RequestDetailsProofAccept.join(",")}
+                  accept={ProofUploadAccept.join(",")}
                   multiple
                   disabled={readingProof}
                 />
@@ -122,9 +115,9 @@ export function RequestFormDetails<
               your request. The maximum file size is {maxProofSizeMiB} MiB each.
             </FormDescription>
             <ul className="typo-muted">
-              {details?.proof &&
-                details.proof.length > 0 &&
-                details.proof.map((f, i) => (
+              {comment?.proofs &&
+                comment.proofs.length > 0 &&
+                comment.proofs.map((f, i) => (
                   <li key={f.name + String(i)}>
                     <button
                       type="button"

@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { RequestFormDetails } from "./details-request-form";
+import { RequestFormComment } from "./request-form-comment";
 import { FormSchema } from "./schema";
 
 export const AbsentFromSectionFormSchema = FormSchema(
@@ -60,9 +60,9 @@ export const AbsentFromSectionRequestForm: FC<
     resolver: zodResolver(AbsentFromSectionFormSchema),
     defaultValues: {
       type: "Absent from Section",
-      details: {
-        reason: "",
-        proof: [],
+      comment: {
+        text: "",
+        proofs: [],
       },
       ...props.default,
     },
@@ -222,7 +222,7 @@ export const AbsentFromSectionRequestForm: FC<
               </div>
             );
           })()}
-        {isMetaDone && <RequestFormDetails form={form} viewonly={viewonly} />}
+        {isMetaDone && <RequestFormComment form={form} viewonly={viewonly} />}
       </Wrapper>
     </Form>
   );

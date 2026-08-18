@@ -10,10 +10,11 @@ import crypto from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import type {
+  CommentInit,
   Course,
   ProofFile,
-  ProofFileUpload,
-  ProofUpload,
+  ProofFileInit,
+  ProofListInit,
   RequestInit,
   User,
 } from "../models";
@@ -70,14 +71,13 @@ function makeAdmin(email: string): User {
   };
 }
 
-function makeSwapInit(section = "L1", proof: ProofUpload = []): RequestInit {
+function makeSwapInit(section = "L1"): RequestInit {
   return {
     type: "Swap Section",
     class: {
       course: { code: baseCourse.code, term: baseCourse.term },
       section,
     },
-    details: { reason: "I need to swap.", proof },
     metadata: {
       fromSection: "L1",
       fromDate: "2025-11-25",
@@ -87,7 +87,11 @@ function makeSwapInit(section = "L1", proof: ProofUpload = []): RequestInit {
   };
 }
 
-const sampleProof: ProofUpload = [
+function makeSwapComment(proofs: ProofListInit = []): CommentInit {
+  return { text: "I need to swap.", proofs };
+}
+
+const sampleProofs: ProofListInit = [
   {
     name: "note.txt",
     size: 2,
@@ -96,14 +100,14 @@ const sampleProof: ProofUpload = [
 ];
 
 // Stored proof entries use stable attachment IDs, so compare against the
-// uploaded payload by name/size and verify the bytes round-trip via readProof.
-async function expectStoredProof(
-  proof: ProofFile[] | undefined,
-  uploads: ProofFileUpload[],
+// uploaded payload by name/size and verify the bytes round-trip via fetchProof.
+async function expectStoredProofs(
+  proofs: ProofFile[] | undefined,
+  uploads: ProofFileInit[],
   svc: RequestService<string>,
 ) {
-  expect(proof).toHaveLength(uploads.length);
-  for (const [i, f] of (proof ?? []).entries()) {
+  expect(proofs).toHaveLength(uploads.length);
+  for (const [i, f] of (proofs ?? []).entries()) {
     const expected = uploads[i];
     if (!expected) continue;
     expect(f.name).toBe(expected.name);
@@ -114,8 +118,8 @@ async function expectStoredProof(
         .update(Buffer.from(expected.content, "base64"))
         .digest("hex"),
     );
-    expect(typeof f.attachmentId).toBe("string");
-    const { content } = await svc.readProof(f.attachmentId);
+    expect(typeof f.id).toBe("string");
+    const { content } = await svc.fetchProof(f.id);
     expect(content).toBe(expected.content);
   }
 }
@@ -149,29 +153,31 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const stored = await testConn.collections.requests.findOne({ id });
+      expect(stored).not.toHaveProperty("status");
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.from).toBe(student.email);
       expect(r.status).toBe("open");
-      expect(r.updates).toHaveLength(1);
-      expect(r.updates[0]?.kind).toBe("comment");
-      if (r.updates[0]?.kind === "comment") {
-        expect(r.updates[0].text).toBe("I need to swap.");
+      expect(r.thread).toHaveLength(1);
+      expect(r.thread[0]?.kind).toBe("comment");
+      if (r.thread[0]?.kind === "comment") {
+        expect(r.thread[0].text).toBe("I need to swap.");
       }
     });
 
-    test("stores the opening proof on the first comment", async () => {
+    test("stores the opening proofs on the first comment", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit("L1", sampleProof));
+        .createRequest(makeSwapInit(), makeSwapComment(sampleProofs));
       const r = await requestService.auth(student.email).getRequest(id);
-      expect(r.updates[0]?.kind).toBe("comment");
-      if (r.updates[0]?.kind === "comment") {
-        await expectStoredProof(
-          r.updates[0].proof,
-          sampleProof,
+      expect(r.thread[0]?.kind).toBe("comment");
+      if (r.thread[0]?.kind === "comment") {
+        await expectStoredProofs(
+          r.thread[0].proofs,
+          sampleProofs,
           requestService.auth(student.email),
         );
       }
@@ -183,7 +189,7 @@ describe("RequestService", () => {
       try {
         await requestService
           .auth(student.email)
-          .createRequest(makeSwapInit("L2"));
+          .createRequest(makeSwapInit("L2"), makeSwapComment());
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -199,7 +205,7 @@ describe("RequestService", () => {
       try {
         await requestService
           .auth(instructor.email)
-          .createRequest(makeSwapInit());
+          .createRequest(makeSwapInit(), makeSwapComment());
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -214,7 +220,7 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.id).toBe(id);
     });
@@ -228,7 +234,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const r = await requestService.auth(observer.email).getRequest(id);
       expect(r.id).toBe(id);
     });
@@ -242,7 +248,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const r = await requestService.auth(instructor.email).getRequest(id);
       expect(r.id).toBe(id);
     });
@@ -256,7 +262,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService.auth(other.email).getRequest(id);
         expect.unreachable("should have thrown");
@@ -277,22 +283,24 @@ describe("RequestService", () => {
     });
   });
 
-  // ── request list projections ─────────────────────────────────────────────
-  describe("request list projections", () => {
-    test("heads omit metadata and updates", async () => {
+  // ── request lists ─────────────────────────────────────────────────────────
+  describe("request lists", () => {
+    test("return full requests", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await requestService.auth(student.email).createRequest(makeSwapInit());
-      const heads = await requestService
+      await requestService
         .auth(student.email)
-        .getRequestHeadsAs(["student"]);
-      expect(heads).toHaveLength(1);
-      expect(heads[0]).not.toHaveProperty("updates");
-      expect(heads[0]).not.toHaveProperty("metadata");
-      expect(heads[0]?.status).toBe("open");
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const requests = await requestService
+        .auth(student.email)
+        .getRequestsAs(["student"]);
+      expect(requests).toHaveLength(1);
+      expect(requests[0]).toHaveProperty("thread");
+      expect(requests[0]).toHaveProperty("metadata");
+      expect(requests[0]?.status).toBe("open");
     });
 
-    test("instructors see heads for their class, including section '*'", async () => {
+    test("instructors see requests for their class, including section '*'", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       const instructor: User = {
         ...makeUser("i1@ust.hk", "instructor"),
@@ -308,11 +316,13 @@ describe("RequestService", () => {
         users: [student, instructor],
         courses: [baseCourse],
       });
-      await requestService.auth(student.email).createRequest(makeSwapInit());
-      const heads = await requestService
+      await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const requests = await requestService
         .auth(instructor.email)
-        .getRequestHeadsAs(["instructor"]);
-      expect(heads).toHaveLength(1);
+        .getRequestsAs(["instructor"]);
+      expect(requests).toHaveLength(1);
     });
 
     test("getRequestsByID preserves the input order and ignores missing ids", async () => {
@@ -320,10 +330,10 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const a = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const b = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const got = await requestService
         .auth(student.email)
         .getRequestsByID([b, "missing", a]);
@@ -331,19 +341,19 @@ describe("RequestService", () => {
     });
   });
 
-  // ── addComment ───────────────────────────────────────────────────────────
-  describe("addComment", () => {
+  // ── comment ───────────────────────────────────────────────────────────────
+  describe("comment", () => {
     test("a student can comment on an open request", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
-      await requestService.auth(student.email).addComment(id, { text: "more" });
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).comment(id, { text: "more" });
       const r = await requestService.auth(student.email).getRequest(id);
       // opening comment + the new comment
-      expect(r.updates).toHaveLength(2);
-      expect(r.updates.at(-1)?.kind).toBe("comment");
+      expect(r.thread).toHaveLength(2);
+      expect(r.thread.at(-1)?.kind).toBe("comment");
       expect(r.status).toBe("open");
     });
 
@@ -356,12 +366,12 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService
         .auth(instructor.email)
-        .addComment(id, { text: "noted" });
+        .comment(id, { text: "noted" });
       const r = await requestService.auth(student.email).getRequest(id);
-      expect(r.updates).toHaveLength(2);
+      expect(r.thread).toHaveLength(2);
     });
 
     test("an observer cannot comment", async () => {
@@ -373,11 +383,11 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService
           .auth(observer.email)
-          .addComment(id, { text: "observing" });
+          .comment(id, { text: "observing" });
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
@@ -389,12 +399,12 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(student.email).cancel(id);
-      await requestService.auth(student.email).addComment(id, { text: "bye" });
+      await requestService.auth(student.email).comment(id, { text: "bye" });
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.status).toBe("cancelled");
-      expect(r.updates.at(-1)?.kind).toBe("comment");
+      expect(r.thread.at(-1)?.kind).toBe("comment");
     });
 
     test("a non-participant cannot comment", async () => {
@@ -406,32 +416,32 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
-        await requestService.auth(other.email).addComment(id, { text: "hi" });
+        await requestService.auth(other.email).comment(id, { text: "hi" });
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
       }
     });
 
-    test("comment proof round-trips through getRequest", async () => {
+    test("comment proofs round-trip through getRequest", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
-      await requestService.auth(student.email).addComment(id, {
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(student.email).comment(id, {
         text: "see attached",
-        proof: sampleProof,
+        proofs: sampleProofs,
       });
       const r = await requestService.auth(student.email).getRequest(id);
-      const entry = r.updates.at(-1);
+      const entry = r.thread.at(-1);
       expect(entry?.kind).toBe("comment");
       if (entry?.kind === "comment")
-        await expectStoredProof(
-          entry.proof,
-          sampleProof,
+        await expectStoredProofs(
+          entry.proofs,
+          sampleProofs,
           requestService.auth(student.email),
         );
     });
@@ -448,11 +458,11 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).approve(id);
       const r = await requestService.auth(instructor.email).getRequest(id);
       expect(r.status).toBe("approved");
-      expect(r.updates.at(-1)?.kind).toBe("status");
+      expect(r.thread.at(-1)?.kind).toBe("status");
     });
 
     test("a student cannot approve", async () => {
@@ -460,7 +470,7 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService.auth(student.email).approve(id);
         expect.unreachable("should have thrown");
@@ -478,7 +488,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService.auth(observer.email).approve(id);
         expect.unreachable("should have thrown");
@@ -496,7 +506,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService.auth(admin.email).approve(id);
         expect.unreachable("should have thrown");
@@ -514,7 +524,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(student.email).cancel(id);
       try {
         await requestService.auth(instructor.email).approve(id);
@@ -533,20 +543,20 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService
         .auth(instructor.email)
-        .reject(id, { text: "insufficient evidence", proof: sampleProof });
+        .reject(id, { text: "insufficient evidence", proofs: sampleProofs });
       const r = await requestService.auth(instructor.email).getRequest(id);
       expect(r.status).toBe("rejected");
-      const tail = r.updates.slice(-2);
+      const tail = r.thread.slice(-2);
       expect(tail[0]?.kind).toBe("comment");
       expect(tail[1]?.kind).toBe("status");
       if (tail[0]?.kind === "comment") {
         expect(tail[0].text).toBe("insufficient evidence");
-        await expectStoredProof(
-          tail[0].proof,
-          sampleProof,
+        await expectStoredProofs(
+          tail[0].proofs,
+          sampleProofs,
           requestService.auth(instructor.email),
         );
       }
@@ -562,7 +572,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).approve(id);
       expect(
         (await requestService.auth(instructor.email).getRequest(id)).status,
@@ -582,11 +592,11 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(student.email).cancel(id);
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.status).toBe("cancelled");
-      expect(r.updates.at(-1)?.kind).toBe("status");
+      expect(r.thread.at(-1)?.kind).toBe("status");
     });
 
     test("an instructor cannot cancel", async () => {
@@ -598,7 +608,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       try {
         await requestService.auth(instructor.email).cancel(id);
         expect.unreachable("should have thrown");
@@ -616,7 +626,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).approve(id);
       await requestService.auth(student.email).cancel(id);
       expect(
@@ -629,7 +639,7 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(student.email).cancel(id);
       try {
         await requestService.auth(student.email).cancel(id);
@@ -651,14 +661,14 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).reject(id);
       await requestService
         .auth(student.email)
         .appeal(id, { text: "please reconsider" });
       const r = await requestService.auth(student.email).getRequest(id);
       expect(r.status).toBe("appealed");
-      const tail = r.updates.slice(-2);
+      const tail = r.thread.slice(-2);
       expect(tail[0]?.kind).toBe("comment");
       expect(tail[1]?.kind).toBe("status");
     });
@@ -672,7 +682,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).reject(id);
       try {
         await requestService.auth(instructor.email).appeal(id, { text: "no" });
@@ -687,16 +697,25 @@ describe("RequestService", () => {
       await insertData(testConn, { users: [student], courses: [baseCourse] });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
+      const before = await requestService.auth(student.email).getRequest(id);
+      const filesBefore = await testConn.collections.proofs.find({}).toArray();
       try {
-        await requestService.auth(student.email).appeal(id, { text: "no" });
+        await requestService.auth(student.email).appeal(id, {
+          text: "no",
+          proofs: sampleProofs,
+        });
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(StatusConflictError);
       }
+      const after = await requestService.auth(student.email).getRequest(id);
+      const filesAfter = await testConn.collections.proofs.find({}).toArray();
+      expect(after.thread).toEqual(before.thread);
+      expect(filesAfter).toHaveLength(filesBefore.length);
     });
 
-    test("appeal proof round-trips through getRequest", async () => {
+    test("appeal proofs round-trip through getRequest", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       const instructor = makeUser("i1@ust.hk", "instructor");
       await insertData(testConn, {
@@ -705,27 +724,50 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       await requestService.auth(instructor.email).reject(id);
       await requestService.auth(student.email).appeal(id, {
         text: "reconsider",
-        proof: sampleProof,
+        proofs: sampleProofs,
       });
       const r = await requestService.auth(student.email).getRequest(id);
-      const comment = r.updates.at(-2);
+      const comment = r.thread.at(-2);
       expect(comment?.kind).toBe("comment");
       if (comment?.kind === "comment")
-        await expectStoredProof(
-          comment.proof,
-          sampleProof,
+        await expectStoredProofs(
+          comment.proofs,
+          sampleProofs,
           requestService.auth(student.email),
         );
+    });
+
+    test("status guards ignore comments after the latest status", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      const instructor = makeUser("i1@ust.hk", "instructor");
+      await insertData(testConn, {
+        users: [student, instructor],
+        courses: [baseCourse],
+      });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeSwapInit(), makeSwapComment());
+      await requestService.auth(instructor.email).reject(id);
+      await requestService.auth(student.email).comment(id, {
+        text: "one more detail",
+      });
+
+      await requestService.auth(student.email).appeal(id, {
+        text: "please reconsider",
+      });
+
+      const r = await requestService.auth(student.email).getRequest(id);
+      expect(r.status).toBe("appealed");
     });
   });
 
   // ── appeal cycle ─────────────────────────────────────────────────────────
   describe("appeal cycle", () => {
-    test("reject → appeal → approve updates the status and thread", async () => {
+    test("reject → appeal → approve changes the status and thread", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       const instructor = makeUser("i1@ust.hk", "instructor");
       await insertData(testConn, {
@@ -734,7 +776,7 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
 
       await requestService.auth(instructor.email).reject(id);
       await requestService
@@ -746,7 +788,7 @@ describe("RequestService", () => {
       expect(r.status).toBe("approved");
       // opening comment, status(rejected), comment(appeal), status(appealed),
       // status(approved)
-      const kinds = r.updates.map((u) => u.kind);
+      const kinds = r.thread.map((u) => u.kind);
       expect(kinds).toEqual([
         "comment",
         "status",
@@ -768,10 +810,10 @@ describe("RequestService", () => {
       });
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit());
+        .createRequest(makeSwapInit(), makeSwapComment());
       const original = await requestService.auth(student.email).getRequest(id);
 
-      await requestService.auth(student.email).addComment(id, { text: "c" });
+      await requestService.auth(student.email).comment(id, { text: "c" });
       await requestService.auth(instructor.email).approve(id);
       await requestService.auth(student.email).appeal(id, { text: "a" });
       await requestService.auth(instructor.email).reject(id);
@@ -791,7 +833,7 @@ describe("RequestService", () => {
     test("persists the decoded byte length and content hash, ignoring client claims", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
-      const lying: ProofUpload = [
+      const lying: ProofListInit = [
         {
           name: "note.txt",
           size: 1,
@@ -800,12 +842,12 @@ describe("RequestService", () => {
       ];
       const id = await requestService
         .auth(student.email)
-        .createRequest(makeSwapInit("L1", lying));
+        .createRequest(makeSwapInit(), makeSwapComment(lying));
       const r = await requestService.auth(student.email).getRequest(id);
-      const opening = r.updates[0];
-      if (opening?.kind === "comment" && opening.proof?.[0]) {
-        expect(opening.proof[0].size).toBe(2);
-        expect(opening.proof[0].hash).toBe(
+      const opening = r.thread[0];
+      if (opening?.kind === "comment" && opening.proofs?.[0]) {
+        expect(opening.proofs[0].size).toBe(2);
+        expect(opening.proofs[0].hash).toBe(
           crypto.createHash("sha256").update("hi").digest("hex"),
         );
       }

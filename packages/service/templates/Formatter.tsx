@@ -1,7 +1,6 @@
 import type { JSX } from "bun-types/jsx";
 import {
   Classes,
-  initialComment,
   type Request,
   type RequestStatus,
   type ThreadEntry,
@@ -12,13 +11,17 @@ import { formatDate, formatDateTime } from "../utils/datetime";
 type Metadata = {
   student: User;
   instructors: User[];
-  /**
-   * Observers in the class. Only needed by {@link formatUpdate} to attribute
-   * an update authored by an observer; other formatters ignore this field.
-   */
-  observers?: User[];
+  observers: User[];
 };
 
+/**
+ * Formats the request overview and its opening comment.
+ *
+ * @example
+ * Input: a Swap Section request from Alice for `COMP 1023 L1`.
+ * Output: JSX rendering `Alice (alice@example.com) has submitted a Swap
+ * Section request ... for class COMP 1023 L1.` followed by the opening reason.
+ */
 const formatRequestOverview = (
   request: Request,
   metadata: Metadata,
@@ -45,6 +48,15 @@ const formatRequestOverview = (
   );
 };
 
+/**
+ * Formats the request-specific metadata.
+ *
+ * @example
+ * Input: `{ type: "Swap Section", metadata: { fromSection: "L1",
+ * fromDate: "2025-11-25", toSection: "L2", toDate: "2025-11-26" } }`.
+ * Output: JSX rendering `The student is requesting to swap from section L1
+ * on Nov 25, 2025 to section L2 on Nov 26, 2025.`
+ */
 const formatRequestMetadata = (request: Request) => {
   switch (request.type) {
     case "Swap Section": {
@@ -82,14 +94,23 @@ const formatRequestMetadata = (request: Request) => {
   }
 };
 
-// The opening comment holds the request's initial reason (+ proof); it is the
+// The opening comment holds the request's initial reason (+ proofs); it is the
 // first entry of the thread.
+/**
+ * Formats the request's opening comment and proof count.
+ *
+ * @example
+ * Input: a request whose first thread entry is `{ kind: "comment", text:
+ * "I need to swap.", proofs: [file] }`.
+ * Output: JSX rendering the reason in a blockquote and `The student provided
+ * 1 proof document(s) with the request.`
+ */
 const formatOpeningComment = (request: Request): JSX.Element => {
-  const opening = initialComment(request);
-  if (!opening) {
+  const opening = request.thread[0];
+  if (!opening || opening.kind !== "comment") {
     return <p>The student did not provide a reason for the request.</p>;
   }
-  const proofCount = opening.proof?.length ?? 0;
+  const proofCount = opening.proofs?.length ?? 0;
   return (
     <>
       <p>The reason for the request is as follows:</p>
@@ -116,6 +137,11 @@ const STATUS_VERB: Record<RequestStatus, string> = {
 /**
  * Formats a thread entry into a human-readable JSX fragment for update
  * notifications.
+ *
+ * @example
+ * Input: `{ kind: "status", from: "instructor@example.com", status:
+ * "approved" }` with that instructor named `Dr. Lee`.
+ * Output: JSX rendering `Dr. Lee approved the request.`
  */
 export const formatUpdate = (
   entry: ThreadEntry,
@@ -138,8 +164,8 @@ export const formatUpdate = (
         <>
           <p>{actorName} added a comment to the request:</p>
           <blockquote>{entry.text}</blockquote>
-          {entry.proof?.length ? (
-            <p>There are {entry.proof.length} document(s) attached.</p>
+          {entry.proofs?.length ? (
+            <p>There are {entry.proofs.length} document(s) attached.</p>
           ) : null}
         </>
       );
@@ -155,6 +181,12 @@ export const formatUpdate = (
 /**
  * Formats a request into a human-readable format as JSX. This can be further
  * transformed into a HTML string used for email notifications or other purposes.
+ *
+ * @example
+ * Input: a Swap Section request from Alice with opening comment `I need to
+ * swap.`.
+ * Output: JSX rendering the request overview, request details, and opening
+ * reason.
  */
 export const formatRequest = (
   request: Request,

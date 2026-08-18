@@ -1,7 +1,6 @@
 import {
-  ProofUpload,
+  CommentInit,
   Request,
-  RequestHead,
   RequestID,
   RequestInit,
   Role,
@@ -9,23 +8,6 @@ import {
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
-
-/**
- * Input for a status change that may carry an optional comment (approve/reject/
- * cancel). A bare status change (no text, no proof) is allowed, but a comment
- * with supporting documents must also carry text — otherwise the proof would be
- * silently dropped by {@link commentFrom}. This rejects such input explicitly
- * rather than returning success without recording the files.
- */
-const StatusActionInput = z
-  .object({
-    id: RequestID,
-    text: z.string().optional(),
-    proof: ProofUpload,
-  })
-  .refine((v) => !v.proof?.length || (v.text?.trim() ?? "").length > 0, {
-    message: "A comment is required when attaching supporting documents.",
-  });
 
 export const routerRequest = router({
   get: procedure
@@ -40,79 +22,91 @@ export const routerRequest = router({
     .query(({ input, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsByID(input);
     }),
-  getAllHeadsAs: procedure
+  getAllAs: procedure
     .input(z.array(Role))
-    .output(z.array(RequestHead))
+    .output(z.array(Request))
     .query(({ input: role, ctx }) => {
-      return services.request.auth(ctx.user.email).getRequestHeadsAs(role);
+      return services.request.auth(ctx.user.email).getRequestsAs(role);
     }),
   create: procedure
-    .input(RequestInit)
+    .input(
+      z.object({
+        request: RequestInit,
+        comment: CommentInit,
+      }),
+    )
     .output(RequestID)
     .mutation(async ({ input, ctx }) => {
       const rid = await services.request
         .auth(ctx.user.email)
-        .createRequest(input);
+        .createRequest(input.request, input.comment);
       const r = await services.request.auth(ctx.user.email).getRequest(rid);
-      await services.notification.notifyNewRequest(r);
+      await services.notification.notifyRequestUpdate(r);
       return rid;
     }),
-
-  // ── Thread (append-only) ──────────────────────────────────────────────
-  // The request body (class/type/metadata) is immutable after creation. All
-  // content (the opening reason, follow-up comments) and every status change
-  // are recorded as entries on the thread via these mutations. A status change
-  // with text records a comment entry followed by the status-change entry.
-
   comment: procedure
     .input(
       z.object({
         id: RequestID,
-        text: z.string().nonempty("A comment cannot be empty."),
-        proof: ProofUpload,
+        ...CommentInit.shape,
       }),
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entry = await services.request
         .auth(ctx.user.email)
-        .addComment(input.id, { text: input.text, proof: input.proof });
+        .comment(input.id, { text: input.text, proofs: input.proofs });
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await services.notification.notifyRequestUpdate(request, [entry]);
     }),
   approve: procedure
-    .input(StatusActionInput)
+    .input(
+      z.object({
+        id: RequestID,
+        comment: CommentInit.optional(),
+      }),
+    )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .approve(input.id, commentFrom(input));
+        .approve(input.id, input.comment);
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await services.notification.notifyRequestUpdate(request, entries);
     }),
   reject: procedure
-    .input(StatusActionInput)
+    .input(
+      z.object({
+        id: RequestID,
+        comment: CommentInit.optional(),
+      }),
+    )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .reject(input.id, commentFrom(input));
+        .reject(input.id, input.comment);
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await services.notification.notifyRequestUpdate(request, entries);
     }),
   cancel: procedure
-    .input(StatusActionInput)
+    .input(
+      z.object({
+        id: RequestID,
+        comment: CommentInit.optional(),
+      }),
+    )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .cancel(input.id, commentFrom(input));
+        .cancel(input.id, input.comment);
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
@@ -122,37 +116,25 @@ export const routerRequest = router({
     .input(
       z.object({
         id: RequestID,
-        text: z.string().nonempty("An appeal must include a justification."),
-        proof: ProofUpload,
+        ...CommentInit.shape,
       }),
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .appeal(input.id, { text: input.text, proof: input.proof });
+        .appeal(input.id, { text: input.text, proofs: input.proofs });
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
       await services.notification.notifyRequestUpdate(request, entries);
     }),
-  proofContent: procedure
+  getProof: procedure
     .input(z.object({ attachmentId: z.string() }))
     .output(z.object({ content: z.string() }))
     .query(({ input, ctx }) => {
       return services.request
         .auth(ctx.user.email)
-        .readProof(input.attachmentId);
+        .fetchProof(input.attachmentId);
     }),
 });
-
-/**
- * Builds the optional comment payload for a status change (approve/reject/cancel)
- * from the composer input: a comment is recorded only when there is non-empty
- * text, carrying any attached proof along with it. {@link StatusActionInput}
- * guarantees that proof is never present without text.
- */
-function commentFrom(input: { text?: string; proof?: ProofUpload }) {
-  const text = input.text?.trim();
-  return text ? { text, proof: input.proof } : undefined;
-}

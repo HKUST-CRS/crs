@@ -3,85 +3,72 @@ import { z } from "zod";
 import { formatDate, formatDateTime } from "../../utils/datetime";
 import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
-import { RequestDetails } from "./BaseRequest";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
 import type { RequestStatus } from "./RequestStatus";
 import { SwapSectionRequest } from "./SwapSection";
-import type { CommentEntry } from "./Thread";
 
 export const RequestInits = [
   SwapSectionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
+    thread: true,
     status: true,
-    updates: true,
-  }).extend({ details: RequestDetails }),
+  }),
   AbsentFromSectionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
+    thread: true,
     status: true,
-    updates: true,
-  }).extend({ details: RequestDetails }),
+  }),
   DeadlineExtensionRequest.omit({
     id: true,
     from: true,
     timestamp: true,
+    thread: true,
     status: true,
-    updates: true,
-  }).extend({ details: RequestDetails }),
+  }),
 ] as const;
 export const Requests = [
   SwapSectionRequest,
   AbsentFromSectionRequest,
   DeadlineExtensionRequest,
 ] as const;
-export const RequestHeads = [
-  SwapSectionRequest.omit({
-    metadata: true,
-    updates: true,
-  }),
-  AbsentFromSectionRequest.omit({
-    metadata: true,
-    updates: true,
-  }),
-  DeadlineExtensionRequest.omit({
-    metadata: true,
-    updates: true,
-  }),
-] as const;
-
 export const RequestInit = z.discriminatedUnion("type", RequestInits);
 export type RequestInit = z.infer<typeof RequestInit>;
 
 export const Request = z.discriminatedUnion("type", Requests);
 export type Request = z.infer<typeof Request>;
 
-export const RequestHead = z.discriminatedUnion("type", RequestHeads);
-export type RequestHead = z.infer<typeof RequestHead>;
-
-/**
- * The opening comment of a request — its initial reason (+ proof), recorded as
- * the first thread entry at creation time.
- */
-export function initialComment(
-  r: Pick<Request, "updates">,
-): CommentEntry | undefined {
-  return r.updates.find((e): e is CommentEntry => e.kind === "comment");
-}
+/** The request shape persisted in MongoDB; status is derived when read. */
+export const RequestDocument = z.discriminatedUnion("type", [
+  SwapSectionRequest.omit({ status: true }),
+  AbsentFromSectionRequest.omit({ status: true }),
+  DeadlineExtensionRequest.omit({ status: true }),
+] as const);
+export type RequestDocument = z.infer<typeof RequestDocument>;
 
 /**
  * The human-readable decision implied by a status: "Approve" / "Reject" for
- * decided requests, "Pending" otherwise (including appealed, which awaits a
- * re-decision).
+ * decided requests, "Appealed" for requests awaiting a re-decision, and
+ * "Cancelled" for withdrawn requests. "Pending" is used for open requests.
  */
 export function decisionLabel(
   status: RequestStatus,
-): "Approve" | "Reject" | "Pending" {
-  if (status === "approved") return "Approve";
-  if (status === "rejected") return "Reject";
-  return "Pending";
+): "Approve" | "Reject" | "Pending" | "Appealed" | "Cancelled" {
+  switch (status) {
+    case "approved":
+      return "Approve";
+    case "rejected":
+      return "Reject";
+    case "appealed":
+      return "Appealed";
+    case "cancelled":
+      return "Cancelled";
+    case "open":
+      return "Pending";
+  }
 }
 
 export namespace RequestSerialization {
@@ -97,6 +84,9 @@ export namespace RequestSerialization {
     "Timestamp",
     "Status",
 
+    // Decision
+    "Decision",
+
     // Swap Section & Absent from Section
     "From Section",
     "From Date",
@@ -105,12 +95,6 @@ export namespace RequestSerialization {
     // Deadline Extension
     "Assignment",
     "New Deadline",
-
-    // Decision
-    "Decision",
-
-    // Text
-    "Reason",
   ];
 
   function serializeMeta(r: Request) {
@@ -138,6 +122,7 @@ export namespace RequestSerialization {
   export function toCSV(requests: Request[], base: string): string {
     const data = requests.map((r) => ({
       ID: r.id,
+      Reference: `${base}/request/${r.id}`,
       "Course Code": r.class.course.code,
       "Course Term": Terms.formatTerm(r.class.course.term),
       Section: r.class.section,
@@ -145,10 +130,10 @@ export namespace RequestSerialization {
       Type: r.type,
       Timestamp: formatDateTime(r.timestamp),
       Status: r.status,
-      ...serializeMeta(r),
+
       Decision: decisionLabel(r.status),
-      Reference: `${base}/request/${r.id}`,
-      Reason: initialComment(r)?.text ?? "",
+
+      ...serializeMeta(r),
     }));
     return Papa.unparse(data, {
       columns: COLUMNS,

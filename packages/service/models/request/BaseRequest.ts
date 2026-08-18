@@ -1,27 +1,9 @@
 import { z } from "zod";
 import { Class } from "../course";
 import { UserID } from "../user";
-import { ProofUpload } from "./Proof";
 import { RequestStatus } from "./RequestStatus";
 import type { RequestType } from "./RequestType";
 import { ThreadEntry } from "./Thread";
-
-export const RequestDetails = z.object({
-  reason: z
-    .string()
-    .nonempty("A brief explanation for the request is required.")
-    .meta({ description: "A brief explanation of the request." }),
-  proof: ProofUpload.meta({
-    description: "Optional supporting documents or files for the request.",
-  }),
-});
-export type RequestDetails = z.infer<typeof RequestDetails>;
-
-export const RequestDetailsProofAccept = [
-  "image/*",
-  "application/pdf",
-  "text/plain",
-];
 
 export const RequestID = z.string().meta({
   description:
@@ -36,20 +18,16 @@ export const BaseRequest = z.object({
   class: Class,
   timestamp: z.iso.datetime({ offset: true }),
   /**
-   * The current lifecycle status of the request.
-   *
-   * Denormalized from the thread: set to the status of the latest status-change
-   * entry (and "open" at creation). Status changes are append-only, so this is
-   * always the latest status event.
+   * The current lifecycle status of the request. Derived from the latest
+   * status-change entry in the thread, or "open" when there is none.
    */
   status: RequestStatus,
   /**
-   * The append-only thread of updates to the request. The request body itself
-   * (class, type, metadata) is immutable after creation; all content (the
-   * opening reason + proof, follow-up comments) and every status change are
+   * An append-only thread for the request. The request body itself is
+   * immutable after creation; all new info and status changes are
    * recorded here.
    */
-  updates: z.array(ThreadEntry),
+  thread: z.array(ThreadEntry),
 });
 export type BaseRequest = z.infer<typeof BaseRequest>;
 
