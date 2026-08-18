@@ -51,29 +51,27 @@ export class RequestRepo {
   async createRequest(from: UserID, data: RequestInit): Promise<string> {
     const id = new ObjectId().toHexString();
     const timestamp = toISO(DateTime.now());
-    const { proof, ids } = await this.storeProof(data.details.proof);
-    return this.commitProofs(ids, async () => {
-      // The opening reason + proof become the first comment in the thread; the
-      // stored body carries only class/type/metadata.
-      const opening = makeComment(
-        { id: new ObjectId().toHexString(), from, timestamp },
-        data.details.reason,
-        proof,
-      );
-      // Drop `details` from the stored body (the opening comment already holds
-      // the reason + proof); spreading the rest keeps the type/metadata
-      // discriminant correlated for the insert.
-      const { details: _details, ...rest } = data;
-      await this.collections.requests.insertOne({
-        ...rest,
-        id,
-        from,
-        timestamp,
-        status: "open",
-        updates: [opening],
-      });
-      return id;
+    const proof = await this.storeProof(data.details.proof);
+    // The opening reason + proof become the first comment in the thread; the
+    // stored body carries only class/type/metadata.
+    const opening = makeComment(
+      { id: new ObjectId().toHexString(), from, timestamp },
+      data.details.reason,
+      proof,
+    );
+    // Drop `details` from the stored body (the opening comment already holds
+    // the reason + proof); spreading the rest keeps the type/metadata
+    // discriminant correlated for the insert.
+    const { details: _details, ...rest } = data;
+    await this.collections.requests.insertOne({
+      ...rest,
+      id,
+      from,
+      timestamp,
+      status: "open",
+      updates: [opening],
     });
+    return id;
   }
 
   /**
@@ -201,27 +199,24 @@ export class RequestRepo {
     requestID: RequestID,
     payload: { text: string; proof?: ProofUpload },
   ): Promise<CommentEntry> {
-    const { proof, ids } = await this.storeProof(payload.proof);
-    return this.commitProofs(ids, async () => {
-      const entry = makeComment(
-        {
-          id: new ObjectId().toHexString(),
-          from: userID,
-          timestamp: toISO(DateTime.now()),
-        },
-        payload.text,
-        proof,
-      );
-      await this.append(requestID, [entry], null, "append a comment");
-      return entry;
-    });
+    const proof = await this.storeProof(payload.proof);
+    const entry = makeComment(
+      {
+        id: new ObjectId().toHexString(),
+        from: userID,
+        timestamp: toISO(DateTime.now()),
+      },
+      payload.text,
+      proof,
+    );
+    await this.append(requestID, [entry], null, "append a comment");
+    return entry;
   }
 
   /**
-   * Appends a status change, optionally preceded by a remark comment (so a
-   * decision/cancellation/appeal "with a remark" records the remark as a
-   * comment entry then the status-change entry, atomically). Guarded by the
-   * admissible source statuses; sets the denormalized status.
+   * Appends a status change, optionally preceded by a comment. Both entries
+   * are appended atomically. Guarded by the admissible source statuses; sets
+   * the denormalized status.
    */
   async appendStatusChange(
     userID: UserID,
@@ -229,50 +224,43 @@ export class RequestRepo {
     status: RequestStatus,
     expectedStatuses: RequestStatus[],
     op: string,
-    remark?: { text: string; proof?: ProofUpload },
+    comment?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
-    const remarkProof = remark
-      ? await this.storeProof(remark.proof)
-      : undefined;
-    return this.commitProofs(remarkProof?.ids ?? [], async () => {
-      const timestamp = toISO(DateTime.now());
-      const entries: ThreadEntry[] = [];
-      if (remark) {
-        entries.push(
-          makeComment(
-            { id: new ObjectId().toHexString(), from: userID, timestamp },
-            remark.text,
-            remarkProof?.proof,
-          ),
-        );
-      }
-      entries.push({
-        id: new ObjectId().toHexString(),
-        from: userID,
-        timestamp,
-        kind: "status",
-        status,
-      });
-      await this.append(requestID, entries, expectedStatuses, op, { status });
-      return entries;
+    const proof = comment ? await this.storeProof(comment.proof) : undefined;
+    const timestamp = toISO(DateTime.now());
+    const entries: ThreadEntry[] = [];
+    if (comment) {
+      entries.push(
+        makeComment(
+          { id: new ObjectId().toHexString(), from: userID, timestamp },
+          comment.text,
+          proof,
+        ),
+      );
+    }
+    entries.push({
+      id: new ObjectId().toHexString(),
+      from: userID,
+      timestamp,
+      kind: "status",
+      status,
     });
+    await this.append(requestID, entries, expectedStatuses, op, { status });
+    return entries;
   }
 
   // ── Proof (GridFS) ───────────────────────────────────────────────────────
 
   /**
    * Uploads each supplied proof file to GridFS, returning the stored
-   * references (`attachmentId`) plus the uploaded ObjectIds for rollback. The
+   * references (`attachmentId`). The
    * persisted `size` and `hash` are derived from the decoded bytes rather than
    * the client-supplied values, so the per-file limit is enforced on the
    * actual content. If an upload fails partway, any already-uploaded files are
-   * deleted here; the caller must clean up if the subsequent document write
-   * fails (see {@link commitProofs}).
+   * deleted here.
    */
-  private async storeProof(
-    proof?: ProofUpload,
-  ): Promise<{ proof: Proof | undefined; ids: ObjectId[] }> {
-    if (!proof?.length) return { proof: undefined, ids: [] };
+  private async storeProof(proof?: ProofUpload): Promise<Proof | undefined> {
+    if (!proof?.length) return undefined;
     const stored: ProofFile[] = [];
     const ids: ObjectId[] = [];
     try {
@@ -299,24 +287,7 @@ export class RequestRepo {
     } catch (e) {
       return rollbackAttachments(this.collections.proofs, ids, e);
     }
-    return { proof: stored, ids };
-  }
-
-  /**
-   * Runs a document write, deleting the given proof files from GridFS if the
-   * write throws. GridFS uploads do not participate in the Mongo transaction
-   * (no session is threaded into `openUploadStream`), so this compensating
-   * delete is the only way to avoid orphaned bytes on a failed create/append.
-   */
-  private async commitProofs<T>(
-    ids: ObjectId[],
-    write: () => Promise<T>,
-  ): Promise<T> {
-    try {
-      return await write();
-    } catch (e) {
-      return rollbackAttachments(this.collections.proofs, ids, e);
-    }
+    return stored;
   }
 
   /** Reads the bytes of a stored proof file, returned as base64. */

@@ -63,8 +63,7 @@ export type RequestHead = z.infer<typeof RequestHead>;
 
 /**
  * The opening comment of a request — its initial reason (+ proof), recorded as
- * the first thread entry at creation time. Returns `undefined` only for legacy
- * documents that predate the thread model and have no comments.
+ * the first thread entry at creation time.
  */
 export function initialComment(
   r: Pick<Request, "updates">,
@@ -83,34 +82,6 @@ export function decisionLabel(
   if (status === "approved") return "Approve";
   if (status === "rejected") return "Reject";
   return "Pending";
-}
-
-/**
- * The remark accompanying the latest decision (approve/reject), if any. A
- * decision records its remark as a comment entry authored by the decider
- * immediately preceding the status-change entry; a decision without a remark
- * has no such comment. Only approve/reject status changes are decisions, so
- * appeals and cancellations are skipped even when they are the latest change.
- */
-export function decisionRemark(r: Pick<Request, "updates">): string {
-  for (let i = r.updates.length - 1; i >= 0; i--) {
-    const cur = r.updates[i];
-    if (
-      cur &&
-      cur.kind === "status" &&
-      (cur.status === "approved" || cur.status === "rejected")
-    ) {
-      const prev = r.updates[i - 1];
-      // The remark is the decider's own comment immediately preceding the
-      // decision; any other comment (the requester's reason, a later
-      // follow-up, or an appeal) is not the decision's remark.
-      if (prev && prev.kind === "comment" && prev.from === cur.from) {
-        return prev.text;
-      }
-      return "";
-    }
-  }
-  return "";
 }
 
 export namespace RequestSerialization {
@@ -135,12 +106,11 @@ export namespace RequestSerialization {
     "Assignment",
     "New Deadline",
 
-    // Response
+    // Decision
     "Decision",
 
     // Text
     "Reason",
-    "Remarks",
   ];
 
   function serializeMeta(r: Request) {
@@ -179,7 +149,6 @@ export namespace RequestSerialization {
       Decision: decisionLabel(r.status),
       Reference: `${base}/request/${r.id}`,
       Reason: initialComment(r)?.text ?? "",
-      Remarks: decisionRemark(r),
     }));
     return Papa.unparse(data, {
       columns: COLUMNS,

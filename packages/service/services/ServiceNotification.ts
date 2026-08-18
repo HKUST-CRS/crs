@@ -160,7 +160,7 @@ export class NotificationService {
 
   /**
    * Notify the relevant parties of a thread update. A single action may append
-   * multiple entries (e.g. a decision with a remark records a comment then a
+   * multiple entries (e.g. a decision with a comment records the comment then a
    * status change); all are rendered together in one email. Student actions
    * notify the instructors (with the student and observers CC'd); instructor
    * actions notify the student (with instructors and observers CC'd).

@@ -1,4 +1,3 @@
-import clsx from "clsx";
 import { useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import {
@@ -38,6 +37,7 @@ export function RequestFormDetails<
   const maxProofSizeMiB = MAX_PROOF_SIZE / 1024 / 1024;
   const proofSelectionToken = useRef(0);
   const [readingProof, setReadingProof] = useState(false);
+  const [proofKey, setProofKey] = useState(0);
   const viewonly = props.viewonly ?? false;
   // In viewonly mode the reason + proof live in the thread (as the opening
   // comment), not on the request body, so there is nothing to render here.
@@ -54,12 +54,10 @@ export function RequestFormDetails<
         name={"details.reason"}
         control={form.control}
         render={({ field }) => (
-          <FormItem
-            className={clsx("col-span-full", viewonly && "pointer-events-none")}
-          >
+          <FormItem className="col-span-full">
             <FormLabel>Reason</FormLabel>
             <FormControl>
-              <Textarea {...field} disabled={viewonly} />
+              <Textarea {...field} />
             </FormControl>
             <FormDescription>
               Please provide a brief explanation/justification for your request
@@ -73,13 +71,12 @@ export function RequestFormDetails<
         name="details.proof"
         control={form.control}
         render={({ field }) => (
-          <FormItem
-            className={clsx("col-span-full", viewonly && "pointer-events-none")}
-          >
+          <FormItem className="col-span-full">
             <FormLabel>Proof Documentation(s)</FormLabel>
             <FormControl>
               <div>
                 <Input
+                  key={proofKey}
                   onChange={async (e) => {
                     if (e.target.files) {
                       const token = ++proofSelectionToken.current;
@@ -101,6 +98,7 @@ export function RequestFormDetails<
                         }
                       } catch (error) {
                         if (token === proofSelectionToken.current) {
+                          setProofKey((key) => key + 1);
                           toast.error(
                             `Failed: ${error instanceof Error ? error.message : String(error)}`,
                           );
@@ -115,7 +113,7 @@ export function RequestFormDetails<
                   type="file"
                   accept={RequestDetailsProofAccept.join(",")}
                   multiple
-                  disabled={viewonly || readingProof}
+                  disabled={readingProof}
                 />
               </div>
             </FormControl>
@@ -143,13 +141,11 @@ export function RequestFormDetails<
           </FormItem>
         )}
       />
-      {!viewonly && (
-        <div className="col-span-full flex justify-end">
-          <Button type="submit" disabled={readingProof}>
-            Submit
-          </Button>
-        </div>
-      )}
+      <div className="col-span-full flex justify-end">
+        <Button type="submit" disabled={readingProof}>
+          Submit
+        </Button>
+      </div>
     </>
   );
 }

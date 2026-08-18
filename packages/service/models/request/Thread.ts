@@ -33,7 +33,7 @@ export type CommentEntry = z.infer<typeof CommentEntry>;
 
 /**
  * A change of the request's lifecycle status. Carries only the new status; any
- * remark accompanying the change is recorded as a preceding comment entry (so
+ * text accompanying the change is recorded as a preceding comment entry (so
  * content stays monomorphic). Status changes are append-only: the request's
  * denormalized `status` always reflects the latest status-change entry.
  */

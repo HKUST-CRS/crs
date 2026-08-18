@@ -191,35 +191,35 @@ export class RequestService<TUser extends UserID | null = null> {
   /**
    * Approves the request. Only an instructor of the class may approve, and the
    * request must be in a state open to a decision (open, appealed, or already
-   * decided — re-decisions are allowed). An optional remark is recorded as a
-   * comment preceding the status change.
+   * decided — re-decisions are allowed). An optional comment is recorded
+   * immediately before the status change.
    *
-   * @returns The created thread entries (remark comment, if any, then the status change).
+   * @returns The created thread entries (comment, if any, then the status change).
    */
   async approve(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: ProofUpload },
+    comment?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
-    return this.decide(requestID, "approved", remark);
+    return this.decide(requestID, "approved", comment);
   }
 
   /**
-   * Rejects the request. See {@link approve} for authorization and remarks.
+   * Rejects the request. See {@link approve} for authorization and comments.
    */
   async reject(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: ProofUpload },
+    comment?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
-    return this.decide(requestID, "rejected", remark);
+    return this.decide(requestID, "rejected", comment);
   }
 
   private async decide(
     this: RequestService<UserID>,
     requestID: RequestID,
     status: "approved" | "rejected",
-    remark?: { text: string; proof?: ProofUpload },
+    comment?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -235,22 +235,22 @@ export class RequestService<TUser extends UserID | null = null> {
       status,
       DECISION_FROM,
       status === "approved" ? "approve" : "reject",
-      remark,
+      comment,
     );
   }
 
   /**
    * Cancels the request. Only the requester may cancel, and only from a
    * non-cancelled state; cancellation is terminal for status changes (though
-   * comments may still follow). An optional remark is recorded as a comment
-   * preceding the status change.
+   * comments may still follow). An optional comment is recorded immediately
+   * before the status change.
    *
-   * @returns The created thread entries (remark comment, if any, then the status change).
+   * @returns The created thread entries (comment, if any, then the status change).
    */
   async cancel(
     this: RequestService<UserID>,
     requestID: RequestID,
-    remark?: { text: string; proof?: ProofUpload },
+    comment?: { text: string; proof?: ProofUpload },
   ): Promise<ThreadEntry[]> {
     await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
@@ -267,7 +267,7 @@ export class RequestService<TUser extends UserID | null = null> {
       "cancelled",
       DECISION_FROM,
       "cancel",
-      remark,
+      comment,
     );
   }
 
@@ -275,7 +275,7 @@ export class RequestService<TUser extends UserID | null = null> {
    * Appeals a decision, flagging the request for re-review. Only the requester
    * may appeal, and only from a decided state (approved or rejected). The
    * justification (text + proof) is recorded as a comment preceding the status
-   * change, so an appeal always carries a remark.
+   * change.
    *
    * @returns The created thread entries (justification comment, then the status change).
    */

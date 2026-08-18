@@ -4,8 +4,8 @@
  * Seeds two accounts in TEST 0000 and drives the real RequestService to create
  * one request per lifecycle state, each with a multi-entry thread:
  *   - OPEN       (student ↔ instructor discussion, undecided)
- *   - APPROVED   (instructor approves with a remark)
- *   - REJECTED   (instructor rejects with a remark)
+ *   - APPROVED   (instructor approves with a comment)
+ *   - REJECTED   (instructor rejects with a comment)
  *   - APPEALED   (rejected, then the student appeals)
  *   - CANCELLED  (approved, then the student cancels)
  *
@@ -113,10 +113,11 @@ async function main() {
       );
     }
     await conn.collections.requests.deleteMany({});
-    console.log("✓ Seeded users; cleared requests.\n");
+    await conn.collections.proofs.drop();
+    console.log("✓ Seeded users; cleared requests and proofs.\n");
 
     const student = () => svc.auth(STUDENT);
-    const prof = () => svc.auth(INSTRUCTOR);
+    const instructor = () => svc.auth(INSTRUCTOR);
 
     // R1 — OPEN: a back-and-forth that is still undecided.
     const r1 = await student().createRequest(
@@ -128,11 +129,11 @@ async function main() {
     await student().addComment(r1, {
       text: "Monday's LA1 clashes with my capstone defense.",
     });
-    await prof().addComment(r1, {
+    await instructor().addComment(r1, {
       text: "Could you confirm the exact lecture date you'd miss?",
     });
 
-    // R2 — APPROVED: instructor approves with a remark.
+    // R2 — APPROVED: instructor approves with a comment.
     const r2 = await student().createRequest(
       makeDeadlineInit(
         "Requesting a 2-day extension on PA1 due to illness.",
@@ -140,7 +141,7 @@ async function main() {
         note,
       ),
     );
-    await prof().approve(r2, {
+    await instructor().approve(r2, {
       text: "Granted — please submit by the new deadline.",
     });
 
@@ -148,7 +149,7 @@ async function main() {
     const r3 = await student().createRequest(
       makeAbsentInit("I'll be away at a conference on Mar 15."),
     );
-    await prof().reject(r3, {
+    await instructor().reject(r3, {
       text: "Please attach the conference invitation as proof.",
     });
 
@@ -156,7 +157,7 @@ async function main() {
     const r4 = await student().createRequest(
       makeSwapInit("LA3 fits my timetable better this term.", "LA3"),
     );
-    await prof().reject(r4, { text: "LA3 is currently full." });
+    await instructor().reject(r4, { text: "LA3 is currently full." });
     await student().appeal(r4, {
       text: "A peer has agreed to swap out of LA3 — could you reconsider?",
     });
@@ -165,7 +166,7 @@ async function main() {
     const r5 = await student().createRequest(
       makeDeadlineInit("May I extend the PA2 deadline by a day?", "PA2"),
     );
-    await prof().approve(r5, { text: "Provisionally approved." });
+    await instructor().approve(r5, { text: "Provisionally approved." });
     await student().cancel(r5, {
       text: "Withdrawing — I'll submit on time after all.",
     });

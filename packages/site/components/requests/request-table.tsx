@@ -53,6 +53,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
   data: RequestHead[];
@@ -62,15 +63,6 @@ interface RequestTableProps {
 export interface RequestTableHandle {
   getExportIDs: () => string[];
 }
-
-/** Display label for each lifecycle status in the Status column. */
-const STATUS_LABEL: Record<RequestStatus, string> = {
-  open: "Open",
-  approved: "Approved",
-  rejected: "Rejected",
-  appealed: "Appealed",
-  cancelled: "Cancelled",
-};
 
 /** Sort order for the Status column (open first, cancelled last). */
 const STATUS_ORDER: Record<RequestStatus, number> = {
@@ -215,7 +207,7 @@ const columns: ColumnDef<RequestHead>[] = [
   },
   {
     id: "status",
-    accessorFn: (row) => STATUS_LABEL[row.status],
+    accessorFn: (row) => REQUEST_STATUS_LABEL[row.status],
     header: ({ column }) => {
       return (
         <Button
@@ -230,7 +222,7 @@ const columns: ColumnDef<RequestHead>[] = [
     },
     cell: ({ row }) => {
       const status = row.original.status;
-      const label = STATUS_LABEL[status];
+      const label = REQUEST_STATUS_LABEL[status];
       const color =
         status === "approved"
           ? "text-green-800 dark:text-green-400"
@@ -360,11 +352,13 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all">All statuses</SelectItem>
-                {(Object.keys(STATUS_LABEL) as RequestStatus[]).map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_LABEL[s]}
-                  </SelectItem>
-                ))}
+                {(Object.keys(REQUEST_STATUS_LABEL) as RequestStatus[]).map(
+                  (s) => (
+                    <SelectItem key={s} value={s}>
+                      {REQUEST_STATUS_LABEL[s]}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </Field>

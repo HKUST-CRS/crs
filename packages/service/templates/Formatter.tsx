@@ -83,7 +83,7 @@ const formatRequestMetadata = (request: Request) => {
 };
 
 // The opening comment holds the request's initial reason (+ proof); it is the
-// first entry of the thread. Legacy documents get a synthesized opening on read.
+// first entry of the thread.
 const formatOpeningComment = (request: Request): JSX.Element => {
   const opening = initialComment(request);
   if (!opening) {

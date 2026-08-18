@@ -9,13 +9,12 @@ import {
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
-import { safeNotify } from "../utils/notify";
 
 /**
- * Input for a status change that may carry an optional remark (approve/reject/
- * cancel). A bare status change (no text, no proof) is allowed, but a remark
+ * Input for a status change that may carry an optional comment (approve/reject/
+ * cancel). A bare status change (no text, no proof) is allowed, but a comment
  * with supporting documents must also carry text — otherwise the proof would be
- * silently dropped by {@link remarkFrom}. This rejects such input explicitly
+ * silently dropped by {@link commentFrom}. This rejects such input explicitly
  * rather than returning success without recording the files.
  */
 const StatusActionInput = z
@@ -25,7 +24,7 @@ const StatusActionInput = z
     proof: ProofUpload,
   })
   .refine((v) => !v.proof?.length || (v.text?.trim() ?? "").length > 0, {
-    message: "A remark is required when attaching supporting documents.",
+    message: "A comment is required when attaching supporting documents.",
   });
 
 export const routerRequest = router({
@@ -55,7 +54,7 @@ export const routerRequest = router({
         .auth(ctx.user.email)
         .createRequest(input);
       const r = await services.request.auth(ctx.user.email).getRequest(rid);
-      await safeNotify(() => services.notification.notifyNewRequest(r));
+      await services.notification.notifyNewRequest(r);
       return rid;
     }),
 
@@ -63,7 +62,7 @@ export const routerRequest = router({
   // The request body (class/type/metadata) is immutable after creation. All
   // content (the opening reason, follow-up comments) and every status change
   // are recorded as entries on the thread via these mutations. A status change
-  // with a remark records a comment entry followed by the status-change entry.
+  // with text records a comment entry followed by the status-change entry.
 
   comment: procedure
     .input(
@@ -81,9 +80,7 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, [entry]),
-      );
+      await services.notification.notifyRequestUpdate(request, [entry]);
     }),
   approve: procedure
     .input(StatusActionInput)
@@ -91,13 +88,11 @@ export const routerRequest = router({
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .approve(input.id, remarkFrom(input));
+        .approve(input.id, commentFrom(input));
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entries),
-      );
+      await services.notification.notifyRequestUpdate(request, entries);
     }),
   reject: procedure
     .input(StatusActionInput)
@@ -105,13 +100,11 @@ export const routerRequest = router({
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .reject(input.id, remarkFrom(input));
+        .reject(input.id, commentFrom(input));
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entries),
-      );
+      await services.notification.notifyRequestUpdate(request, entries);
     }),
   cancel: procedure
     .input(StatusActionInput)
@@ -119,13 +112,11 @@ export const routerRequest = router({
     .mutation(async ({ input, ctx }) => {
       const entries = await services.request
         .auth(ctx.user.email)
-        .cancel(input.id, remarkFrom(input));
+        .cancel(input.id, commentFrom(input));
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entries),
-      );
+      await services.notification.notifyRequestUpdate(request, entries);
     }),
   appeal: procedure
     .input(
@@ -143,9 +134,7 @@ export const routerRequest = router({
       const request = await services.request
         .auth(ctx.user.email)
         .getRequest(input.id);
-      await safeNotify(() =>
-        services.notification.notifyRequestUpdate(request, entries),
-      );
+      await services.notification.notifyRequestUpdate(request, entries);
     }),
   proofContent: procedure
     .input(z.object({ attachmentId: z.string() }))
@@ -158,12 +147,12 @@ export const routerRequest = router({
 });
 
 /**
- * Builds the optional remark payload for a status change (approve/reject/cancel)
- * from the composer input: a remark is recorded only when there is non-empty
+ * Builds the optional comment payload for a status change (approve/reject/cancel)
+ * from the composer input: a comment is recorded only when there is non-empty
  * text, carrying any attached proof along with it. {@link StatusActionInput}
  * guarantees that proof is never present without text.
  */
-function remarkFrom(input: { text?: string; proof?: ProofUpload }) {
+function commentFrom(input: { text?: string; proof?: ProofUpload }) {
   const text = input.text?.trim();
   return text ? { text, proof: input.proof } : undefined;
 }

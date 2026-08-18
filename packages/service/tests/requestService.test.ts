@@ -1,6 +1,5 @@
 import {
   afterAll,
-  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -8,7 +7,6 @@ import {
   test,
 } from "bun:test";
 import crypto from "node:crypto";
-import { finished } from "node:stream/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import type {
@@ -16,14 +14,11 @@ import type {
   ProofFile,
   ProofFileUpload,
   ProofUpload,
-  Request,
   RequestInit,
   User,
 } from "../models";
-import { decisionRemark } from "../models";
 import { createRepos } from "../repos";
 import { RequestNotFoundError, StatusConflictError } from "../repos/error";
-import { migrateRequests } from "../repos/migrate";
 import { RequestService } from "../services";
 import { ClassPermissionError, PermissionError } from "../services/error";
 import { clearData, insertData } from "./tests";
@@ -125,44 +120,6 @@ async function expectStoredProof(
   }
 }
 
-async function uploadTestAttachment(
-  conn: DbConn,
-  name: string,
-  bytes: Buffer,
-): Promise<string> {
-  const upload = conn.collections.proofs.openUploadStream(name);
-  upload.end(bytes);
-  await finished(upload);
-  return String(upload.id);
-}
-
-// A bare legacy body (pre-thread: no status/updates, reason+proof in details).
-function legacyBody(
-  id: string,
-  from: string,
-  response: unknown,
-  proof: unknown = [],
-) {
-  return {
-    id,
-    from,
-    class: {
-      course: { code: baseCourse.code, term: baseCourse.term },
-      section: "L1",
-    },
-    type: "Swap Section",
-    metadata: {
-      fromSection: "L1",
-      fromDate: "2025-11-25",
-      toSection: "L2",
-      toDate: "2025-11-26",
-    },
-    details: { reason: "legacy reason", proof },
-    timestamp: "2025-01-01T00:00:00+08:00",
-    response,
-  } as unknown as Request;
-}
-
 describe("RequestService", () => {
   let testConn: DbConn;
   let memoryServer: MongoMemoryReplSet;
@@ -183,10 +140,6 @@ describe("RequestService", () => {
 
   beforeEach(async () => {
     await clearData(testConn);
-  });
-
-  afterEach(() => {
-    // keep the linter quiet about async setup
   });
 
   // ── createRequest ────────────────────────────────────────────────────────
@@ -571,7 +524,7 @@ describe("RequestService", () => {
       }
     });
 
-    test("a remark is recorded as a comment followed by the status change", async () => {
+    test("action text is recorded as a comment followed by the status change", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       const instructor = makeUser("i1@ust.hk", "instructor");
       await insertData(testConn, {
@@ -619,36 +572,6 @@ describe("RequestService", () => {
       expect(
         (await requestService.auth(instructor.email).getRequest(id)).status,
       ).toBe("rejected");
-    });
-
-    test("decisionRemark returns the decider's remark and ignores unrelated comments", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      const instructor = makeUser("i1@ust.hk", "instructor");
-      await insertData(testConn, {
-        users: [student, instructor],
-        courses: [baseCourse],
-      });
-      const id = await requestService
-        .auth(student.email)
-        .createRequest(makeSwapInit());
-      await requestService
-        .auth(instructor.email)
-        .approve(id, { text: "looks good" });
-      // A follow-up comment by the requester must not become the remark.
-      await requestService
-        .auth(student.email)
-        .addComment(id, { text: "thanks" });
-      let r = await requestService.auth(student.email).getRequest(id);
-      expect(decisionRemark(r)).toBe("looks good");
-
-      // A decision without a remark yields "" — never the requester's reason,
-      // which is the comment that immediately precedes the status change.
-      const id2 = await requestService
-        .auth(student.email)
-        .createRequest(makeSwapInit());
-      await requestService.auth(instructor.email).approve(id2);
-      r = await requestService.auth(student.email).getRequest(id2);
-      expect(decisionRemark(r)).toBe("");
     });
   });
 
@@ -863,181 +786,6 @@ describe("RequestService", () => {
     });
   });
 
-  // ── legacy request migration ─────────────────────────────────────────────
-  describe("legacy request migration", () => {
-    test("a pre-thread open doc is normalized and keeps its reason as the opening comment", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [legacyBody("l-open", student.email, null)],
-      });
-      await migrateRequests(testConn.collections);
-      const r = await requestService.auth(student.email).getRequest("l-open");
-      expect(r.status).toBe("open");
-      expect(r.updates).toHaveLength(1);
-      expect(r.updates[0]?.kind).toBe("comment");
-      if (r.updates[0]?.kind === "comment") {
-        expect(r.updates[0].text).toBe("legacy reason");
-      }
-    });
-
-    test("a pre-thread doc with an Approve response is inferred as approved", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-approved", student.email, {
-            from: "i1@ust.hk",
-            timestamp: "2025-01-02T00:00:00+08:00",
-            remarks: "ok",
-            decision: "Approve",
-          }),
-        ],
-      });
-      await migrateRequests(testConn.collections);
-      const r = await requestService
-        .auth(student.email)
-        .getRequest("l-approved");
-      expect(r.status).toBe("approved");
-    });
-
-    test("a pre-thread decided doc preserves the decider, timestamp, and remark", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-decided", student.email, {
-            from: "i1@ust.hk",
-            timestamp: "2025-01-02T00:00:00+08:00",
-            remarks: "granted",
-            decision: "Approve",
-          }),
-        ],
-      });
-      await migrateRequests(testConn.collections);
-      const r = await requestService
-        .auth(student.email)
-        .getRequest("l-decided");
-      expect(r.status).toBe("approved");
-      expect(r.updates.at(-1)?.kind).toBe("status");
-      const decision = r.updates.at(-1);
-      if (decision && decision.kind === "status") {
-        expect(decision.status).toBe("approved");
-        expect(decision.from).toBe("i1@ust.hk");
-        expect(decision.timestamp).toBe("2025-01-02T00:00:00+08:00");
-      }
-      expect(decisionRemark(r)).toBe("granted");
-    });
-
-    test("legacy request heads are normalized", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [legacyBody("l-head", student.email, null)],
-      });
-      await migrateRequests(testConn.collections);
-      const heads = await requestService
-        .auth(student.email)
-        .getRequestHeadsAs(["student"]);
-      expect(heads).toHaveLength(1);
-      expect(heads[0]?.status).toBe("open");
-      expect(heads[0]).not.toHaveProperty("updates");
-    });
-
-    test("an un-backfilled open request can be approved", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      const instructor = makeUser("i1@ust.hk", "instructor");
-      await insertData(testConn, {
-        users: [student, instructor],
-        courses: [baseCourse],
-      });
-      await insertData(testConn, {
-        requests: [legacyBody("l-approve", student.email, null)],
-      });
-      await migrateRequests(testConn.collections);
-      await requestService.auth(instructor.email).approve("l-approve");
-      const r = await requestService
-        .auth(instructor.email)
-        .getRequest("l-approve");
-      expect(r.status).toBe("approved");
-      expect(r.updates.at(-1)?.kind).toBe("status");
-    });
-
-    test("an un-backfilled rejected request can be appealed", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-appeal", student.email, {
-            from: "i1@ust.hk",
-            timestamp: "2025-01-02T00:00:00+08:00",
-            remarks: "no",
-            decision: "Reject",
-          }),
-        ],
-      });
-      await migrateRequests(testConn.collections);
-      await requestService
-        .auth(student.email)
-        .appeal("l-appeal", { text: "reconsider" });
-      const r = await requestService.auth(student.email).getRequest("l-appeal");
-      expect(r.status).toBe("appealed");
-    });
-
-    test("a feat/threads-era doc with response/cancel/appeal entries is converted", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      // A document written by the previous thread model: status "resolved",
-      // details on the body, and a response entry in updates.
-      const legacy: Request[] = [
-        {
-          id: "l-feat",
-          from: student.email,
-          class: {
-            course: { code: baseCourse.code, term: baseCourse.term },
-            section: "L1",
-          },
-          type: "Swap Section",
-          metadata: {
-            fromSection: "L1",
-            fromDate: "2025-11-25",
-            toSection: "L2",
-            toDate: "2025-11-26",
-          },
-          details: { reason: "old reason", proof: [] },
-          timestamp: "2025-01-01T00:00:00+08:00",
-          status: "resolved",
-          response: {
-            from: "i1@ust.hk",
-            timestamp: "2025-01-02T00:00:00+08:00",
-            remarks: "ok",
-            decision: "Approve",
-          },
-          updates: [
-            {
-              id: "old-response",
-              from: "i1@ust.hk",
-              timestamp: "2025-01-02T00:00:00+08:00",
-              kind: "response",
-              remarks: "ok",
-              decision: "Approve",
-            },
-          ],
-        } as unknown as Request,
-      ];
-      await insertData(testConn, { requests: legacy });
-      await migrateRequests(testConn.collections);
-      const r = await requestService.auth(student.email).getRequest("l-feat");
-      expect(r.status).toBe("approved");
-      // opening comment (from details) + the converted status entry
-      expect(r.updates[0]?.kind).toBe("comment");
-      if (r.updates[0]?.kind === "comment") {
-        expect(r.updates[0].text).toBe("old reason");
-      }
-      expect(r.updates.at(-1)?.kind).toBe("status");
-    });
-  });
-
   // ── proof storage ─────────────────────────────────────────────────────────
   describe("proof storage", () => {
     test("persists the decoded byte length and content hash, ignoring client claims", async () => {
@@ -1060,152 +808,6 @@ describe("RequestService", () => {
         expect(opening.proof[0].hash).toBe(
           crypto.createHash("sha256").update("hi").digest("hex"),
         );
-      }
-    });
-
-    test("rolls back remark proofs when a status change conflicts", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      const instructor = makeUser("i1@ust.hk", "instructor");
-      await insertData(testConn, {
-        users: [student, instructor],
-        courses: [baseCourse],
-      });
-      const id = await requestService
-        .auth(student.email)
-        .createRequest(makeSwapInit());
-      await requestService.auth(student.email).cancel(id);
-      // "cancelled" is terminal, so the decision is inadmissible; the remark
-      // proof uploaded before the status guard must be deleted (no orphan).
-      try {
-        await requestService
-          .auth(instructor.email)
-          .approve(id, { text: "reconsider", proof: sampleProof });
-        expect.unreachable("should have thrown");
-      } catch (error) {
-        expect(error).toBeInstanceOf(StatusConflictError);
-      }
-      const orphaned = await testConn.collections.proofs.find().toArray();
-      expect(orphaned).toHaveLength(0);
-    });
-
-    test("migrates a pre-thread doc's inline proof content to GridFS", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-proof", student.email, null, [
-            {
-              name: "old.txt",
-              size: 2,
-              content: Buffer.from("hi").toString("base64"),
-            },
-          ]),
-        ],
-      });
-      await migrateRequests(testConn.collections);
-      const r = await requestService.auth(student.email).getRequest("l-proof");
-      const opening = r.updates[0];
-      if (opening?.kind === "comment") {
-        await expectStoredProof(
-          opening.proof,
-          [
-            {
-              name: "old.txt",
-              size: 2,
-              content: Buffer.from("hi").toString("base64"),
-            },
-          ],
-          requestService.auth(student.email),
-        );
-      }
-    });
-
-    test("migrates a zero-byte legacy proof", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-empty-proof", student.email, null, [
-            { name: "empty.txt", size: 0, content: "" },
-          ]),
-        ],
-      });
-
-      await migrateRequests(testConn.collections);
-
-      const request = await requestService
-        .auth(student.email)
-        .getRequest("l-empty-proof");
-      const opening = request.updates[0];
-      if (opening?.kind !== "comment" || !opening.proof?.[0]) {
-        throw new Error("migrated opening proof is missing");
-      }
-      expect(opening.proof[0].size).toBe(0);
-      expect(opening.proof[0].hash).toBe(
-        crypto.createHash("sha256").update("").digest("hex"),
-      );
-      const { content } = await requestService
-        .auth(student.email)
-        .readProof(opening.proof[0].attachmentId);
-      expect(content).toBe("");
-    });
-
-    test("renames an earlier GridFS fileId reference", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      const bytes = Buffer.from("old");
-      const fileId = await uploadTestAttachment(testConn, "old.txt", bytes);
-      await insertData(testConn, {
-        requests: [
-          legacyBody("l-file-id", student.email, null, [
-            {
-              name: "old.txt",
-              size: bytes.length,
-              hash: crypto.createHash("sha256").update(bytes).digest("hex"),
-              fileId,
-            },
-          ]),
-        ],
-      });
-
-      await migrateRequests(testConn.collections);
-
-      const request = await requestService
-        .auth(student.email)
-        .getRequest("l-file-id");
-      const opening = request.updates[0];
-      if (opening?.kind !== "comment" || !opening.proof?.[0]) {
-        throw new Error("migrated opening proof is missing");
-      }
-      expect(opening.proof[0].attachmentId).toBe(fileId);
-    });
-
-    test("sweeps orphaned proof files an interrupted run left behind", async () => {
-      const student = makeUser("s1@connect.ust.hk", "student");
-      await insertData(testConn, { users: [student], courses: [baseCourse] });
-      const id = await requestService
-        .auth(student.email)
-        .createRequest(makeSwapInit("L1", sampleProof));
-      // Simulate the crash window: bytes in the bucket that no document
-      // references (an upload whose document write never happened).
-      await uploadTestAttachment(testConn, "orphan.txt", Buffer.from("junk"));
-
-      const report = await migrateRequests(testConn.collections);
-      expect(report.orphansRemoved).toBe(1);
-
-      const files = await testConn.collections.proofs.find().toArray();
-      expect(files).toHaveLength(1);
-      const r = await requestService.auth(student.email).getRequest(id);
-      const opening = r.updates[0];
-      if (opening?.kind === "comment") {
-        const attachmentId = opening.proof?.[0]?.attachmentId;
-        if (!attachmentId) {
-          throw new Error("opening proof missing an attachmentId");
-        }
-        const { content } = await requestService
-          .auth(student.email)
-          .readProof(attachmentId);
-        expect(content).toBe(Buffer.from("hi").toString("base64"));
       }
     });
   });

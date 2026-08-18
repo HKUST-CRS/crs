@@ -9,6 +9,7 @@ import {
   type ProofFile,
   type ProofFileUpload,
   type Request,
+  RequestDetailsProofAccept,
   type RequestStatus,
   type ThreadEntry,
   type User,
@@ -30,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/lib/trpc-client";
 import RequestForm from "./request-form";
+import { REQUEST_STATUS_LABEL } from "./request-status";
 import { downloadBase64File, readFileAsBase64 } from "./utils";
 
 /**
@@ -153,30 +155,22 @@ export default function RequestThread({ request }: RequestThreadProps) {
   );
 }
 
-const STATUS_STYLE: Record<
-  RequestStatus,
-  { label: string; className: string }
-> = {
+const STATUS_STYLE: Record<RequestStatus, { className: string }> = {
   open: {
-    label: "Open",
     className: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300",
   },
   approved: {
-    label: "Approved",
     className:
       "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300",
   },
   rejected: {
-    label: "Rejected",
     className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
   },
   appealed: {
-    label: "Appealed",
     className:
       "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   },
   cancelled: {
-    label: "Cancelled",
     className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
   },
 };
@@ -188,7 +182,7 @@ function StatusBanner({ status }: { status: RequestStatus }) {
       <span
         className={clsx("rounded px-2 py-0.5 font-medium text-sm", s.className)}
       >
-        {s.label}
+        {REQUEST_STATUS_LABEL[status]}
       </span>
     </div>
   );
@@ -224,7 +218,7 @@ function ThreadEntryView({
     return (
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <span className="rounded bg-zinc-100 px-2 py-0.5 font-medium text-zinc-500 line-through dark:bg-zinc-800 dark:text-zinc-400">
-          {s.label}
+          {REQUEST_STATUS_LABEL[entry.status]}
         </span>
         <span className="typo-muted">
           by <b>{name}</b> · {timestamp}
@@ -236,7 +230,7 @@ function ThreadEntryView({
   return (
     <div className="flex items-center gap-2 text-sm">
       <span className={clsx("rounded px-2 py-0.5 font-medium", s.className)}>
-        {s.label}
+        {REQUEST_STATUS_LABEL[entry.status]}
       </span>
       <span className="typo-muted">
         by <b>{name}</b> · {timestamp}
@@ -244,6 +238,7 @@ function ThreadEntryView({
     </div>
   );
 }
+
 function ProofList({ proof }: { proof: ProofFile[] }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -321,25 +316,10 @@ function Composer({
     cancelM.isPending;
   const busy = mutationPending || readingProof;
   const hasProof = !!proof?.length;
-  // A remark is required to attach proof (see StatusActionInput), so block the
+  // A comment is required to attach proof (see StatusActionInput), so block the
   // status actions until text is added instead of letting the server reject.
   const proofNeedsText = hasProof && !hasText;
   const selectionToken = useRef(0);
-
-  // After a thread action lands, invalidate the request query so the thread
-  // refreshes in place. The mutations return no data, so the UI depends on this
-  // re-fetch to reflect the new entry / status. (Notifications are best-effort
-  // server-side, so a notification failure can no longer reject the mutation
-  // and skip this refresh.)
-  const refresh = async () => {
-    // Invalidate every request.* query — the open thread (request.get) and any
-    // list/table query (getAllHeadsAs) the viewer may navigate back to — so a
-    // status change or new entry shows up immediately rather than after the
-    // 60s stale window.
-    await queryClient.invalidateQueries({
-      queryKey: trpc.request.pathKey(),
-    });
-  };
 
   const clear = () => {
     selectionToken.current++;
@@ -404,7 +384,9 @@ function Composer({
     try {
       await fn();
       toast.success(messages.success, { id: toastId });
-      await refresh();
+      await queryClient.invalidateQueries({
+        queryKey: trpc.request.pathKey(),
+      });
       clear();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -426,7 +408,7 @@ function Composer({
         />
         {canDecide ? (
           <FieldDescription>
-            An optional remark for your decision, or additional information or
+            An optional comment for your decision, or additional information or
             context for your comment.
           </FieldDescription>
         ) : (
@@ -442,7 +424,7 @@ function Composer({
           id="composer-proof"
           type="file"
           multiple
-          accept="image/*,application/pdf,text/plain"
+          accept={RequestDetailsProofAccept.join(",")}
           onChange={(e) => void onFiles(e.target.files)}
           disabled={busy}
         />
