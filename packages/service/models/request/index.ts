@@ -8,6 +8,7 @@ export * from "./BaseRequest";
 
 export * from "./SwapSection";
 export * from "./AbsentFromSection";
+export * from "./AssignmentAppeal";
 export * from "./DeadlineExtension";
 
 export * from "./Request";

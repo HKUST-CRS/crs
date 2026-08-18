@@ -62,3 +62,21 @@ export class SudoerPermissionError extends Error {
     this.name = "SudoerPermissionError";
   }
 }
+
+export class AssignmentNotFoundError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} not found in course ${course.code} (${course.term})`,
+    );
+    this.name = "AssignmentNotFoundError";
+  }
+}
+
+export class AssignmentNotGradedError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} in course ${course.code} (${course.term}) is not graded yet`,
+    );
+    this.name = "AssignmentNotGradedError";
+  }
+}

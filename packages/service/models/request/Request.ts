@@ -3,6 +3,7 @@ import { z } from "zod";
 import { formatDate, formatDateTime } from "../../utils/datetime";
 import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
+import { AssignmentAppealRequest } from "./AssignmentAppeal";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
 import type { RequestStatus } from "./RequestStatus";
 import { SwapSectionRequest } from "./SwapSection";
@@ -14,6 +15,7 @@ export const RequestInits = [
     timestamp: true,
     thread: true,
     status: true,
+    participants: true,
   }),
   AbsentFromSectionRequest.omit({
     id: true,
@@ -21,6 +23,7 @@ export const RequestInits = [
     timestamp: true,
     thread: true,
     status: true,
+    participants: true,
   }),
   DeadlineExtensionRequest.omit({
     id: true,
@@ -28,12 +31,22 @@ export const RequestInits = [
     timestamp: true,
     thread: true,
     status: true,
+    participants: true,
+  }),
+  AssignmentAppealRequest.omit({
+    id: true,
+    from: true,
+    timestamp: true,
+    thread: true,
+    status: true,
+    participants: true,
   }),
 ] as const;
 export const Requests = [
   SwapSectionRequest,
   AbsentFromSectionRequest,
   DeadlineExtensionRequest,
+  AssignmentAppealRequest,
 ] as const;
 export const RequestInit = z.discriminatedUnion("type", RequestInits);
 export type RequestInit = z.infer<typeof RequestInit>;
@@ -46,6 +59,7 @@ export const RequestDocument = z.discriminatedUnion("type", [
   SwapSectionRequest.omit({ status: true }),
   AbsentFromSectionRequest.omit({ status: true }),
   DeadlineExtensionRequest.omit({ status: true }),
+  AssignmentAppealRequest.omit({ status: true }),
 ] as const);
 export type RequestDocument = z.infer<typeof RequestDocument>;
 
@@ -115,6 +129,10 @@ export namespace RequestSerialization {
         return {
           Assignment: r.metadata.assignment,
           "New Deadline": formatDateTime(r.metadata.deadline),
+        };
+      case "Assignment Appeal":
+        return {
+          Assignment: r.metadata.assignment,
         };
     }
   }

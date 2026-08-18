@@ -105,6 +105,7 @@ export default function InstructorsView() {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Assignment Appeal": true,
         },
       },
       {
