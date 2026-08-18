@@ -49,6 +49,7 @@ export class RequestRepo {
     from: UserID,
     request: RequestInit,
     comment: CommentInit,
+    participants?: UserID[],
   ): Promise<string> {
     const id = new ObjectId().toHexString();
     const text = comment.text;
@@ -59,6 +60,9 @@ export class RequestRepo {
         id,
         from,
         timestamp: toISO(DateTime.now()),
+        // Only appeal requests carry a participant list, resolved server-side
+        // by the service — never from the client-supplied init.
+        ...(participants ? { participants } : {}),
         thread: [
           makeComment(
             {

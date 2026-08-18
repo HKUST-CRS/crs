@@ -3,6 +3,7 @@ import {
   Classes,
   type CourseID,
   Courses,
+  type RequestID,
   type Role,
   type UserID,
 } from "../models";
@@ -60,6 +61,13 @@ export class SudoerPermissionError extends Error {
   constructor(userID: UserID, operation: string) {
     super(`User ${userID} is not a sudoer and cannot perform ${operation}.`);
     this.name = "SudoerPermissionError";
+  }
+}
+
+export class RequestParticipantError extends Error {
+  constructor(userID: UserID, requestID: RequestID) {
+    super(`User ${userID} is not a participant of request ${requestID}`);
+    this.name = "RequestParticipantError";
   }
 }
 

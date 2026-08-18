@@ -11,6 +11,7 @@ import {
   type RequestStatus,
   type ThreadEntry,
   type User,
+  type UserID,
 } from "../models";
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
@@ -87,6 +88,12 @@ export class NotificationService {
    * new request.
    */
   async notifyRequestUpdate(request: Request, entries: ThreadEntry[] = []) {
+    // Assignment Appeal: notify only the participants — the appealing student,
+    // the section's lecturers, and the assignment's TAs — instead of the
+    // class-wide instructor/observer rosters.
+    if (request.participants) {
+      return this.notifyAppealUpdate(request, request.participants, entries);
+    }
     const student = await this.repos.user.requireUser(request.from);
     const instructors = await this.repos.user.getUsersInClass(
       request.class,
@@ -136,6 +143,44 @@ export class NotificationService {
         attachments,
       );
     }
+  }
+
+  /**
+   * Notify the participants of an appeal of a thread update. The actor is
+   * excluded: a student action reaches the responsible staff (lecturers + TAs);
+   * a staff action reaches the student and the other participants. No CC'd
+   * observers — observers are never participants of an appeal.
+   */
+  private async notifyAppealUpdate(
+    request: Request,
+    participants: UserID[],
+    entries: ThreadEntry[] = [],
+  ): Promise<void> {
+    const student = await this.repos.user.requireUser(request.from);
+    const staff = await this.repos.user.getUsersByEmail(
+      participants.filter((email) => email !== request.from),
+    );
+    const actor = entries[0]?.from ?? request.from;
+    const recipients = participants.filter((email) => email !== actor);
+    const statusEntry = entries.find((e) => e.kind === "status");
+    const subjectPrefix = statusEntry
+      ? STATUS_SUBJECT[statusEntry.status]
+      : entries.length === 0
+        ? "Appeal"
+        : "Comment";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}`;
+    const content = await this.renderUpdate(
+      request,
+      entries,
+      student,
+      staff,
+      [],
+    );
+    const notificationEntries = entries.length > 0 ? entries : request.thread;
+    const attachments = notificationEntries.flatMap((e) =>
+      e.kind === "comment" ? (e.proofs ?? []) : [],
+    );
+    await this.sendEmail(recipients, [], subject, content, attachments);
   }
 
   private async renderUpdate(

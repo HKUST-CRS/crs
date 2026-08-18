@@ -40,6 +40,12 @@ export const routerUser = router({
     .query(({ input: { class: clazz, role }, ctx }) => {
       return services.user.auth(ctx.user.email).getUsersInClass(clazz, role);
     }),
+  getAllByEmails: procedure
+    .input(z.array(UserID))
+    .output(z.array(User))
+    .query(({ input, ctx }) => {
+      return services.user.auth(ctx.user.email).getUsersByEmail(input);
+    }),
   suggestName: procedure
     .input(
       z.object({
