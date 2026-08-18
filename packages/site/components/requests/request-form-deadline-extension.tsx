@@ -2,14 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import { CalendarIcon } from "lucide-react";
-import { Duration } from "luxon";
+import { DateTime, Duration } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { DeadlineExtensionMeta } from "service/models";
 import {
   formatDateTime,
   formatMonth,
-  fromCalendarDate,
   fromISO,
   toISO,
 } from "service/utils/datetime";
@@ -177,7 +176,14 @@ export const DeadlineExtensionRequestForm: FC<
                         onSelect={(date) => {
                           if (date) {
                             field.onChange(
-                              toISO(fromCalendarDate(date).endOf("day")),
+                              toISO(
+                                DateTime.fromJSDate(date)
+                                  .setZone("Asia/Hong_Kong", {
+                                    keepLocalTime: true,
+                                  })
+                                  .setLocale("en-HK")
+                                  .endOf("day"),
+                              ),
                             );
                           }
                         }}

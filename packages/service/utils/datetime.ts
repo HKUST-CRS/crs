@@ -49,12 +49,6 @@ export const fromISO = (value: string): DateTime => {
   return DateTime.fromISO(value, { zone: "Asia/Hong_Kong", locale: "en-HK" });
 };
 
-export const fromCalendarDate = (value: Date): DateTime => {
-  return DateTime.fromJSDate(value)
-    .setZone("Asia/Hong_Kong", { keepLocalTime: true })
-    .setLocale("en-HK");
-};
-
 export const toISO = (value: DateTime): string => {
   return value.setZone("Asia/Hong_Kong").setLocale("en-HK").toISO() ?? "";
 };
@@ -71,9 +65,12 @@ export const formatTime = (value: DateTimeInput) =>
   parse(value).toFormat(TimeFormatter);
 
 export const formatMonth = (value: DateTimeInput | Date) =>
-  (value instanceof Date ? fromCalendarDate(value) : parse(value)).toFormat(
-    MonthFormatter,
-  );
+  (value instanceof Date
+    ? DateTime.fromJSDate(value)
+        .setZone("Asia/Hong_Kong", { keepLocalTime: true })
+        .setLocale("en-HK")
+    : parse(value)
+  ).toFormat(MonthFormatter);
 
 export const formatDateTime = (value: DateTimeInput) =>
   parse(value).toFormat(DateTimeFormatter);
