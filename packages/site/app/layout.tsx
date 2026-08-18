@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} mx-2 antialiased md:mx-8`}
+        className={`${geistSans.variable} ${geistMono.variable} mx-4 antialiased md:mx-8`}
       >
         <SessionProvider>
           <TRPCReactProvider devAuth={!!devUser}>
