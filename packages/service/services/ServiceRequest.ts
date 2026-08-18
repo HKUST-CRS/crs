@@ -132,11 +132,18 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<Request[]> {
     const user = await this.repos.user.requireUser(this.user);
     const requests: Request[] = [];
+    const seen = new Set<string>();
+    const push = (request: Request) => {
+      if (seen.has(request.id)) return;
+      seen.add(request.id);
+      requests.push(request);
+    };
     if (roles.includes("student")) {
-      const studentRequests = await this.repos.request.getRequestsFromUser(
+      for (const request of await this.repos.request.getRequestsFromUser(
         this.user,
-      );
-      requests.push(...studentRequests);
+      )) {
+        push(request);
+      }
     }
     if (roles.includes("instructor") || roles.includes("observer")) {
       const enrollments = user.enrollment.filter(
@@ -153,8 +160,16 @@ export class RequestService<TUser extends UserID | null = null> {
         if (request.participants && !request.participants.includes(this.user)) {
           continue;
         }
-        requests.push(request);
+        push(request);
       }
+    }
+    // Appeals are also visible to every participant regardless of enrollment —
+    // e.g. a TA responsible for the assignment but with no instructor/observer
+    // role in the course. Deduplicated against the lists above.
+    for (const request of await this.repos.request.getRequestsAsParticipant(
+      this.user,
+    )) {
+      push(request);
     }
     return requests;
   }

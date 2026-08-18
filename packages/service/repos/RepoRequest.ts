@@ -92,6 +92,19 @@ export class RequestRepo {
   }
 
   /**
+   * Gets appeal requests where the user is a participant. Used to surface
+   * appeals to their TAs, who may have no instructor/observer enrollment to
+   * trigger the class-based listing.
+   */
+  async getRequestsAsParticipant(userID: UserID): Promise<Request[]> {
+    const requests = await this.collections.requests
+      .find({ participants: userID }, { projection: { _id: 0 } })
+      .sort({ timestamp: "descending" })
+      .toArray();
+    return requests.map((request) => this.parseRequest(request));
+  }
+
+  /**
    * Get all requests in the specified classes.
    *
    * If a class has section "*", all requests in the course are returned regardless of
