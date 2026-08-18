@@ -36,8 +36,8 @@ export class StatusConflictError extends Error {
 }
 
 export class ProofNotFoundError extends Error {
-  constructor(fileId: string) {
-    super(`Proof file ${fileId} not found`);
+  constructor(attachmentId: string) {
+    super(`Proof file ${attachmentId} not found`);
     this.name = "ProofNotFoundError";
   }
 }

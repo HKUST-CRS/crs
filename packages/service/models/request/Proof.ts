@@ -1,13 +1,15 @@
 import { z } from "zod";
 
 export const MAX_PROOF_SIZE = 4 * 1024 * 1024;
+export const MAX_PROOF_FILES = 4;
 const MAX_PROOF_CONTENT_LENGTH = Math.ceil(MAX_PROOF_SIZE / 3) * 4;
 
 /**
  * A supporting document attached to a request or a thread entry, as stored and
- * returned to clients. The content lives in GridFS (outside the document so the
- * thread cannot overflow a Mongo document); {@link ProofFile.fileId} is the
- * GridFS ObjectId of the stored bytes, and {@link ProofFile.hash} is the
+ * returned to clients. The content lives in GridFS so attachment bytes do not
+ * consume space in the request document; {@link ProofFile.attachmentId} is the
+ * stable identifier used to retrieve those bytes, and
+ * {@link ProofFile.hash} is the
  * SHA-256 of those bytes so the request signature commits to the file content
  * (not just the storage reference). Clients fetch the content on demand via
  * the download endpoint.
@@ -21,9 +23,9 @@ export const ProofFile = z.object({
   hash: z
     .string()
     .meta({ description: "The SHA-256 of the stored file bytes." }),
-  fileId: z
+  attachmentId: z
     .string()
-    .meta({ description: "The GridFS ObjectId of the stored content." }),
+    .meta({ description: "The stable identifier of the stored content." }),
 });
 export type ProofFile = z.infer<typeof ProofFile>;
 
@@ -32,7 +34,10 @@ export type ProofFile = z.infer<typeof ProofFile>;
  */
 export const Proof = z
   .array(ProofFile)
-  .max(4, "At most 4 supporting documents are allowed.")
+  .max(
+    MAX_PROOF_FILES,
+    `At most ${MAX_PROOF_FILES} supporting documents are allowed.`,
+  )
   .optional()
   .meta({
     description: "Optional supporting documents or files.",
@@ -42,7 +47,7 @@ export type Proof = z.infer<typeof Proof>;
 /**
  * A supporting document as supplied by a client on input: the base64 content is
  * uploaded to GridFS by the server, which then stores a {@link ProofFile}
- * (carrying the `fileId`) on the thread entry.
+ * (carrying the `attachmentId`) on the thread entry.
  */
 export const ProofFileUpload = z.object({
   name: z.string().meta({ description: "The name of the file." }),
@@ -65,7 +70,10 @@ export type ProofFileUpload = z.infer<typeof ProofFileUpload>;
  */
 export const ProofUpload = z
   .array(ProofFileUpload)
-  .max(4, "At most 4 supporting documents are allowed.")
+  .max(
+    MAX_PROOF_FILES,
+    `At most ${MAX_PROOF_FILES} supporting documents are allowed.`,
+  )
   .optional()
   .meta({
     description: "Optional supporting documents or files.",

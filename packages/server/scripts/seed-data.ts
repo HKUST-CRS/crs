@@ -49,18 +49,18 @@ const note: ProofUpload = [
   },
 ];
 
-function class_(section: string) {
+function makeClass(section: string) {
   return { course: { ...COURSE }, section };
 }
 
-function swap(
+function makeSwapInit(
   reason: string,
   to: string,
   proof: ProofUpload = [],
 ): RequestInit {
   return {
     type: "Swap Section",
-    class: class_("LA1"),
+    class: makeClass("LA1"),
     details: { reason, proof },
     metadata: {
       fromSection: "LA1",
@@ -71,23 +71,23 @@ function swap(
   };
 }
 
-function absent(reason: string): RequestInit {
+function makeAbsentInit(reason: string): RequestInit {
   return {
     type: "Absent from Section",
-    class: class_("LA1"),
+    class: makeClass("LA1"),
     details: { reason, proof: [] },
     metadata: { fromSection: "LA1", fromDate: "2026-03-15" },
   };
 }
 
-function deadline(
+function makeDeadlineInit(
   reason: string,
   assignment: string,
   proof: ProofUpload = [],
 ): RequestInit {
   return {
     type: "Deadline Extension",
-    class: class_("LA1"),
+    class: makeClass("LA1"),
     details: { reason, proof },
     metadata: {
       assignment,
@@ -120,7 +120,7 @@ async function main() {
 
     // R1 — OPEN: a back-and-forth that is still undecided.
     const r1 = await student().createRequest(
-      swap(
+      makeSwapInit(
         "I'd like to swap into LA2 for the week of Mar 16 to join my project group.",
         "LA2",
       ),
@@ -134,7 +134,7 @@ async function main() {
 
     // R2 — APPROVED: instructor approves with a remark.
     const r2 = await student().createRequest(
-      deadline(
+      makeDeadlineInit(
         "Requesting a 2-day extension on PA1 due to illness.",
         "PA1",
         note,
@@ -146,7 +146,7 @@ async function main() {
 
     // R3 — REJECTED: instructor rejects, asking for more evidence.
     const r3 = await student().createRequest(
-      absent("I'll be away at a conference on Mar 15."),
+      makeAbsentInit("I'll be away at a conference on Mar 15."),
     );
     await prof().reject(r3, {
       text: "Please attach the conference invitation as proof.",
@@ -154,7 +154,7 @@ async function main() {
 
     // R4 — APPEALED: rejected, then the student appeals.
     const r4 = await student().createRequest(
-      swap("LA3 fits my timetable better this term.", "LA3"),
+      makeSwapInit("LA3 fits my timetable better this term.", "LA3"),
     );
     await prof().reject(r4, { text: "LA3 is currently full." });
     await student().appeal(r4, {
@@ -163,7 +163,7 @@ async function main() {
 
     // R5 — CANCELLED: approved, then the student withdraws.
     const r5 = await student().createRequest(
-      deadline("May I extend the PA2 deadline by a day?", "PA2"),
+      makeDeadlineInit("May I extend the PA2 deadline by a day?", "PA2"),
     );
     await prof().approve(r5, { text: "Provisionally approved." });
     await student().cancel(r5, {

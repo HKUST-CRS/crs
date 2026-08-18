@@ -3,13 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useMemo, useRef, useState } from "react";
-import type {
-  ProofFile,
-  ProofFileUpload,
-  Request,
-  RequestStatus,
-  ThreadEntry,
-  User,
+import {
+  MAX_PROOF_FILES,
+  MAX_PROOF_SIZE,
+  type ProofFile,
+  type ProofFileUpload,
+  type Request,
+  type RequestStatus,
+  type ThreadEntry,
+  type User,
 } from "service/models";
 import { formatDateTime, fromISO } from "service/utils/datetime";
 import { toast } from "sonner";
@@ -245,18 +247,14 @@ function ThreadEntryView({
 function ProofList({ proof }: { proof: ProofFile[] }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
-  // Attachments carry no stable id, so assign a uuid per file (memoized on the
-  // list) and key on it — filenames can repeat across uploads.
-  const files = useMemo(
-    () => proof.map((file) => ({ file, key: crypto.randomUUID() })),
-    [proof],
-  );
   // The bytes live in GridFS, not on the entry, so fetch on click then trigger
   // the browser download.
   const download = async (file: ProofFile) => {
     try {
       const { content } = await queryClient.fetchQuery(
-        trpc.request.proofContent.queryOptions({ fileId: file.fileId }),
+        trpc.request.proofContent.queryOptions({
+          attachmentId: file.attachmentId,
+        }),
       );
       downloadBase64File(content, file.name);
     } catch (e) {
@@ -265,8 +263,8 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
   };
   return (
     <ul className="mt-2 flex flex-col gap-1">
-      {files.map(({ file, key }) => (
-        <li key={key}>
+      {proof.map((file) => (
+        <li key={file.attachmentId}>
           <button
             type="button"
             className="wrap-anywhere max-w-full cursor-pointer text-left text-sm underline"
@@ -282,8 +280,7 @@ function ProofList({ proof }: { proof: ProofFile[] }) {
 
 // ── Composer ────────────────────────────────────────────────────────────────
 
-const MAX_PROOF_FILES = 4;
-const MAX_PROOF_FILE_SIZE = 4 * 1024 * 1024; // 4 MiB — matches the backend Proof schema
+const MAX_PROOF_SIZE_MIB = MAX_PROOF_SIZE / 1024 / 1024;
 
 type ComposerProps = {
   request: Request;
@@ -311,16 +308,18 @@ function Composer({
 
   const [text, setText] = useState("");
   const [proof, setProof] = useState<ProofFileUpload[] | undefined>(undefined);
+  const [readingProof, setReadingProof] = useState(false);
   const [proofKey, setProofKey] = useState(0);
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   const hasText = text.trim().length > 0;
-  const pending =
+  const mutationPending =
     commentM.isPending ||
     approveM.isPending ||
     rejectM.isPending ||
     appealM.isPending ||
     cancelM.isPending;
+  const busy = mutationPending || readingProof;
   const hasProof = !!proof?.length;
   // A remark is required to attach proof (see StatusActionInput), so block the
   // status actions until text is added instead of letting the server reject.
@@ -343,8 +342,10 @@ function Composer({
   };
 
   const clear = () => {
+    selectionToken.current++;
     setText("");
     setProof(undefined);
+    setReadingProof(false);
     setProofKey((k) => k + 1);
   };
 
@@ -353,21 +354,23 @@ function Composer({
     // Token guards the async conversion: a newer selection invalidates an
     // in-flight one so out-of-order resolution can't overwrite the latest pick.
     const token = ++selectionToken.current;
+    setProof(undefined);
     const fileArray = [...files];
     const tooMany = fileArray.length > MAX_PROOF_FILES;
-    const oversized = fileArray.find((f) => f.size > MAX_PROOF_FILE_SIZE);
+    const oversized = fileArray.find((f) => f.size > MAX_PROOF_SIZE);
     if (tooMany || oversized) {
       // Clear the previously accepted proof and reset the input on failure, so
       // the displayed selection never diverges from what will be submitted.
-      setProof(undefined);
+      setReadingProof(false);
       setProofKey((k) => k + 1);
       toast.error(
         tooMany
           ? `At most ${MAX_PROOF_FILES} files are allowed.`
-          : `"${oversized?.name}" exceeds the 4 MiB limit.`,
+          : `"${oversized?.name}" exceeds the ${MAX_PROOF_SIZE_MIB} MiB limit.`,
       );
       return;
     }
+    setReadingProof(true);
     try {
       const converted = await Promise.all(
         fileArray.map(async (f) => ({
@@ -376,15 +379,16 @@ function Composer({
           content: await readFileAsBase64(f),
         })),
       );
-      if (token === selectionToken.current) setProof(converted);
-    } catch (e) {
-      // A failed read must clear the previous selection too, or the input
-      // would show the new files while the old proof would be submitted.
       if (token === selectionToken.current) {
-        setProof(undefined);
+        setProof(converted);
+      }
+    } catch (e) {
+      if (token === selectionToken.current) {
         setProofKey((k) => k + 1);
         toast.error(`Failed: ${e instanceof Error ? e.message : String(e)}`);
       }
+    } finally {
+      if (token === selectionToken.current) setReadingProof(false);
     }
   };
 
@@ -418,7 +422,7 @@ function Composer({
           id="composer-text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          disabled={pending}
+          disabled={busy}
         />
         {canDecide ? (
           <FieldDescription>
@@ -440,11 +444,11 @@ function Composer({
           multiple
           accept="image/*,application/pdf,text/plain"
           onChange={(e) => void onFiles(e.target.files)}
-          disabled={pending}
+          disabled={busy}
         />
         <FieldDescription>
-          Please provide up to four supporting documents for your request. The
-          maximum file size is 4 MiB each.
+          Please provide up to {MAX_PROOF_FILES} supporting documents for your
+          request. The maximum file size is {MAX_PROOF_SIZE_MIB} MiB each.
         </FieldDescription>
       </Field>
       <div className="flex flex-wrap justify-end gap-2">
@@ -452,7 +456,7 @@ function Composer({
           <Button
             size="sm"
             variant="secondary"
-            disabled={pending || proofNeedsText}
+            disabled={busy || proofNeedsText}
             className="hover:border-destructive hover:text-destructive"
             onClick={() => setConfirmCancel(true)}
           >
@@ -463,7 +467,7 @@ function Composer({
           <>
             <Button
               size="sm"
-              disabled={pending || proofNeedsText}
+              disabled={busy || proofNeedsText}
               className="text-green-700 dark:text-green-400"
               variant="outline"
               onClick={() =>
@@ -485,7 +489,7 @@ function Composer({
             </Button>
             <Button
               size="sm"
-              disabled={pending || proofNeedsText}
+              disabled={busy || proofNeedsText}
               className="text-red-700 dark:text-red-400"
               variant="outline"
               onClick={() =>
@@ -511,7 +515,7 @@ function Composer({
           <Button
             size="sm"
             variant="outline"
-            disabled={pending || !hasText}
+            disabled={busy || !hasText}
             onClick={() =>
               void run(
                 () => appealM.mutateAsync({ id: request.id, text, proof }),
@@ -529,7 +533,7 @@ function Composer({
           <Button
             size="sm"
             variant="default"
-            disabled={pending || !hasText}
+            disabled={busy || !hasText}
             onClick={() =>
               void run(
                 () => commentM.mutateAsync({ id: request.id, text, proof }),
@@ -560,7 +564,7 @@ function Composer({
             <AlertDialogCancel>Keep Request</AlertDialogCancel>
             <Button
               variant="destructive"
-              disabled={pending || proofNeedsText}
+              disabled={busy || proofNeedsText}
               onClick={() => {
                 setConfirmCancel(false);
                 void run(

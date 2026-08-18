@@ -312,20 +312,21 @@ export class RequestService<TUser extends UserID | null = null> {
    */
   async readProof(
     this: RequestService<UserID>,
-    fileId: string,
+    attachmentId: string,
   ): Promise<{ content: string }> {
     const user = await this.repos.user.requireUser(this.user);
-    const request = await this.repos.request.findRequestByProofFileId(fileId);
-    if (!request) throw new ProofNotFoundError(fileId);
+    const request =
+      await this.repos.request.findRequestByAttachmentId(attachmentId);
+    if (!request) throw new ProofNotFoundError(attachmentId);
     if (this.user !== request.from) {
       assertClassRole(
         user,
         request.class,
         ["instructor", "observer"],
-        `downloading proof ${fileId}`,
+        `downloading proof ${attachmentId}`,
       );
     }
-    const content = await this.repos.request.readProof(fileId);
+    const content = await this.repos.request.readProof(attachmentId);
     return { content };
   }
 }

@@ -8,6 +8,7 @@ import {
   test,
 } from "bun:test";
 import crypto from "node:crypto";
+import { finished } from "node:stream/promises";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
 import type {
@@ -99,7 +100,7 @@ const sampleProof: ProofUpload = [
   },
 ];
 
-// Stored proof entries reference GridFS by fileId, so compare against the
+// Stored proof entries use stable attachment IDs, so compare against the
 // uploaded payload by name/size and verify the bytes round-trip via readProof.
 async function expectStoredProof(
   proof: ProofFile[] | undefined,
@@ -118,10 +119,21 @@ async function expectStoredProof(
         .update(Buffer.from(expected.content, "base64"))
         .digest("hex"),
     );
-    expect(typeof f.fileId).toBe("string");
-    const { content } = await svc.readProof(f.fileId);
+    expect(typeof f.attachmentId).toBe("string");
+    const { content } = await svc.readProof(f.attachmentId);
     expect(content).toBe(expected.content);
   }
+}
+
+async function uploadTestAttachment(
+  conn: DbConn,
+  name: string,
+  bytes: Buffer,
+): Promise<string> {
+  const upload = conn.collections.proofs.openUploadStream(name);
+  upload.end(bytes);
+  await finished(upload);
+  return String(upload.id);
 }
 
 // A bare legacy body (pre-thread: no status/updates, reason+proof in details).
@@ -851,8 +863,8 @@ describe("RequestService", () => {
     });
   });
 
-  // ── legacy document tolerance ────────────────────────────────────────────
-  describe("legacy document tolerance", () => {
+  // ── legacy request migration ─────────────────────────────────────────────
+  describe("legacy request migration", () => {
     test("a pre-thread open doc is normalized and keeps its reason as the opening comment", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
@@ -1064,11 +1076,14 @@ describe("RequestService", () => {
       await requestService.auth(student.email).cancel(id);
       // "cancelled" is terminal, so the decision is inadmissible; the remark
       // proof uploaded before the status guard must be deleted (no orphan).
-      await expect(
-        requestService
+      try {
+        await requestService
           .auth(instructor.email)
-          .approve(id, { text: "reconsider", proof: sampleProof }),
-      ).rejects.toThrow(StatusConflictError);
+          .approve(id, { text: "reconsider", proof: sampleProof });
+        expect.unreachable("should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(StatusConflictError);
+      }
       const orphaned = await testConn.collections.proofs.find().toArray();
       expect(orphaned).toHaveLength(0);
     });
@@ -1105,6 +1120,66 @@ describe("RequestService", () => {
       }
     });
 
+    test("migrates a zero-byte legacy proof", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      await insertData(testConn, {
+        requests: [
+          legacyBody("l-empty-proof", student.email, null, [
+            { name: "empty.txt", size: 0, content: "" },
+          ]),
+        ],
+      });
+
+      await migrateRequests(testConn.collections);
+
+      const request = await requestService
+        .auth(student.email)
+        .getRequest("l-empty-proof");
+      const opening = request.updates[0];
+      if (opening?.kind !== "comment" || !opening.proof?.[0]) {
+        throw new Error("migrated opening proof is missing");
+      }
+      expect(opening.proof[0].size).toBe(0);
+      expect(opening.proof[0].hash).toBe(
+        crypto.createHash("sha256").update("").digest("hex"),
+      );
+      const { content } = await requestService
+        .auth(student.email)
+        .readProof(opening.proof[0].attachmentId);
+      expect(content).toBe("");
+    });
+
+    test("renames an earlier GridFS fileId reference", async () => {
+      const student = makeUser("s1@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const bytes = Buffer.from("old");
+      const fileId = await uploadTestAttachment(testConn, "old.txt", bytes);
+      await insertData(testConn, {
+        requests: [
+          legacyBody("l-file-id", student.email, null, [
+            {
+              name: "old.txt",
+              size: bytes.length,
+              hash: crypto.createHash("sha256").update(bytes).digest("hex"),
+              fileId,
+            },
+          ]),
+        ],
+      });
+
+      await migrateRequests(testConn.collections);
+
+      const request = await requestService
+        .auth(student.email)
+        .getRequest("l-file-id");
+      const opening = request.updates[0];
+      if (opening?.kind !== "comment" || !opening.proof?.[0]) {
+        throw new Error("migrated opening proof is missing");
+      }
+      expect(opening.proof[0].attachmentId).toBe(fileId);
+    });
+
     test("sweeps orphaned proof files an interrupted run left behind", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
@@ -1113,12 +1188,7 @@ describe("RequestService", () => {
         .createRequest(makeSwapInit("L1", sampleProof));
       // Simulate the crash window: bytes in the bucket that no document
       // references (an upload whose document write never happened).
-      const { promise, resolve, reject } = Promise.withResolvers<void>();
-      const upload = testConn.collections.proofs.openUploadStream("orphan.txt");
-      upload.once("error", reject);
-      upload.once("finish", resolve);
-      upload.end(Buffer.from("junk"));
-      await promise;
+      await uploadTestAttachment(testConn, "orphan.txt", Buffer.from("junk"));
 
       const report = await migrateRequests(testConn.collections);
       expect(report.orphansRemoved).toBe(1);
@@ -1128,11 +1198,13 @@ describe("RequestService", () => {
       const r = await requestService.auth(student.email).getRequest(id);
       const opening = r.updates[0];
       if (opening?.kind === "comment") {
-        const fileId = opening.proof?.[0]?.fileId;
-        if (!fileId) throw new Error("opening proof missing a fileId");
+        const attachmentId = opening.proof?.[0]?.attachmentId;
+        if (!attachmentId) {
+          throw new Error("opening proof missing an attachmentId");
+        }
         const { content } = await requestService
           .auth(student.email)
-          .readProof(fileId);
+          .readProof(attachmentId);
         expect(content).toBe(Buffer.from("hi").toString("base64"));
       }
     });

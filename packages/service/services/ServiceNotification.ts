@@ -300,7 +300,7 @@ export class NotificationService {
       attachments: await Promise.all(
         attachments.map(async (f) => ({
           filename: f.name,
-          content: await this.repos.request.readProof(f.fileId),
+          content: await this.repos.request.readProof(f.attachmentId),
           encoding: "base64",
         })),
       ),

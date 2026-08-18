@@ -148,10 +148,12 @@ export const routerRequest = router({
       );
     }),
   proofContent: procedure
-    .input(z.object({ fileId: z.string() }))
+    .input(z.object({ attachmentId: z.string() }))
     .output(z.object({ content: z.string() }))
     .query(({ input, ctx }) => {
-      return services.request.auth(ctx.user.email).readProof(input.fileId);
+      return services.request
+        .auth(ctx.user.email)
+        .readProof(input.attachmentId);
     }),
 });
 

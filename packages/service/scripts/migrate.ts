@@ -3,7 +3,7 @@
  * thread schema (monomorphic comment + status entries, status in
  * {open, approved, rejected, appealed, cancelled}, opening reason as the
  * first comment) and moves inline base64 proof bytes into GridFS, leaving a
- * `fileId` reference on each comment. Idempotent — already-migrated
+ * `attachmentId` reference on each comment. Idempotent — already-migrated
  * documents are skipped and orphaned GridFS bytes from an interrupted run
  * are swept, so re-running is safe.
  *

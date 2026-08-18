@@ -1,6 +1,13 @@
 import clsx from "clsx";
+import { useRef, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
-import { type RequestDetails, RequestDetailsProofAccept } from "service/models";
+import {
+  MAX_PROOF_FILES,
+  MAX_PROOF_SIZE,
+  type RequestDetails,
+  RequestDetailsProofAccept,
+} from "service/models";
+import { toast } from "sonner";
 import {
   FormControl,
   FormDescription,
@@ -28,6 +35,9 @@ export function RequestFormDetails<
   TContext,
   TTransformedValues extends TFieldValues,
 >(props: RequestFormDetailsProps<TFieldValues, TContext, TTransformedValues>) {
+  const maxProofSizeMiB = MAX_PROOF_SIZE / 1024 / 1024;
+  const proofSelectionToken = useRef(0);
+  const [readingProof, setReadingProof] = useState(false);
   const viewonly = props.viewonly ?? false;
   // In viewonly mode the reason + proof live in the thread (as the opening
   // comment), not on the request body, so there is nothing to render here.
@@ -72,8 +82,11 @@ export function RequestFormDetails<
                 <Input
                   onChange={async (e) => {
                     if (e.target.files) {
-                      field.onChange(
-                        (await Promise.all(
+                      const token = ++proofSelectionToken.current;
+                      field.onChange(undefined);
+                      setReadingProof(true);
+                      try {
+                        const proof = (await Promise.all(
                           [...e.target.files].map(async (f) => {
                             const content = await readFileAsBase64(f);
                             return {
@@ -82,20 +95,33 @@ export function RequestFormDetails<
                               content,
                             };
                           }),
-                        )) satisfies RequestDetails["proof"],
-                      );
+                        )) satisfies RequestDetails["proof"];
+                        if (token === proofSelectionToken.current) {
+                          field.onChange(proof);
+                        }
+                      } catch (error) {
+                        if (token === proofSelectionToken.current) {
+                          toast.error(
+                            `Failed: ${error instanceof Error ? error.message : String(error)}`,
+                          );
+                        }
+                      } finally {
+                        if (token === proofSelectionToken.current) {
+                          setReadingProof(false);
+                        }
+                      }
                     }
                   }}
                   type="file"
                   accept={RequestDetailsProofAccept.join(",")}
                   multiple
-                  disabled={viewonly}
+                  disabled={viewonly || readingProof}
                 />
               </div>
             </FormControl>
             <FormDescription>
-              Please provide any supporting documents for your request. The
-              maximum file size is 4 MiB each.
+              Please provide up to {MAX_PROOF_FILES} supporting documents for
+              your request. The maximum file size is {maxProofSizeMiB} MiB each.
             </FormDescription>
             <ul className="typo-muted">
               {details?.proof &&
@@ -119,7 +145,9 @@ export function RequestFormDetails<
       />
       {!viewonly && (
         <div className="col-span-full flex justify-end">
-          <Button type="submit">Submit</Button>
+          <Button type="submit" disabled={readingProof}>
+            Submit
+          </Button>
         </div>
       )}
     </>

@@ -39,7 +39,7 @@ test("request summaries do not claim opening proofs are email attachments", () =
             name: "proof.txt",
             size: 2,
             hash: "0".repeat(64),
-            fileId: "proof-file-1",
+            attachmentId: "proof-file-1",
           },
         ],
       },

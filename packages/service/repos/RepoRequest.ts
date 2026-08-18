@@ -19,6 +19,7 @@ import type {
 import { MAX_PROOF_SIZE } from "../models";
 import { toISO } from "../utils/datetime";
 import { RequestNotFoundError, StatusConflictError } from "./error";
+import { rollbackAttachments, uploadAttachment } from "./gridfs";
 
 type EntryBase = { id: string; from: UserID; timestamp: string };
 
@@ -261,7 +262,7 @@ export class RequestRepo {
 
   /**
    * Uploads each supplied proof file to GridFS, returning the stored
-   * references (`fileId`) plus the uploaded ObjectIds for rollback. The
+   * references (`attachmentId`) plus the uploaded ObjectIds for rollback. The
    * persisted `size` and `hash` are derived from the decoded bytes rather than
    * the client-supplied values, so the per-file limit is enforced on the
    * actual content. If an upload fails partway, any already-uploaded files are
@@ -282,22 +283,21 @@ export class RequestRepo {
             `Proof "${file.name}" exceeds the ${MAX_PROOF_SIZE}-byte limit`,
           );
         }
-        const id = await this.uploadProofBytes(file.name, bytes);
+        const id = await uploadAttachment(
+          this.collections.proofs,
+          file.name,
+          bytes,
+        );
         ids.push(id);
         stored.push({
           name: file.name,
           size: bytes.length,
           hash: crypto.createHash("sha256").update(bytes).digest("hex"),
-          fileId: id.toHexString(),
+          attachmentId: id.toHexString(),
         });
       }
     } catch (e) {
-      // Best-effort: delete any files uploaded before the failure. A rejection
-      // is expected if the upload itself errored, so swallow it.
-      await Promise.all(
-        ids.map((id) => this.collections.proofs.delete(id).catch(() => {})),
-      );
-      throw e;
+      return rollbackAttachments(this.collections.proofs, ids, e);
     }
     return { proof: stored, ids };
   }
@@ -315,28 +315,14 @@ export class RequestRepo {
     try {
       return await write();
     } catch (e) {
-      // Best-effort: a rejection is expected if the upload errored, so swallow it.
-      await Promise.all(
-        ids.map((id) => this.collections.proofs.delete(id).catch(() => {})),
-      );
-      throw e;
+      return rollbackAttachments(this.collections.proofs, ids, e);
     }
   }
 
-  /** Streams a buffer into GridFS, resolving with the stored file id. */
-  private uploadProofBytes(name: string, bytes: Buffer): Promise<ObjectId> {
-    const { promise, resolve, reject } = Promise.withResolvers<ObjectId>();
-    const upload = this.collections.proofs.openUploadStream(name);
-    upload.once("error", reject);
-    upload.once("finish", () => resolve(upload.id as unknown as ObjectId));
-    upload.end(bytes);
-    return promise;
-  }
-
   /** Reads the bytes of a stored proof file, returned as base64. */
-  async readProof(fileId: string): Promise<string> {
+  async readProof(attachmentId: string): Promise<string> {
     const stream = this.collections.proofs.openDownloadStream(
-      new ObjectId(fileId),
+      new ObjectId(attachmentId),
     );
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
@@ -346,9 +332,11 @@ export class RequestRepo {
   }
 
   /** Finds the request whose thread carries the given proof file, if any. */
-  async findRequestByProofFileId(fileId: string): Promise<Request | null> {
+  async findRequestByAttachmentId(
+    attachmentId: string,
+  ): Promise<Request | null> {
     const doc = await this.collections.requests.findOne(
-      { "updates.proof.fileId": fileId },
+      { "updates.proof.attachmentId": attachmentId },
       { projection: { _id: 0 } },
     );
     return doc as Request | null;

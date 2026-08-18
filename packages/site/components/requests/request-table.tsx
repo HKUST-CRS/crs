@@ -81,16 +81,9 @@ const STATUS_ORDER: Record<RequestStatus, number> = {
   cancelled: 4,
 };
 
-/** The filterable status of a request — its lifecycle status. */
-type StatusFilterValue = RequestStatus;
-
-function statusOf(r: RequestHead): StatusFilterValue {
-  return r.status;
-}
-
 const requestFilter =
   (filterOptions: {
-    status: StatusFilterValue | null;
+    status: RequestStatus | null;
     term: string | null;
     course: CourseID | null;
     from: DateTime | null;
@@ -99,7 +92,7 @@ const requestFilter =
   (request: RequestHead) => {
     if (
       filterOptions.status !== null &&
-      statusOf(request) !== filterOptions.status
+      request.status !== filterOptions.status
     ) {
       return false;
     }
@@ -269,7 +262,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       pageIndex: 0,
       pageSize: 50,
     });
-    const [statusFilter, setStatusFilter] = useState<StatusFilterValue | null>(
+    const [statusFilter, setStatusFilter] = useState<RequestStatus | null>(
       null,
     );
     const [termFilter, setTermFilter] = useState<string | null>(null);
@@ -357,7 +350,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               value={statusFilter ?? "__all"}
               onValueChange={(value) => {
                 setStatusFilter(
-                  value === "__all" ? null : (value as StatusFilterValue),
+                  value === "__all" ? null : (value as RequestStatus),
                 );
               }}
               disabled={!termOptions.length}

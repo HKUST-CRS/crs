@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
-import type { GridFSBucket, ObjectId, WithoutId } from "mongodb";
+import type { WithoutId } from "mongodb";
 import type { Collections } from "../db";
 import type { Request, RequestStatus } from "../models";
+import { uploadAttachment } from "./gridfs";
 
 // ── Legacy → thread-schema migration ────────────────────────────────────────
 // Documents written before this thread redesign store the opening reason+proof
@@ -10,7 +11,7 @@ import type { Request, RequestStatus } from "../models";
 // inline as base64. This migration rewrites every request document into the new
 // shape — monomorphic comment + status-change entries, status in
 // {open, approved, rejected, appealed, cancelled}, the opening reason as the
-// first comment — and moves proof bytes into GridFS, leaving a `fileId`
+// first comment — and moves proof bytes into GridFS, leaving an `attachmentId`
 // reference on each comment. Run once at deploy; it is idempotent.
 
 type LegacyResponse = {
@@ -21,14 +22,15 @@ type LegacyResponse = {
 } | null;
 
 // A proof file as it may appear in a stored document: legacy/current docs carry
-// base64 `content`; already-migrated docs carry `fileId` (+ `hash`/`size`
-// derived from the bytes during migration).
+// base64 `content`; earlier GridFS migrations carry `fileId`; current docs
+// carry `attachmentId` (+ `hash`/`size` derived from the bytes).
 type RawProofFile = {
   name?: string;
   size?: number;
   content?: string;
   hash?: string;
   fileId?: string;
+  attachmentId?: string;
 };
 
 type EntryBase = { id: string; from: string; timestamp: string };
@@ -168,7 +170,12 @@ function normalizeRequest(doc: RawDoc): Record<string, unknown> {
       });
     }
   }
-  const { details, response: _response, updates: _updates, ...rest } = doc;
+  const {
+    details: _details,
+    response: _response,
+    updates: _updates,
+    ...rest
+  } = doc;
   return {
     ...rest,
     status: normalizeStatus(doc.status, doc.response ?? null),
@@ -177,45 +184,38 @@ function normalizeRequest(doc: RawDoc): Record<string, unknown> {
 }
 
 /**
- * Uploads any inline base64 proof content to GridFS, replacing `content` with a
- * `fileId` reference. Files already carrying a `fileId` are left untouched.
- * Returns true if any bytes were uploaded (i.e. the document changed).
+ * Normalizes proof references to `attachmentId` and uploads inline base64
+ * content to GridFS. Empty files are valid and are uploaded as zero bytes.
  */
-async function convertProofsToGridFS(
+async function migrateProofs(
   updates: NormalizedEntry[],
-  bucket: GridFSBucket,
-): Promise<boolean> {
-  let changed = false;
+  collections: Collections,
+): Promise<void> {
   for (const entry of updates) {
     if (entry.kind !== "comment" || !entry.proof) continue;
     for (const file of entry.proof) {
-      if (file.fileId || !file.content) continue;
+      if (file.fileId) {
+        file.attachmentId ??= file.fileId;
+        delete file.fileId;
+      }
+      if (file.attachmentId) {
+        delete file.content;
+        continue;
+      }
+      if (file.content === undefined) continue;
       const bytes = Buffer.from(file.content, "base64");
-      const id = await uploadProofBytes(bucket, file.name ?? "proof", bytes);
+      const id = await uploadAttachment(
+        collections.proofs,
+        file.name ?? "proof",
+        bytes,
+      );
       delete file.content;
-      file.fileId = id;
+      file.attachmentId = id.toHexString();
       // Derive size/hash from the bytes so migrated docs match fresh uploads.
       file.size = bytes.length;
       file.hash = crypto.createHash("sha256").update(bytes).digest("hex");
-      changed = true;
     }
   }
-  return changed;
-}
-
-function uploadProofBytes(
-  bucket: GridFSBucket,
-  name: string,
-  bytes: Buffer,
-): Promise<string> {
-  const { promise, resolve, reject } = Promise.withResolvers<string>();
-  const upload = bucket.openUploadStream(name);
-  upload.once("error", reject);
-  upload.once("finish", () =>
-    resolve((upload.id as unknown as ObjectId).toHexString()),
-  );
-  upload.end(bytes);
-  return promise;
 }
 
 const NEW_STATUSES: Record<string, true> = {
@@ -234,12 +234,12 @@ function hasLegacyShape(doc: RawDoc): boolean {
   );
 }
 
-function hasInlineProof(updates: NormalizedEntry[] | RawEntry[]): boolean {
+function needsProofMigration(updates: NormalizedEntry[] | RawEntry[]): boolean {
   return updates.some(
     (e) =>
       e.kind === "comment" &&
       Array.isArray(e.proof) &&
-      e.proof.some((f) => !!f.content),
+      e.proof.some((f) => f.content !== undefined || f.fileId !== undefined),
   );
 }
 
@@ -252,7 +252,7 @@ export interface MigrationReport {
 /**
  * Migrates all request documents to the thread schema and moves inline proof
  * bytes into GridFS. Idempotent: documents already in the new shape with
- * `fileId` proof references are left untouched, and any orphaned GridFS bytes
+ * `attachmentId` proof references are left untouched, and orphaned GridFS bytes
  * (e.g. from an interrupted earlier run) are swept.
  */
 export async function migrateRequests(
@@ -271,11 +271,11 @@ export async function migrateRequests(
           unknown
         >)
       : doc;
-    const needsProof = hasInlineProof(normalized.updates ?? []);
+    const needsProof = needsProofMigration(normalized.updates ?? []);
     if (needsProof) {
-      await convertProofsToGridFS(
+      await migrateProofs(
         (normalized.updates ?? []) as NormalizedEntry[],
-        collections.proofs,
+        collections,
       );
     }
     if (needsShape || needsProof) {
@@ -288,7 +288,7 @@ export async function migrateRequests(
     for (const entry of normalized.updates ?? []) {
       if (entry.kind !== "comment" || !entry.proof) continue;
       for (const file of entry.proof) {
-        if (file.fileId) referenced.add(file.fileId);
+        if (file.attachmentId) referenced.add(file.attachmentId);
       }
     }
   }
@@ -299,7 +299,7 @@ export async function migrateRequests(
   let orphansRemoved = 0;
   for await (const file of collections.proofs.find()) {
     if (referenced.has(file._id.toHexString())) continue;
-    await collections.proofs.delete(file._id).catch(() => {});
+    await collections.proofs.delete(file._id);
     orphansRemoved++;
   }
   return { scanned: docs.length, migrated, orphansRemoved };

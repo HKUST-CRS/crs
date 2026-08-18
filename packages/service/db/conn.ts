@@ -23,6 +23,7 @@ async function createIndexes(collections: Collections): Promise<void> {
     collections.users.createIndex({ email: 1 }, { unique: true }),
     collections.courses.createIndex({ code: 1, term: 1 }, { unique: true }),
     collections.requests.createIndex({ timestamp: -1 }),
+    collections.requests.createIndex({ "updates.proof.attachmentId": 1 }),
   ]);
 }
 
