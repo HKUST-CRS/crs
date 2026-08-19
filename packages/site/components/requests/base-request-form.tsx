@@ -45,6 +45,7 @@ export type BaseRequestFormProps = {
   default?: BaseRequestFormSchema;
 
   className?: string;
+  onClassChange?: () => void;
 } & (
   | {
       viewonly?: false;
@@ -87,6 +88,13 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
 
   const course = clazz && coursesMap?.[Courses.id2str(clazz.course)];
 
+  const requestTypes = viewonly
+    ? Requests
+    : Requests.filter((schema) => {
+        const requestType = schema.shape.type.value;
+        return course?.effectiveRequestTypes[requestType] === true;
+      });
+
   const instructors = useQuery(
     trpc.user.getAllFromClass.queryOptions(
       // biome-ignore lint/style/noNonNullAssertion: enabled by clazz
@@ -125,6 +133,8 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                     onValueChange={(idStr) => {
                       if (idStr.length) {
                         field.onChange(Classes.str2id(idStr));
+                        form.resetField("type");
+                        props.onClassChange?.();
                       }
                     }}
                     disabled={viewonly}
@@ -210,21 +220,27 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
               <FormControl>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                   disabled={viewonly || !course}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Request Type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Requests.map((schema) => (
-                      <SelectItem
-                        value={schema.shape.type.value}
-                        key={schema.shape.type.value}
-                      >
-                        {schema.meta()?.title}
+                    {requestTypes.length > 0 ? (
+                      requestTypes.map((schema) => (
+                        <SelectItem
+                          value={schema.shape.type.value}
+                          key={schema.shape.type.value}
+                        >
+                          {schema.meta()?.title}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="none" disabled>
+                        No request types are currently available.
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </FormControl>

@@ -1,4 +1,4 @@
-import { Course, CourseID, Role } from "service/models";
+import { Course, CourseID, RequestType, Role } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -47,5 +47,20 @@ export const routerCourse = router({
       return services.course
         .auth(ctx.user.email)
         .updateAssignments(input.courseID, input.assignments);
+    }),
+  updateEffectiveRequestTypes: procedure
+    .input(
+      z.object({
+        courseID: CourseID,
+        effectiveRequestTypes: z.record(RequestType, z.boolean()),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .updateEffectiveRequestTypes(
+          input.courseID,
+          input.effectiveRequestTypes,
+        );
     }),
 });

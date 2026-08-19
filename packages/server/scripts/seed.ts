@@ -5,18 +5,22 @@
  * 2) create or reset a dev user with a fixed enrollment
  *
  * Usage (from the repo root):
- *   bun run --filter=server seed        # seeds the default dev user (god@ust.hk)
- *   bun run --filter=server seed <email> # seeds a specific user
  *
- * - The course is always (re)applied, so the local DB matches the project fixture.
+ *   # seeds the default dev user (god@ust.hk)
+ *   bun run --filter=server seed
+ *
+ *   # seeds a specific user
+ *   bun run --filter=server seed <email>
+ *
+ * - The course is always (re)applied, so the local DB matches the
+ *   project fixture.
  * - The user defaults to god@ust.hk, a sudoer that can administer
- *   courses and act as student/instructor. Pass any other email to seed a regular
- *   student+instructor tester for that account.
+ *   courses and act as student/instructor. For other emails, it seeds a
+ *   regular student and instructor tester for that account.
  *
- * Connects via the same MONGO_URI the server uses (packages/server/.env), so the
- * dev database must be running first (`docker start mongodb-crs`).
- *
- * NOTE: Development convenience only
+ * Connects via the same MONGO_URI the server uses
+ * (packages/server/.env), so the dev database must be running first
+ * (`docker compose up`).
  */
 
 import { DbConn } from "service/db";

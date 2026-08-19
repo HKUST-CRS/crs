@@ -10,13 +10,19 @@ import type {
   User,
   UserID,
 } from "../models";
+import { validateAbsentFromSection } from "../models/request/AbsentFromSection";
+import { validateDeadlineExtension } from "../models/request/DeadlineExtension";
+import { validateSwapSection } from "../models/request/SwapSection";
 import type { Repos } from "../repos";
 import { ProofNotFoundError } from "../repos/error";
 import {
   AssignmentNotFoundError,
   AssignmentNotGradedError,
+  DeadlineExtensionNotAllowedError,
+  InvalidRequestError,
   PermissionError,
   RequestParticipantError,
+  RequestTypeNotEffectiveError,
 } from "./error";
 import { assertClassRole } from "./permission";
 
@@ -249,11 +255,36 @@ export class RequestService<TUser extends UserID | null = null> {
     // only students in the class can create requests
     assertClassRole(user, request.class, ["student"], "creating request");
 
+    const course = await this.repos.course.requireCourse(request.class.course);
+    if (!course.effectiveRequestTypes[request.type]) {
+      throw new RequestTypeNotEffectiveError(
+        request.class.course,
+        request.type,
+      );
+    }
+    switch (request.type) {
+      case "Swap Section":
+        if (!validateSwapSection(course, request.metadata)) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
+      case "Absent from Section":
+        if (!validateAbsentFromSection(course, request.metadata)) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
+      case "Deadline Extension":
+        if (!validateDeadlineExtension(course, request.metadata)) {
+          throw new DeadlineExtensionNotAllowedError(
+            request.class.course,
+            request.metadata.assignment,
+          );
+        }
+        break;
+    }
+
     let participants: UserID[] | undefined;
     if (request.type === "Assignment Appeal") {
-      const course = await this.repos.course.requireCourse(
-        request.class.course,
-      );
       const assignment = course.assignments[request.metadata.assignment];
       if (!assignment) {
         throw new AssignmentNotFoundError(

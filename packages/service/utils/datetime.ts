@@ -53,6 +53,14 @@ export const toISO = (value: DateTime): string => {
   return value.setZone("Asia/Hong_Kong").setLocale("en-HK").toISO() ?? "";
 };
 
+export const withTime = (date: DateTime, time: DateTime): DateTime =>
+  date.set({
+    hour: time.hour,
+    minute: time.minute,
+    second: time.second,
+    millisecond: time.millisecond,
+  });
+
 const parse = (value: DateTimeInput) =>
   typeof value === "string"
     ? fromISO(value)

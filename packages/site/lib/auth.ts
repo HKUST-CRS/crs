@@ -5,6 +5,11 @@ import type { JWT } from "next-auth/jwt";
 import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
 import { MicrosoftEntraID } from "./microsoft-entra-id";
 
+export const devUser = process.env.CRS_DEV_USER;
+if (devUser && process.env.NODE_ENV === "production") {
+  throw new Error("CRS_DEV_USER cannot be used in production");
+}
+
 const DOMAINS = [
   "connect.ust.hk",
   "ust.hk",
@@ -65,6 +70,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       };
     },
     async authorized({ request, auth }) {
+      if (devUser) return true;
+
       const url = request.nextUrl;
       if (url.pathname === "/login") {
         return true;

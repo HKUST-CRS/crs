@@ -18,23 +18,44 @@ import type {
   RequestInit,
   User,
 } from "../models";
+import { validateDeadlineExtension } from "../models/request/DeadlineExtension";
 import { createRepos } from "../repos";
 import { RequestNotFoundError, StatusConflictError } from "../repos/error";
 import { RequestService } from "../services";
-import { ClassPermissionError, PermissionError } from "../services/error";
+import {
+  ClassPermissionError,
+  DeadlineExtensionNotAllowedError,
+  InvalidRequestError,
+  PermissionError,
+  RequestTypeNotEffectiveError,
+} from "../services/error";
 import { clearData, insertData } from "./tests";
 
 const baseCourse: Course = {
   code: "COMP 1023",
   term: "2510",
   title: "Python",
-  sections: { L1: { schedule: [] }, L2: { schedule: [] } },
+  sections: {
+    L1: { schedule: [{ day: 2, from: "09:00:00", to: "10:00:00" }] },
+    L2: { schedule: [{ day: 3, from: "09:00:00", to: "10:00:00" }] },
+  },
   assignments: {},
   effectiveRequestTypes: {
     "Swap Section": true,
     "Absent from Section": true,
     "Deadline Extension": true,
     "Assignment Appeal": true,
+  },
+};
+
+const deadlineCourse: Course = {
+  ...baseCourse,
+  assignments: {
+    PA1: {
+      name: "PA1",
+      due: "2026-08-18T15:00:00.000+08:00",
+      maxExtension: "P1DT2H",
+    },
   },
 };
 
@@ -72,7 +93,13 @@ function makeAdmin(email: string): User {
   };
 }
 
-function makeSwapInit(section = "L1"): RequestInit {
+function makeSwapInit(
+  section = "L1",
+  fromSection = "L1",
+  fromDate = "2025-11-25",
+  toSection = "L2",
+  toDate = "2025-11-26",
+): RequestInit {
   return {
     type: "Swap Section",
     class: {
@@ -80,10 +107,43 @@ function makeSwapInit(section = "L1"): RequestInit {
       section,
     },
     metadata: {
-      fromSection: "L1",
-      fromDate: "2025-11-25",
-      toSection: "L2",
-      toDate: "2025-11-26",
+      fromSection,
+      fromDate,
+      toSection,
+      toDate,
+    },
+  };
+}
+
+function makeAbsentInit(
+  fromSection = "L1",
+  fromDate = "2025-11-25",
+): RequestInit {
+  return {
+    type: "Absent from Section",
+    class: {
+      course: { code: baseCourse.code, term: baseCourse.term },
+      section: "L1",
+    },
+    metadata: {
+      fromSection,
+      fromDate,
+    },
+  };
+}
+
+function makeDeadlineExtensionInit(
+  deadline = "2026-08-19T17:00:00.000+08:00",
+): RequestInit {
+  return {
+    type: "Deadline Extension",
+    class: {
+      course: { code: baseCourse.code, term: baseCourse.term },
+      section: "L1",
+    },
+    metadata: {
+      assignment: "PA1",
+      deadline,
     },
   };
 }
@@ -167,6 +227,30 @@ describe("RequestService", () => {
       }
     });
 
+    test("creates a valid absent-from-section request", async () => {
+      const student = makeUser("absent-student@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(makeAbsentInit(), makeSwapComment());
+      const request = await requestService.auth(student.email).getRequest(id);
+      expect(request.type).toBe("Absent from Section");
+    });
+
+    test("keeps configured and metadata sections independent", async () => {
+      const student = makeUser("separate-sections@connect.ust.hk", "student");
+      await insertData(testConn, { users: [student], courses: [baseCourse] });
+      const id = await requestService
+        .auth(student.email)
+        .createRequest(
+          makeSwapInit("L1", "L2", "2025-11-26", "L1", "2025-12-02"),
+          makeSwapComment(),
+        );
+      expect(
+        (await requestService.auth(student.email).getRequest(id)).type,
+      ).toBe("Swap Section");
+    });
+
     test("stores the opening proofs on the first comment", async () => {
       const student = makeUser("s1@connect.ust.hk", "student");
       await insertData(testConn, { users: [student], courses: [baseCourse] });
@@ -194,6 +278,144 @@ describe("RequestService", () => {
         expect.unreachable("should have thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(ClassPermissionError);
+      }
+    });
+
+    test("should reject every ineffective request type", async () => {
+      const requests: RequestInit[] = [
+        makeSwapInit(),
+        makeAbsentInit(),
+        makeDeadlineExtensionInit(),
+      ];
+
+      for (const request of requests) {
+        await clearData(testConn);
+        const student = makeUser(
+          `student-ineffective-${request.type}@connect.ust.hk`,
+          "student",
+        );
+        await insertData(testConn, { users: [student], courses: [baseCourse] });
+        await testConn.collections.courses.updateOne(
+          { code: "COMP 1023", term: "2510" },
+          { $set: { [`effectiveRequestTypes.${request.type}`]: false } },
+        );
+
+        try {
+          await requestService
+            .auth(student.email)
+            .createRequest(request, makeSwapComment());
+          expect.unreachable("should have thrown an error");
+        } catch (error) {
+          expect(error).toBeInstanceOf(RequestTypeNotEffectiveError);
+        }
+      }
+    });
+
+    test("accepts deadlines at both configured boundaries", async () => {
+      const student = makeUser(
+        "student-deadline-boundaries@connect.ust.hk",
+        "student",
+      );
+      await insertData(testConn, {
+        users: [student],
+        courses: [deadlineCourse],
+      });
+
+      for (const deadline of [
+        "2026-08-18T15:00:00.000+08:00",
+        "2026-08-19T17:00:00.000+08:00",
+      ]) {
+        const id = await requestService
+          .auth(student.email)
+          .createRequest(
+            makeDeadlineExtensionInit(deadline),
+            makeSwapComment(),
+          );
+        expect(
+          (await requestService.auth(student.email).getRequest(id)).type,
+        ).toBe("Deadline Extension");
+      }
+    });
+
+    test("rejects deadlines outside the configured interval", async () => {
+      for (const [index, deadline] of [
+        "2026-08-18T14:59:00.000+08:00",
+        "2026-08-19T17:01:00.000+08:00",
+      ].entries()) {
+        const student = makeUser(
+          `student-deadline-limit-${index}@connect.ust.hk`,
+          "student",
+        );
+        await clearData(testConn);
+        await insertData(testConn, {
+          users: [student],
+          courses: [deadlineCourse],
+        });
+
+        try {
+          await requestService
+            .auth(student.email)
+            .createRequest(
+              makeDeadlineExtensionInit(deadline),
+              makeSwapComment(),
+            );
+          expect.unreachable("should have thrown an error");
+        } catch (error) {
+          expect(error).toBeInstanceOf(DeadlineExtensionNotAllowedError);
+        }
+      }
+    });
+
+    test("rejects missing and malformed assignment data", () => {
+      const metadata = {
+        assignment: "PA1",
+        deadline: "2026-08-19T17:00:00.000+08:00",
+      };
+      expect(validateDeadlineExtension(baseCourse, metadata)).toBe(false);
+      expect(
+        validateDeadlineExtension(
+          {
+            ...baseCourse,
+            assignments: {
+              PA1: {
+                name: "PA1",
+                due: "not-a-date",
+                maxExtension: "not-a-duration",
+              },
+            },
+          },
+          metadata,
+        ),
+      ).toBe(false);
+    });
+
+    test("should reject section requests with invalid course data", async () => {
+      const requests: RequestInit[] = [
+        makeSwapInit("L1", "L3"),
+        makeSwapInit("L1", "L1", "2025-11-26"),
+        makeSwapInit("L1", "L1", "2025-11-25", "L3"),
+        makeSwapInit("L1", "L1", "2025-11-25", "L2", "2025-11-25"),
+        makeSwapInit("L1", "L1", "2025-11-25", "L1", "2025-12-02"),
+        makeAbsentInit("L3"),
+        makeAbsentInit("L1", "2025-11-26"),
+      ];
+
+      for (const request of requests) {
+        await clearData(testConn);
+        const student = makeUser(
+          "student-invalid-request@connect.ust.hk",
+          "student",
+        );
+        await insertData(testConn, { users: [student], courses: [baseCourse] });
+
+        try {
+          await requestService
+            .auth(student.email)
+            .createRequest(request, makeSwapComment());
+          expect.unreachable("should have thrown an error");
+        } catch (error) {
+          expect(error).toBeInstanceOf(InvalidRequestError);
+        }
       }
     });
 
