@@ -7,6 +7,7 @@ import type {
   RequestStatus,
   Role,
   ThreadEntry,
+  User,
   UserID,
 } from "../models";
 import { validateAbsentFromSection } from "../models/request/AbsentFromSection";
@@ -15,9 +16,12 @@ import { validateSwapSection } from "../models/request/SwapSection";
 import type { Repos } from "../repos";
 import { ProofNotFoundError } from "../repos/error";
 import {
+  AssignmentNotFoundError,
+  AssignmentNotGradedError,
   DeadlineExtensionNotAllowedError,
   InvalidRequestError,
   PermissionError,
+  RequestParticipantError,
   RequestTypeNotEffectiveError,
 } from "./error";
 import { assertClassRole } from "./permission";
@@ -36,6 +40,33 @@ const DECISION_FROM: RequestStatus[] = [
 ];
 const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
 
+/**
+ * The users allowed to participate in an "Assignment Appeal": the appealing
+ * student, the instructor(s) of the request's section, and the TA(s) of the
+ * appealed assignment. Frozen at creation time.
+ */
+function resolveAppealParticipants(
+  student: UserID,
+  instructors: UserID[],
+  tas: UserID[],
+): UserID[] {
+  return [...new Set([student, ...instructors, ...tas])];
+}
+
+/**
+ * For testing purpose. Whether the user has an admin role in the request's course.
+ * Admins may view and decide every appeal in the courses they administer,
+ * even those they are not a participant of.
+ */
+function isCourseAdmin(user: User, request: Request): boolean {
+  return user.enrollment.some(
+    (e) =>
+      e.role === "admin" &&
+      e.course.code === request.class.course.code &&
+      e.course.term === request.class.course.term,
+  );
+}
+
 export class RequestService<TUser extends UserID | null = null> {
   public user: TUser;
 
@@ -53,6 +84,29 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Checks that the user may access a request. Appeal requests (those with a
+   * participant list) are visible to their participants and to admins of the
+   * request's course; every other request uses the usual class-role rule.
+   */
+  private assertRequestAccess(
+    user: User,
+    request: Request,
+    roles: Role[],
+    op: string,
+  ): void {
+    if (request.participants) {
+      if (
+        request.participants.includes(user.email) ||
+        isCourseAdmin(user, request)
+      ) {
+        return;
+      }
+      throw new RequestParticipantError(user.email, request.id);
+    }
+    assertClassRole(user, request.class, roles, op);
+  }
+
+  /**
    * Gets a specific request.
    *
    * If the user has a role of student in the course, they can only view their own requests. If the
@@ -67,9 +121,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
       // only the requester or instructors/observers in the class can view the request
-      assertClassRole(
+      this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor", "observer"],
         `getting request ${requestID}`,
       );
@@ -86,7 +140,8 @@ export class RequestService<TUser extends UserID | null = null> {
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no requests.
+   * Admins additionally see every appeal request in the courses they
+   * administer, even those they are not a participant of.
    *
    * @param roles The roles to fetch requests as.
    * @returns The requests visible to the user for the specified roles.
@@ -97,11 +152,18 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<Request[]> {
     const user = await this.repos.user.requireUser(this.user);
     const requests: Request[] = [];
+    const seen = new Set<string>();
+    const push = (request: Request) => {
+      if (seen.has(request.id)) return;
+      seen.add(request.id);
+      requests.push(request);
+    };
     if (roles.includes("student")) {
-      const studentRequests = await this.repos.request.getRequestsFromUser(
+      for (const request of await this.repos.request.getRequestsFromUser(
         this.user,
-      );
-      requests.push(...studentRequests);
+      )) {
+        push(request);
+      }
     }
     if (roles.includes("instructor") || roles.includes("observer")) {
       const enrollments = user.enrollment.filter(
@@ -109,9 +171,37 @@ export class RequestService<TUser extends UserID | null = null> {
           (clazz.role === "instructor" || clazz.role === "observer") &&
           roles.includes(clazz.role),
       );
-      requests.push(
-        ...(await this.repos.request.getRequestsInClasses(enrollments)),
-      );
+      for (const request of await this.repos.request.getRequestsInClasses(
+        enrollments,
+      )) {
+        // Appeal requests are visible only to their participants: an observer
+        // or an instructor who is not the section's lecturer / the
+        // assignment's TA must not see the appeal.
+        if (request.participants && !request.participants.includes(this.user)) {
+          continue;
+        }
+        push(request);
+      }
+      // Admins can see every appeal in the courses they administer, even those
+      // they are not a participant of. Admin visibility is course-wide — the
+      // section of the admin's enrollment is ignored (queried as section "*"),
+      // matching isCourseAdmin().
+      const adminClasses = user.enrollment
+        .filter((clazz) => clazz.role === "admin")
+        .map((clazz) => ({ course: clazz.course, section: "*" }));
+      for (const request of await this.repos.request.getRequestsInClasses(
+        adminClasses,
+      )) {
+        if (request.participants) push(request);
+      }
+    }
+    // Appeals are also visible to every participant regardless of enrollment —
+    // e.g. a TA responsible for the assignment but with no instructor/observer
+    // role in the course. Deduplicated against the lists above.
+    for (const request of await this.repos.request.getRequestsAsParticipant(
+      this.user,
+    )) {
+      push(request);
     }
     return requests;
   }
@@ -136,9 +226,9 @@ export class RequestService<TUser extends UserID | null = null> {
 
     for (const request of requests) {
       if (this.user !== request.from) {
-        assertClassRole(
+        this.assertRequestAccess(
           user,
-          request.class,
+          request,
           ["instructor", "observer"],
           `getting request ${request.id}`,
         );
@@ -166,6 +256,7 @@ export class RequestService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     // only students in the class can create requests
     assertClassRole(user, request.class, ["student"], "creating request");
+
     const course = await this.repos.course.requireCourse(request.class.course);
     if (!course.effectiveRequestTypes[request.type]) {
       throw new RequestTypeNotEffectiveError(
@@ -193,7 +284,40 @@ export class RequestService<TUser extends UserID | null = null> {
         }
         break;
     }
-    return this.repos.request.createRequest(this.user, request, comment);
+
+    let participants: UserID[] | undefined;
+    if (request.type === "Assignment Appeal") {
+      const assignment = course.assignments[request.metadata.assignment];
+      if (!assignment) {
+        throw new AssignmentNotFoundError(
+          request.class.course,
+          request.metadata.assignment,
+        );
+      }
+      if (assignment.state !== "graded") {
+        throw new AssignmentNotGradedError(
+          request.class.course,
+          request.metadata.assignment,
+        );
+      }
+      participants = resolveAppealParticipants(
+        user.email,
+        // The lecturers of the section are the course instructors enrolled in
+        // it (or enrolled course-wide via section "*") — the same roster shown
+        // on the request header. Not stored on the course.
+        (
+          await this.repos.user.getUsersInClass(request.class, "instructor")
+        ).map((instructor) => instructor.email),
+        assignment.tas ?? [],
+      );
+    }
+
+    return this.repos.request.createRequest(
+      this.user,
+      request,
+      comment,
+      participants,
+    );
   }
 
   /**
@@ -214,9 +338,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
-      assertClassRole(
+      this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor"],
         `commenting on request ${requestID}`,
       );
@@ -259,12 +383,32 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    assertClassRole(
-      user,
-      request.class,
-      ["instructor"],
-      `${status === "approved" ? "approving" : "rejecting"} request ${requestID}`,
-    );
+    if (request.participants) {
+      // An appeal is decided by a participant who is not the appealing student
+      // — i.e. a responsible lecturer or TA — or by an admin of the course.
+      if (
+        !request.participants.includes(user.email) &&
+        !isCourseAdmin(user, request)
+      ) {
+        throw new RequestParticipantError(user.email, requestID);
+      }
+      // The appealing student cannot decide their own appeal — unless they are
+      // an admin of the course, who may decide any appeal in it.
+      if (user.email === request.from && !isCourseAdmin(user, request)) {
+        throw new PermissionError(
+          this.user,
+          [],
+          `${status === "approved" ? "approving" : "rejecting"} request ${requestID}`,
+        );
+      }
+    } else {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor"],
+        `${status === "approved" ? "approving" : "rejecting"} request ${requestID}`,
+      );
+    }
     return this.repos.request.appendStatusChange(
       this.user,
       requestID,
@@ -329,6 +473,14 @@ export class RequestService<TUser extends UserID | null = null> {
         `appealing request ${requestID}`,
       );
     }
+    if (request.participants) {
+      // There is no higher instance to re-appeal an assignment appeal to.
+      throw new PermissionError(
+        this.user,
+        [],
+        `appealing request ${requestID}`,
+      );
+    }
     return this.repos.request.appendStatusChange(
       this.user,
       requestID,
@@ -354,9 +506,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const request = await this.repos.request.getRequestByProof(proofID);
     if (!request) throw new ProofNotFoundError(proofID);
     if (this.user !== request.from) {
-      assertClassRole(
+      this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor", "observer"],
         `downloading proof ${proofID}`,
       );

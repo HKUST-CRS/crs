@@ -100,6 +100,19 @@ export default function RequestThread({ request }: RequestThreadProps) {
         (e.section === request.class.section || e.section === "*") &&
         e.role === "instructor",
     );
+  const isAppeal = !!request.participants;
+  // "Participant" here includes course admins, who can view and decide every
+  // appeal in the courses they administer even if they are not a participant.
+  const isAdminInCourse =
+    !!user &&
+    user.enrollment.some(
+      (e) =>
+        e.role === "admin" &&
+        e.course.code === request.class.course.code &&
+        e.course.term === request.class.course.term,
+    );
+  const isParticipant =
+    (!!user && !!request.participants?.includes(user.email)) || isAdminInCourse;
   const status = request.status;
   // The latest status-change entry is the current decision; every earlier
   // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
@@ -109,12 +122,19 @@ export default function RequestThread({ request }: RequestThreadProps) {
   // Comments are allowed for the requester or an instructor at any point,
   // including after cancellation. Observers have read-only access. Status
   // changes are gated by role and (for re-decision) by the request not being
-  // cancelled.
-  const canComment = isRequester || isInstructor;
-  const canDecide = isInstructor && status !== "cancelled";
+  // cancelled. For appeals, every participant may comment and any participant
+  // other than the requester may decide; there is no re-appeal of an appeal.
+  const canComment = isAppeal ? isParticipant : isRequester || isInstructor;
+  const canDecide =
+    status !== "cancelled" &&
+    (isAppeal
+      ? isParticipant && (!isRequester || isAdminInCourse)
+      : isInstructor);
   const canCancel = isRequester && status !== "cancelled";
   const canAppeal =
-    isRequester && (status === "approved" || status === "rejected");
+    !isAppeal &&
+    isRequester &&
+    (status === "approved" || status === "rejected");
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,6 +142,12 @@ export default function RequestThread({ request }: RequestThreadProps) {
 
       {/* Immutable request header */}
       <RequestForm default={request} viewonly />
+
+      {/* Teaching Assistants — shown only for assignment appeals, right under
+          the instructor list in the header. */}
+      {request.type === "Assignment Appeal" && (
+        <AppealTAList request={request} />
+      )}
 
       <hr />
 
@@ -171,6 +197,57 @@ function StatusBanner({ status }: { status: RequestStatus }) {
         {REQUEST_STATUS_LABEL[status]}
       </span>
     </div>
+  );
+}
+
+/**
+ * The teaching assistants responsible for the appealed assignment, shown
+ * under the instructor list on the thread page for assignment appeals.
+ */
+function AppealTAList({ request }: { request: Request }) {
+  const trpc = useTRPC();
+  const course = useQuery(
+    trpc.course.get.queryOptions(request.class.course),
+  ).data;
+  const tas =
+    request.type === "Assignment Appeal"
+      ? (course?.assignments?.[request.metadata.assignment]?.tas ?? [])
+      : [];
+  const taUsers = useQuery(
+    trpc.user.getAllByEmails.queryOptions(tas, {
+      enabled: tas.length > 0,
+    }),
+  ).data;
+  // Only render once the course has loaded. A viewer who cannot load the
+  // course (e.g. a TA with no course enrollment) gets no section at all rather
+  // than a misleading "no teaching assistants assigned" message.
+  if (!course || request.type !== "Assignment Appeal") return null;
+  return (
+    <section className="flex flex-col gap-2">
+      <h4 className="typo-small">TA in charge</h4>
+      {tas.length === 0 ? (
+        <p className="typo-muted text-sm">
+          No teaching assistants are assigned to this assignment.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {tas.map((email) => {
+            const user = taUsers?.find((u) => u.email === email);
+            return (
+              <li key={email} className="text-sm">
+                {user?.name ? <b>{user.name}</b> : null}{" "}
+                <a
+                  href={`mailto:${email}`}
+                  className="underline underline-offset-4"
+                >
+                  {email}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }
 

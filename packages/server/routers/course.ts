@@ -1,4 +1,4 @@
-import { Course, CourseID, Role } from "service/models";
+import { Course, CourseID, RequestType, Role } from "service/models";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -52,7 +52,7 @@ export const routerCourse = router({
     .input(
       z.object({
         courseID: CourseID,
-        effectiveRequestTypes: Course.shape.effectiveRequestTypes,
+        effectiveRequestTypes: z.record(RequestType, z.boolean()),
       }),
     )
     .mutation(({ ctx, input }) => {

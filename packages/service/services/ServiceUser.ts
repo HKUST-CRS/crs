@@ -116,6 +116,20 @@ export class UserService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Gets the users with the specified emails, preserving order and ignoring
+   * missing emails. Deliberately has no per-email role check: permission to
+   * resolve names lives at the layer that authorized access to the thread
+   * (e.g. an appeal's participants), not here.
+   */
+  async getUsersByEmail(
+    this: UserService<UserID>,
+    emails: UserID[],
+  ): Promise<User[]> {
+    await this.repos.user.requireUser(this.user);
+    return this.repos.user.getUsersByEmail(emails);
+  }
+
+  /**
    * Gets all users such that they have an enrollment in the given course.
    *
    * The current user must have the "instructor" role or the "admin" role in the course.

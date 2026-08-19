@@ -49,6 +49,7 @@ export class RequestRepo {
     from: UserID,
     request: RequestInit,
     comment: CommentInit,
+    participants?: UserID[],
   ): Promise<string> {
     const id = new ObjectId().toHexString();
     const text = comment.text;
@@ -59,6 +60,9 @@ export class RequestRepo {
         id,
         from,
         timestamp: toISO(DateTime.now()),
+        // Only appeal requests carry a participant list, resolved server-side
+        // by the service — never from the client-supplied init.
+        ...(participants ? { participants } : {}),
         thread: [
           makeComment(
             {
@@ -82,6 +86,19 @@ export class RequestRepo {
   async getRequestsFromUser(userID: UserID): Promise<Request[]> {
     const requests = await this.collections.requests
       .find({ from: userID }, { projection: { _id: 0 } })
+      .sort({ timestamp: "descending" })
+      .toArray();
+    return requests.map((request) => this.parseRequest(request));
+  }
+
+  /**
+   * Gets appeal requests where the user is a participant. Used to surface
+   * appeals to their TAs, who may have no instructor/observer enrollment to
+   * trigger the class-based listing.
+   */
+  async getRequestsAsParticipant(userID: UserID): Promise<Request[]> {
+    const requests = await this.collections.requests
+      .find({ participants: userID }, { projection: { _id: 0 } })
       .sort({ timestamp: "descending" })
       .toArray();
     return requests.map((request) => this.parseRequest(request));

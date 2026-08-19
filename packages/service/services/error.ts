@@ -3,6 +3,7 @@ import {
   Classes,
   type CourseID,
   Courses,
+  type RequestID,
   type RequestType,
   type Role,
   type UserID,
@@ -61,6 +62,31 @@ export class SudoerPermissionError extends Error {
   constructor(userID: UserID, operation: string) {
     super(`User ${userID} is not a sudoer and cannot perform ${operation}.`);
     this.name = "SudoerPermissionError";
+  }
+}
+
+export class RequestParticipantError extends Error {
+  constructor(userID: UserID, requestID: RequestID) {
+    super(`User ${userID} is not a participant of request ${requestID}`);
+    this.name = "RequestParticipantError";
+  }
+}
+
+export class AssignmentNotFoundError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} not found in course ${course.code} (${course.term})`,
+    );
+    this.name = "AssignmentNotFoundError";
+  }
+}
+
+export class AssignmentNotGradedError extends Error {
+  constructor(course: CourseID, assignment: string) {
+    super(
+      `Assignment ${assignment} in course ${course.code} (${course.term}) is not graded yet`,
+    );
+    this.name = "AssignmentNotGradedError";
   }
 }
 

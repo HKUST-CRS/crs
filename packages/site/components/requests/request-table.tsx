@@ -181,6 +181,29 @@ const columns: ColumnDef<Request>[] = [
     },
   },
   {
+    id: "assignment",
+    accessorFn: (row) =>
+      row.type === "Assignment Appeal" ? row.metadata.assignment : "",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className={cn(column.getIsSorted() && "underline")}
+        >
+          Assignment
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
+    cell: ({ row }) => {
+      if (row.original.type !== "Assignment Appeal") return null;
+      return (
+        <div className="font-medium">{row.original.metadata.assignment}</div>
+      );
+    },
+  },
+  {
     id: "time",
     accessorFn: (row) => formatDateTime(row.timestamp),
     sortingFn: (rowA, rowB) => {

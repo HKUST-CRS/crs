@@ -44,16 +44,39 @@ export const Course = z
         due: z.iso.datetime({ offset: true }).meta({
           description: "The due date of the assignment.",
         }),
+        state: z.enum(["open", "closed", "graded"]).optional().meta({
+          description:
+            'The lifecycle state of the assignment. Only assignments with state "graded" can be appealed. When absent, the assignment is treated as not graded.',
+        }),
         maxExtension: z.iso.duration().meta({
           description:
             "The maximum extension duration allowed for this assignment.",
         }),
+        tas: z.array(z.email()).optional().meta({
+          description:
+            "The emails of the teaching assistants responsible for this assignment.",
+        }),
       }),
     ),
-    effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
-      description:
-        "A mapping of request types that are effective for this course.",
-    }),
+    effectiveRequestTypes: z
+      .preprocess(
+        (value) => {
+          // Backward compatibility: `z.record` over the request-type enum
+          // requires every enum value to be present as a key, which would
+          // reject course documents created before "Assignment Appeal"
+          // existed. Fill in any missing type (defaulting to enabled).
+          const stored = (value ?? {}) as Partial<Record<RequestType, boolean>>;
+          const defaults = Object.fromEntries(
+            RequestType.options.map((type) => [type, true]),
+          ) as Record<RequestType, boolean>;
+          return { ...defaults, ...stored };
+        },
+        z.record(RequestType, z.boolean()),
+      )
+      .meta({
+        description:
+          "A mapping of request types that are effective for this course.",
+      }),
   })
   .meta({
     description: "An *offering* of a course in a specific term.",

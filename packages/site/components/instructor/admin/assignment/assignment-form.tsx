@@ -18,40 +18,79 @@ import { TimePicker } from "@/components/shadcn-studio/date-picker/date-picker-0
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { DialogFooter } from "@/components/ui/dialog";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { emailsToText, parseEmails } from "../emails";
+import type { AssignmentRow } from "./assignment-table";
 export const AssignmentFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
   due: z.string().min(1, "Due date is required"),
   maxExtension: z.string().min(1, "Max extension is required"),
+  state: z.enum(["open", "closed", "graded"]).optional(),
+  tas: z.string(),
 });
 
 export type AssignmentFormSchema = z.infer<typeof AssignmentFormSchema>;
+
+export const AssignmentSubmissionSchema = AssignmentFormSchema.omit({
+  tas: true,
+}).extend({
+  tas: z.array(z.string()).optional(),
+});
+
+export type AssignmentSubmissionSchema = z.infer<
+  typeof AssignmentSubmissionSchema
+>;
 
 export function AssignmentForm({
   defaultValues,
   onSubmit,
   onRemove,
 }: {
-  defaultValues?: AssignmentFormSchema;
-  onSubmit: (v: AssignmentFormSchema) => void;
+  defaultValues?: AssignmentRow;
+  onSubmit: (v: AssignmentSubmissionSchema) => void;
   onRemove: () => void;
 }) {
   const form = useForm<AssignmentFormSchema>({
     resolver: zodResolver(AssignmentFormSchema),
-    defaultValues: defaultValues ?? {
-      code: "",
-      name: "",
-      due: "",
-      maxExtension: "P0D",
-    },
+    defaultValues: defaultValues
+      ? {
+          ...defaultValues,
+          tas: emailsToText(defaultValues.tas),
+        }
+      : {
+          code: "",
+          name: "",
+          due: "",
+          maxExtension: "P0D",
+          state: "open",
+          tas: "",
+        },
   });
+
+  const handleSubmit = (data: AssignmentFormSchema) => {
+    const { tas, ...rest } = data;
+    onSubmit({ ...rest, tas: parseEmails(tas) });
+  };
 
   const initialDue = fromISO(defaultValues?.due ?? "");
   const [dueDate, setDueDate] = useState<DateTime | null>(
@@ -76,7 +115,7 @@ export function AssignmentForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(onSubmit)}
+      onSubmit={form.handleSubmit(handleSubmit)}
       className="flex flex-col gap-4"
     >
       <Controller
@@ -281,6 +320,48 @@ export function AssignmentForm({
                 }}
               />
             </div>
+            <FieldError errors={[fieldState.error]} />
+          </Field>
+        )}
+      />
+
+      <Controller
+        name="state"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field>
+            <FieldLabel>State</FieldLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a state" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="graded">Graded</SelectItem>
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              A graded assignment is required before a student can appeal its
+              grade.
+            </FieldDescription>
+            <FieldError errors={[fieldState.error]} />
+          </Field>
+        )}
+      />
+
+      <Controller
+        name="tas"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <Field>
+            <FieldLabel>TA in charge</FieldLabel>
+            <Textarea placeholder={"ta1@ust.hk\nta2@ust.hk"} {...field} />
+            <FieldDescription>
+              The emails of the teaching assistants responsible for this
+              assignment, one per line. They can view and respond to appeals of
+              this assignment.
+            </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}

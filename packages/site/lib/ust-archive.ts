@@ -140,6 +140,7 @@ export function parseCourse(
         "Swap Section": true,
         "Absent from Section": true,
         "Deadline Extension": true,
+        "Assignment Appeal": true,
       },
     },
     instructors: [...instructors.values()]

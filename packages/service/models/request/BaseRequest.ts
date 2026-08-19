@@ -28,6 +28,15 @@ export const BaseRequest = z.object({
    * recorded here.
    */
   thread: z.array(ThreadEntry),
+  /**
+   * The users allowed to view and participate in the request. Set only for
+   * "Assignment Appeal" requests (the appealing student, the lecturer(s) of
+   * the request's section, and the TA(s) of the appealed assignment),
+   * resolved server-side at creation — the client can never set it, since
+   * the request initializers omit this field. When present, access is
+   * participant-only instead of the usual class-role based access.
+   */
+  participants: z.array(UserID).optional(),
 });
 export type BaseRequest = z.infer<typeof BaseRequest>;
 

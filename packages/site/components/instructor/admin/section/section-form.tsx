@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { SectionRow } from "./section-table";
 export const SectionFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   schedule: z.array(
@@ -35,7 +36,7 @@ export function SectionForm({
   onSubmit,
   onRemove,
 }: {
-  defaultValues?: SectionFormSchema;
+  defaultValues?: SectionRow;
   onSubmit: (v: SectionFormSchema) => void;
   onRemove: () => void;
 }) {
