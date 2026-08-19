@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type Course, Courses } from "../course";
 import { createRequestType } from "./BaseRequest";
 
 export const SwapSectionMeta = z.object({
@@ -25,3 +26,22 @@ export const SwapSectionRequest = createRequestType(
   description: "Request for swapping to another section for one class",
 });
 export type SwapSectionRequest = z.infer<typeof SwapSectionRequest>;
+
+export function validateSwapSection(
+  course: Course,
+  metadata: SwapSectionMeta,
+): boolean {
+  return (
+    metadata.fromSection !== metadata.toSection &&
+    Courses.isSectionScheduledOnDate(
+      course,
+      metadata.fromSection,
+      metadata.fromDate,
+    ) &&
+    Courses.isSectionScheduledOnDate(
+      course,
+      metadata.toSection,
+      metadata.toDate,
+    )
+  );
+}

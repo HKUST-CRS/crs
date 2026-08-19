@@ -193,6 +193,10 @@ export default function RequestForm(props: RequestFormProps) {
             setBase(data);
           }
         }}
+        onClassChange={() => {
+          setBase(null);
+          setMeta(null);
+        }}
         default={base ?? undefined}
         viewonly={viewonly}
       />
