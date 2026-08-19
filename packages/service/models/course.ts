@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { compareString } from "../utils/comparison";
+import { fromISO } from "../utils/datetime";
 import { RequestType } from "./request/RequestType";
 
 export const Course = z
@@ -168,6 +169,19 @@ export namespace Courses {
 
   export function compare(a: CourseID, b: CourseID): number {
     return compareString(Courses.id2str(a), Courses.id2str(b));
+  }
+
+  export function isSectionScheduledOnDate(
+    course: Course,
+    section: string,
+    date: string,
+  ): boolean {
+    const sectionData = course.sections[section];
+    const dateTime = fromISO(date);
+    return (
+      dateTime.isValid &&
+      sectionData?.schedule.some(({ day }) => day === dateTime.weekday) === true
+    );
   }
 }
 

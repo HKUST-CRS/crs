@@ -9,9 +9,17 @@ import type {
   ThreadEntry,
   UserID,
 } from "../models";
+import { validateAbsentFromSection } from "../models/request/AbsentFromSection";
+import { validateDeadlineExtension } from "../models/request/DeadlineExtension";
+import { validateSwapSection } from "../models/request/SwapSection";
 import type { Repos } from "../repos";
 import { ProofNotFoundError } from "../repos/error";
-import { PermissionError } from "./error";
+import {
+  DeadlineExtensionNotAllowedError,
+  InvalidRequestError,
+  PermissionError,
+  RequestTypeNotEffectiveError,
+} from "./error";
 import { assertClassRole } from "./permission";
 
 // Statuses from which each status change is admissible. The lifecycle is
@@ -158,6 +166,33 @@ export class RequestService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     // only students in the class can create requests
     assertClassRole(user, request.class, ["student"], "creating request");
+    const course = await this.repos.course.requireCourse(request.class.course);
+    if (!course.effectiveRequestTypes[request.type]) {
+      throw new RequestTypeNotEffectiveError(
+        request.class.course,
+        request.type,
+      );
+    }
+    switch (request.type) {
+      case "Swap Section":
+        if (!validateSwapSection(course, request.metadata)) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
+      case "Absent from Section":
+        if (!validateAbsentFromSection(course, request.metadata)) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
+      case "Deadline Extension":
+        if (!validateDeadlineExtension(course, request.metadata)) {
+          throw new DeadlineExtensionNotAllowedError(
+            request.class.course,
+            request.metadata.assignment,
+          );
+        }
+        break;
+    }
     return this.repos.request.createRequest(this.user, request, comment);
   }
 
