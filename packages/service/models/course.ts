@@ -24,9 +24,6 @@ export const Course = z
         examples: ["L1", "L01", "T1", "LA1"],
       }),
       z.object({
-        type: z.enum(["Lecture", "Tutorial", "Lab"]).optional().meta({
-          description: "The kind of teaching session this section is.",
-        }),
         schedule: z.array(
           z.object({
             day: z.number().min(1).max(7),

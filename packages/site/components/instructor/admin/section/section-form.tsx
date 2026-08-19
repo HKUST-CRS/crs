@@ -27,7 +27,6 @@ export const SectionFormSchema = z.object({
       to: z.string().min(1, "To is required"),
     }),
   ),
-  type: z.enum(["Lecture", "Tutorial", "Lab"]).optional(),
 });
 
 export type SectionFormSchema = z.infer<typeof SectionFormSchema>;
@@ -72,27 +71,6 @@ export function SectionForm({
               placeholder="L1/T1/LA1/…"
               {...field}
             />
-            <FieldError errors={[fieldState.error]} />
-          </Field>
-        )}
-      />
-
-      <Controller
-        name="type"
-        control={form.control}
-        render={({ field, fieldState }) => (
-          <Field>
-            <FieldLabel>Type</FieldLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a section type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Lecture">Lecture</SelectItem>
-                <SelectItem value="Tutorial">Tutorial</SelectItem>
-                <SelectItem value="Lab">Lab</SelectItem>
-              </SelectContent>
-            </Select>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}

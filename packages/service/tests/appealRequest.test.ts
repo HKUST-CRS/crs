@@ -24,8 +24,8 @@ const appealCourse: Course = {
   term: "2510",
   title: "Appeal Testing",
   sections: {
-    L1: { type: "Lecture", schedule: [] },
-    L2: { type: "Lecture", schedule: [] },
+    L1: { schedule: [] },
+    L2: { schedule: [] },
   },
   assignments: {
     HW1: {
