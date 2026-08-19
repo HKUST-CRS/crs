@@ -29,6 +29,7 @@ function getQueryClient() {
 export function TRPCReactProvider(
   props: Readonly<{
     children: React.ReactNode;
+    devAuth?: boolean;
   }>,
 ) {
   const path = usePathname();
@@ -38,6 +39,7 @@ export function TRPCReactProvider(
   // server side, the session update checks if the access token is or near
   // expiry and refreshes it if needed.
   useEffect(() => {
+    if (props.devAuth) return;
     const interval = setInterval(
       () => {
         console.log("Attempt to refresh access_token...");
@@ -46,12 +48,12 @@ export function TRPCReactProvider(
       5 * 60 * 1000,
     );
     return () => clearInterval(interval);
-  }, [update]);
+  }, [props.devAuth, update]);
 
   // The provider (and thus the children) should only be rendered if we're on
   // the login page or the user has a session. This prevents components from
   // trying to use the tRPC client before even there is a session.
-  const shouldRenderProvider = path === "/login" || !!session;
+  const shouldRenderProvider = props.devAuth || path === "/login" || !!session;
 
   const token = session?.account.access_token;
 
