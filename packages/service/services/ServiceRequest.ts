@@ -183,12 +183,14 @@ export class RequestService<TUser extends UserID | null = null> {
         push(request);
       }
       // Admins can see every appeal in the courses they administer, even those
-      // they are not a participant of.
-      const adminEnrollments = user.enrollment.filter(
-        (clazz) => clazz.role === "admin",
-      );
+      // they are not a participant of. Admin visibility is course-wide — the
+      // section of the admin's enrollment is ignored (queried as section "*"),
+      // matching isCourseAdmin().
+      const adminClasses = user.enrollment
+        .filter((clazz) => clazz.role === "admin")
+        .map((clazz) => ({ course: clazz.course, section: "*" }));
       for (const request of await this.repos.request.getRequestsInClasses(
-        adminEnrollments,
+        adminClasses,
       )) {
         if (request.participants) push(request);
       }

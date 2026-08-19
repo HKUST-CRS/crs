@@ -522,6 +522,24 @@ describe("Assignment Appeal requests", () => {
       expect(requests[0]?.id).toBeTruthy();
     });
 
+    test("an admin sees appeals from sections they are not enrolled in", async () => {
+      // The admin is enrolled in L1; the appeal is raised in L2. Admin
+      // visibility is course-wide, so the enrollment's section must not limit
+      // the listing.
+      const studentInL2 = makeUser("s2@ust.hk", "student", "L2");
+      await insertData(testConn, {
+        users: [studentInL2, admin],
+        courses: [appealCourse],
+      });
+      await requestService
+        .auth(studentInL2.email)
+        .createRequest(makeAppealInit("L2"), makeAppealComment());
+      const requests = await requestService
+        .auth(admin.email)
+        .getRequestsAs(["instructor", "observer"]);
+      expect(requests).toHaveLength(1);
+    });
+
     test("an admin of another course cannot see the appeal", async () => {
       await insertData(testConn, {
         users: [student, otherCourseAdmin],
