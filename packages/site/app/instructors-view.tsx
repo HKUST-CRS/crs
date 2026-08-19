@@ -6,9 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
+import { toast } from "sonner";
 import {
+  type CourseCreationSubmission,
   CreateCourseForm,
-  type CreateCourseFormSchema,
 } from "@/components/instructor/create-course-form";
 import {
   RequestTable,
@@ -93,27 +94,46 @@ export default function InstructorsView() {
   const createCourseMutation = useMutation(
     trpc.course.create.mutationOptions(),
   );
-  const handleCreateCourse = (form: CreateCourseFormSchema) => {
-    createCourseMutation.mutate(
-      {
-        code: form.code,
-        term: form.term,
-        title: form.title,
-        sections: {},
-        assignments: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-          "Assignment Appeal": true,
-        },
-      },
-      {
-        onSuccess: (cid) => {
-          router.push(`/instructor/admin/${Courses.id2str(cid)}`);
-        },
-      },
-    );
+  const createEnrollmentMutation = useMutation(
+    trpc.user.createEnrollment.mutationOptions(),
+  );
+  const suggestUserNameMutation = useMutation(
+    trpc.user.suggestName.mutationOptions(),
+  );
+  const handleCreateCourse = async (submission: CourseCreationSubmission) => {
+    try {
+      const cid = await createCourseMutation.mutateAsync(submission.course);
+
+      if (submission.kind === "automatic") {
+        const results = await Promise.allSettled(
+          submission.instructors.map(async (instructor) => {
+            await Promise.all(
+              instructor.sections.map((section) =>
+                createEnrollmentMutation.mutateAsync({
+                  uid: instructor.email,
+                  enrollment: { course: cid, section, role: "instructor" },
+                }),
+              ),
+            );
+            await suggestUserNameMutation.mutateAsync({
+              uid: instructor.email,
+              name: instructor.name,
+            });
+          }),
+        );
+        if (results.some((result) => result.status === "rejected")) {
+          toast.warning(
+            "Course created, but some instructor enrollments need review.",
+          );
+        }
+      }
+
+      router.push(`/instructor/admin/${Courses.id2str(cid)}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Course creation failed.",
+      );
+    }
   };
 
   return (
@@ -201,7 +221,7 @@ export default function InstructorsView() {
         </div>
 
         <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
-          <DialogContent>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <DialogHeader>
               <DialogTitle>Create Course</DialogTitle>
             </DialogHeader>
