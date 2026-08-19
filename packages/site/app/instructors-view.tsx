@@ -21,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -226,6 +227,14 @@ export default function InstructorsView() {
               <DialogTitle>Create Course</DialogTitle>
             </DialogHeader>
             <CreateCourseForm onSubmit={handleCreateCourse} />
+            <DialogDescription className="border-t pt-4">
+              Guide to <strong>Import Schedule</strong>. After entering the code and the
+              term, it looks up the course in HKUST's public schedule and fills
+              in its title, sections, and instructors; for safety reasons, the
+              emails of the instructors have to be provided explicitly.
+              Otherwise, just enter the code, the term, and the title manually
+              and then configure the sections and instructors later.
+            </DialogDescription>
           </DialogContent>
         </Dialog>
       </section>
