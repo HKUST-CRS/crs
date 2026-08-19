@@ -24,8 +24,8 @@ const appealCourse: Course = {
   term: "2510",
   title: "Appeal Testing",
   sections: {
-    L1: { type: "Lecture", schedule: [], lecturers: ["i1@ust.hk"] },
-    L2: { type: "Lecture", schedule: [], lecturers: ["i2@ust.hk"] },
+    L1: { type: "Lecture", schedule: [] },
+    L2: { type: "Lecture", schedule: [] },
   },
   assignments: {
     HW1: {
@@ -121,7 +121,7 @@ describe("Assignment Appeal requests", () => {
 
   // ── create ────────────────────────────────────────────────────────────────
   describe("create", () => {
-    test("resolves participants from the section lecturers + assignment TAs", async () => {
+    test("resolves participants from the section instructors + assignment TAs", async () => {
       await insertData(testConn, {
         users: [student, lecturer1, ta],
         courses: [appealCourse],

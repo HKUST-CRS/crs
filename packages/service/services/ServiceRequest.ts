@@ -1,7 +1,6 @@
 import type {
   Comment,
   CommentInit,
-  Course,
   Request,
   RequestID,
   RequestInit,
@@ -37,23 +36,20 @@ const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
 
 /**
  * The users allowed to participate in an "Assignment Appeal": the appealing
- * student, the lecturer(s) of the request's section, and the TA(s) of the
+ * student, the instructor(s) of the request's section, and the TA(s) of the
  * appealed assignment. Frozen at creation time.
  */
 function resolveAppealParticipants(
-  course: Course,
-  section: string,
-  assignment: string,
   student: UserID,
+  instructors: UserID[],
+  tas: UserID[],
 ): UserID[] {
-  const lecturers = course.sections[section]?.lecturers ?? [];
-  const tas = course.assignments[assignment]?.tas ?? [];
-  return [...new Set([student, ...lecturers, ...tas])];
+  return [...new Set([student, ...instructors, ...tas])];
 }
 
 /**
- * For testing purpose. Whether the user has an admin role in the request's course. 
- * Admins may view and decide every appeal in the courses they administer, 
+ * For testing purpose. Whether the user has an admin role in the request's course.
+ * Admins may view and decide every appeal in the courses they administer,
  * even those they are not a participant of.
  */
 function isCourseAdmin(user: User, request: Request): boolean {
@@ -272,10 +268,14 @@ export class RequestService<TUser extends UserID | null = null> {
         );
       }
       participants = resolveAppealParticipants(
-        course,
-        request.class.section,
-        request.metadata.assignment,
         user.email,
+        // The lecturers of the section are the course instructors enrolled in
+        // it (or enrolled course-wide via section "*") — the same roster shown
+        // on the request header. Not stored on the course.
+        (
+          await this.repos.user.getUsersInClass(request.class, "instructor")
+        ).map((instructor) => instructor.email),
+        assignment.tas ?? [],
       );
     }
 

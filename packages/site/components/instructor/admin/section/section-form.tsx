@@ -6,12 +6,7 @@ import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -21,8 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { emailsToText, parseEmails } from "../emails";
 import type { SectionRow } from "./section-table";
 
 export const SectionFormSchema = z.object({
@@ -35,18 +28,9 @@ export const SectionFormSchema = z.object({
     }),
   ),
   type: z.enum(["Lecture", "Tutorial", "Lab"]).optional(),
-  lecturers: z.string(),
 });
 
 export type SectionFormSchema = z.infer<typeof SectionFormSchema>;
-
-export const SectionSubmissionSchema = SectionFormSchema.omit({
-  lecturers: true,
-}).extend({
-  lecturers: z.array(z.string()).optional(),
-});
-
-export type SectionSubmissionSchema = z.infer<typeof SectionSubmissionSchema>;
 
 export function SectionForm({
   defaultValues,
@@ -54,27 +38,16 @@ export function SectionForm({
   onRemove,
 }: {
   defaultValues?: SectionRow;
-  onSubmit: (v: SectionSubmissionSchema) => void;
+  onSubmit: (v: SectionFormSchema) => void;
   onRemove: () => void;
 }) {
   const form = useForm<SectionFormSchema>({
     resolver: zodResolver(SectionFormSchema),
-    defaultValues: defaultValues
-      ? {
-          ...defaultValues,
-          lecturers: emailsToText(defaultValues.lecturers),
-        }
-      : {
-          code: "",
-          schedule: [],
-          lecturers: "",
-        },
+    defaultValues: defaultValues ?? {
+      code: "",
+      schedule: [],
+    },
   });
-
-  const handleSubmit = (data: SectionFormSchema) => {
-    const { lecturers, ...rest } = data;
-    onSubmit({ ...rest, lecturers: parseEmails(lecturers) });
-  };
 
   const schedule = useFieldArray({
     control: form.control,
@@ -83,7 +56,7 @@ export function SectionForm({
 
   return (
     <form
-      onSubmit={form.handleSubmit(handleSubmit)}
+      onSubmit={form.handleSubmit(onSubmit)}
       className="flex flex-col gap-4"
     >
       <Controller
@@ -114,26 +87,6 @@ export function SectionForm({
                 <SelectItem value="Lab">Lab</SelectItem>
               </SelectContent>
             </Select>
-            <FieldError errors={[fieldState.error]} />
-          </Field>
-        )}
-      />
-
-      <Controller
-        name="lecturers"
-        control={form.control}
-        render={({ field, fieldState }) => (
-          <Field>
-            <FieldLabel>Lecturers</FieldLabel>
-            <Textarea
-              placeholder={"lecturer@ust.hk\nother@ust.hk"}
-              {...field}
-            />
-            <FieldDescription>
-              The emails of the lecturers responsible for this section, one per
-              line. These lecturers are the instructors involved in any appeal
-              raised from this section.
-            </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}

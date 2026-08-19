@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
-import { SectionForm, type SectionSubmissionSchema } from "./section-form";
+import { SectionForm, type SectionFormSchema } from "./section-form";
 import { type SectionRow, SectionTable } from "./section-table";
 
 export function SectionsConfig({
@@ -34,7 +34,7 @@ export function SectionsConfig({
     }))
     .sort((a, b) => a.code.localeCompare(b.code));
 
-  const handleSave = (newSection: SectionSubmissionSchema) => {
+  const handleSave = (newSection: SectionFormSchema) => {
     const section = focusSection;
 
     const { [section?.code ?? ""]: _, ...sections } = course.sections;
@@ -90,8 +90,9 @@ export function SectionsConfig({
       <FieldDescription>
         This configures the sections in the course, affecting the request types{" "}
         <b>Swap Section</b>, <b>Absent from Section</b> and{" "}
-        <b>Assignment Appeal</b>. The lecturers listed for a section are the
-        instructors involved in appeals raised from that section.
+        <b>Assignment Appeal</b>. The instructors of a section are the course
+        instructors enrolled in it, and they are the lecturers involved in
+        appeals raised from that section.
       </FieldDescription>
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>

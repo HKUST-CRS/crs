@@ -89,8 +89,8 @@ export class NotificationService {
    */
   async notifyRequestUpdate(request: Request, entries: ThreadEntry[] = []) {
     // Assignment Appeal: notify only the participants — the appealing student,
-    // the section's lecturers, and the assignment's TAs — instead of the
-    // class-wide instructor/observer rosters.
+    // the section's instructors (the lecturers), and the assignment's TAs —
+    // instead of the class-wide instructor/observer rosters.
     if (request.participants) {
       return this.notifyAppealUpdate(request, request.participants, entries);
     }
@@ -147,7 +147,7 @@ export class NotificationService {
 
   /**
    * Notify the participants of an appeal of a thread update. The actor is
-   * excluded: a student action reaches the responsible staff (lecturers + TAs);
+   * excluded: a student action reaches the responsible staff (instructors + TAs);
    * a staff action reaches the student and the other participants. No CC'd
    * observers — observers are never participants of an appeal.
    */

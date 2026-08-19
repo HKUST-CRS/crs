@@ -33,10 +33,6 @@ export const Course = z
             to: z.iso.time(),
           }),
         ),
-        lecturers: z.array(z.email()).optional().meta({
-          description:
-            "The emails of the lecturers responsible for this section.",
-        }),
       }),
     ),
     assignments: z.record(
