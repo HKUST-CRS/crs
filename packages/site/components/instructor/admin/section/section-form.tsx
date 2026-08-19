@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash } from "lucide-react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
+import { TimePicker } from "@/components/shadcn-studio/date-picker/date-picker-08";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
@@ -16,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 export const SectionFormSchema = z.object({
   code: z.string().min(1, "Code is required"),
   schedule: z.array(
@@ -62,8 +62,14 @@ export function SectionForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Code</FieldLabel>
-            <Input placeholder="L1/T1/LA1/..." {...field} />
+            <FieldLabel htmlFor="section-code">Code</FieldLabel>
+            <Input
+              id="section-code"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="L1/T1/LA1/…"
+              {...field}
+            />
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -81,9 +87,9 @@ export function SectionForm({
             <Plus className="mr-2 h-4 w-4" /> Add Time
           </Button>
         </div>
-        {schedule.fields.map((field, index) => {
+        {schedule.fields.map((scheduleField, index) => {
           return (
-            <div key={field.id} className="flex flex-col gap-3">
+            <div key={scheduleField.id} className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
                 <Controller
                   control={form.control}
@@ -117,7 +123,13 @@ export function SectionForm({
                   control={form.control}
                   render={({ field }) => (
                     <Field className="flex-0">
-                      <Input type="time" step={60 * 10} {...field} />
+                      <TimePicker
+                        id={`section-${scheduleField.id}-from-time`}
+                        value={field.value}
+                        onChange={field.onChange}
+                        label={`Schedule ${index + 1} start time`}
+                        className="w-36 max-w-none"
+                      />
                     </Field>
                   )}
                 />
@@ -127,7 +139,13 @@ export function SectionForm({
                   control={form.control}
                   render={({ field }) => (
                     <Field className="flex-0">
-                      <Input type="time" step={60 * 10} {...field} />
+                      <TimePicker
+                        id={`section-${scheduleField.id}-to-time`}
+                        value={field.value}
+                        onChange={field.onChange}
+                        label={`Schedule ${index + 1} end time`}
+                        className="w-36 max-w-none"
+                      />
                     </Field>
                   )}
                 />
