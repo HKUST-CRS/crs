@@ -4,19 +4,22 @@
  * 1) create or reset a CRS test course (TEST 0000)
  * 2) create or reset a dev user with a fixed enrollment
  *
- * Usage (from the repo root):
+ * Usage examples (from the repo root):
  *
- *   # seeds the default dev user (god@ust.hk)
- *   bun run --filter=server seed
- *
- *   # seeds a specific user
+ *   # seeds a regular user
  *   bun run --filter=server seed <email>
+ *
+ *   # seeds a sudo user with an initial name
+ *   bun run --filter=server seed <email> [name] --sudo
+ *
+ *   # resets the database before seeding
+ *   bun run --filter=server seed <email> --clean
  *
  * - The course is always (re)applied, so the local DB matches the
  *   project fixture.
- * - The user defaults to god@ust.hk, a sudoer that can administer
- *   courses and act as student/instructor. For other emails, it seeds a
- *   regular student and instructor tester for that account.
+ * - The email is required. The initial name is optional and is only used when
+ *   creating a new user. Use --sudo to grant sudo privileges and --clean to
+ *   reset the database first.
  *
  * Connects via the same MONGO_URI the server uses
  * (packages/server/.env), so the dev database must be running first
@@ -31,7 +34,6 @@ import {
   type UserID,
 } from "service/models";
 
-const DEFAULT_EMAIL: UserID = "god@ust.hk";
 const DEV_COURSE = { code: "TEST 0000", term: "0010" } as const;
 
 const TEST_COURSE: Course = {
@@ -65,24 +67,14 @@ const TEST_COURSE: Course = {
     },
   },
   assignments: {
-    "111": {
-      name: "222",
-      due: "2026-03-03T23:59:59.999+08:00",
-      maxExtension: "PT13219200S",
-    },
-    aaa: {
-      name: "aaa",
-      due: "2026-05-28T00:00:59.999+08:00",
-      maxExtension: "PT15465600S",
-    },
     PA1: {
       name: "CRS Development",
       due: "2026-05-01T23:59:59.999+08:00",
       maxExtension: "PT2592000S",
     },
     PA2: {
-      name: "test",
-      due: "2026-03-31T23:59:59.999+08:00",
+      name: "Further CRS Development",
+      due: "2026-09-01T23:59:59.999+08:00",
       maxExtension: "PT5788800S",
     },
   },
@@ -104,14 +96,17 @@ async function seedCourse(conn: DbConn): Promise<void> {
 }
 
 /** Create or reset a dev user with the fixed enrollment (idempotent). */
-async function seedUser(conn: DbConn, email: UserID): Promise<void> {
-  // god@ust.hk is a sudoer ("god mode"); other seeded users are not.
-  const sudoer = email === DEFAULT_EMAIL;
+async function seedUser(
+  conn: DbConn,
+  email: UserID,
+  initialName: string,
+  sudoer: boolean,
+): Promise<void> {
   const result = await conn.collections.users.updateOne(
     { email },
     {
       // Only set the name on insert; preserve the name from a real login.
-      $setOnInsert: { name: "" },
+      $setOnInsert: { name: initialName },
       $set: { enrollment: DEV_ENROLLMENT, sudoer },
     },
     { upsert: true },
@@ -124,20 +119,50 @@ async function seedUser(conn: DbConn, email: UserID): Promise<void> {
   console.log(JSON.stringify(user, null, 2));
 }
 
+function parseArgs(args: string[]): {
+  email: UserID;
+  initialName: string;
+  sudoer: boolean;
+  clean: boolean;
+} {
+  const flags = args.filter((arg) => arg.startsWith("--"));
+  const positional = args.filter((arg) => !arg.startsWith("--"));
+  if (
+    !positional[0] ||
+    positional.length > 2 ||
+    flags.some((flag) => flag !== "--sudo" && flag !== "--clean")
+  ) {
+    throw new Error(
+      "Usage: bun run --filter=server seed <email> [name] [--sudo] [--clean]",
+    );
+  }
+
+  return {
+    email: positional[0] as UserID,
+    initialName: positional[1] ?? "",
+    sudoer: flags.includes("--sudo"),
+    clean: flags.includes("--clean"),
+  };
+}
+
 async function main(): Promise<void> {
-  // Hard stop in production: seeding creates/resets a sudoer and a test
-  // course and force-overwrites the target user's enrollment. This is dev-only
+  // Hard stop in production: seeding creates/resets a user and a test course
+  // and force-overwrites the target user's enrollment. This is dev-only
   // tooling — never run it against a real database.
   if (Bun.env.NODE_ENV === "production") {
     throw new Error(
       "Refusing to seed: NODE_ENV is 'production'. The seed script is dev-only and destructively overwrites users.",
     );
   }
-  const email = (Bun.argv[2] ?? DEFAULT_EMAIL) as UserID;
+  const { email, initialName, sudoer, clean } = parseArgs(Bun.argv.slice(2));
   const conn = await DbConn.createFromEnv();
   try {
+    if (clean) {
+      await conn.dropDatabase();
+      console.log("✓ Database reset");
+    }
     await seedCourse(conn);
-    await seedUser(conn, email);
+    await seedUser(conn, email, initialName, sudoer);
   } finally {
     await conn.close();
   }

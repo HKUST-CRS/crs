@@ -60,6 +60,11 @@ export class DbConn {
     await this.client.close();
   }
 
+  async dropDatabase(): Promise<void> {
+    await this.client.db().dropDatabase();
+    await createIndexes(this.collections);
+  }
+
   static async create(uri: string): Promise<DbConn> {
     const conn = new DbConn(uri);
     await conn.init();

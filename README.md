@@ -27,11 +27,10 @@ Start the local MongoDB replica set and seed a development user:
 
 ```bash
 docker compose up
-bun run --filter=server seed  # seeds a dev account god@ust.hk
-bun run --filter=server seed <email>  # seeds a specific account
+bun run --filter=server seed <email> [name] [--sudo] [--clean]
 ```
 
-Set the same optional `CRS_DEV_USER` email in both environment files to bypass Microsoft authentication locally, and pass that email to the seed command when overriding its default. Then begin development with:
+Set the same optional `CRS_DEV_USER` email in both environment files to bypass Microsoft authentication locally, and pass that email to the seed command. Add `--sudo` when the development user needs sudo privileges, or `--clean` to reset the database first. Then begin development with:
 
 ```bash
 bun dev
