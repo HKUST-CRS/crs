@@ -42,9 +42,15 @@ export const routerUser = router({
     }),
   getAllByEmails: procedure
     .input(z.array(UserID))
-    .output(z.array(User))
-    .query(({ input, ctx }) => {
-      return services.user.auth(ctx.user.email).getUsersByEmail(input);
+    .output(z.array(User.pick({ email: true, name: true })))
+    .query(async ({ input, ctx }) => {
+      const users = await services.user
+        .auth(ctx.user.email)
+        .getUsersByEmail(input);
+      // Name resolution only — never expose enrollment / sudoer for arbitrary
+      // emails. The caller's access to the underlying data (e.g. an appeal's
+      // participants) is authorized by the layer that made the request.
+      return users.map((user) => ({ email: user.email, name: user.name }));
     }),
   suggestName: procedure
     .input(
