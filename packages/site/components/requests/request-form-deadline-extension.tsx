@@ -17,6 +17,7 @@ import {
   formatDate,
   formatDateTime,
   formatMonth,
+  formatTime,
   fromISO,
   toISO,
   withTime,
@@ -201,7 +202,7 @@ export const DeadlineExtensionRequestForm: FC<
                       >
                         <CalendarIcon />
                         {deadline?.isValid ? (
-                          formatDateTime(deadline)
+                          formatDate(deadline)
                         ) : deadlineDate ? (
                           formatDate(deadlineDate)
                         ) : (
@@ -267,7 +268,7 @@ export const DeadlineExtensionRequestForm: FC<
                   </Popover>
                   <TimePicker
                     id="request-deadline-time"
-                    value={deadlineTime?.toFormat("HH:mm:ss") ?? ""}
+                    value={deadlineTime ? formatTime(deadlineTime) : ""}
                     disabled={viewonly || !assignment || !deadlineDate}
                     label="New deadline"
                     className="max-w-none flex-1"

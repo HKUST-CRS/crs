@@ -28,7 +28,7 @@ export function TimePicker({
       type="time"
       id={id}
       aria-label={label}
-      step="1"
+      step="60"
       disabled={disabled}
       onChange={(event) => onChange?.(event.currentTarget.value)}
       className={cn(
@@ -41,7 +41,7 @@ export function TimePicker({
 
 const DatePickerDemo = () => {
   return (
-    <TimePicker id="time-picker" label="Time input" defaultValue="08:30:00" />
+    <TimePicker id="time-picker" label="Time input" defaultValue="08:30" />
   );
 };
 

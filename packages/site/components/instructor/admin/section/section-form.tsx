@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash } from "lucide-react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { formatTime } from "service/utils/datetime";
 import { z } from "zod";
 import { TimePicker } from "@/components/shadcn-studio/date-picker/date-picker-08";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ export function SectionForm({
                     <Field className="flex-0">
                       <TimePicker
                         id={`section-${scheduleField.id}-from-time`}
-                        value={field.value}
+                        value={field.value ? formatTime(field.value) : ""}
                         onChange={field.onChange}
                         label={`Schedule ${index + 1} start time`}
                         className="w-36 max-w-none"
@@ -141,7 +142,7 @@ export function SectionForm({
                     <Field className="flex-0">
                       <TimePicker
                         id={`section-${scheduleField.id}-to-time`}
-                        value={field.value}
+                        value={field.value ? formatTime(field.value) : ""}
                         onChange={field.onChange}
                         label={`Schedule ${index + 1} end time`}
                         className="w-36 max-w-none"

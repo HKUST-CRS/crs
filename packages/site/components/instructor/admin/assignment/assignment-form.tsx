@@ -7,8 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   formatDate,
-  formatDateTime,
   formatMonth,
+  formatTime,
   fromISO,
   toISO,
   withTime,
@@ -169,7 +169,7 @@ export function AssignmentForm({
               </Popover>
               <TimePicker
                 id="assignment-due-time"
-                value={dueTime?.toFormat("HH:mm:ss") ?? ""}
+                value={dueTime ? formatTime(dueTime) : ""}
                 disabled={!dueDate}
                 label="Due date"
                 className="max-w-none flex-1"
@@ -203,7 +203,7 @@ export function AssignmentForm({
                   >
                     <CalendarIcon />
                     {maxDue ? (
-                      formatDateTime(maxDue)
+                      formatDate(maxDue)
                     ) : dueValid ? (
                       <span>Pick a date</span>
                     ) : (
@@ -263,7 +263,7 @@ export function AssignmentForm({
               </Popover>
               <TimePicker
                 id="assignment-max-extension-time"
-                value={maxDue?.toFormat("HH:mm:ss") ?? ""}
+                value={maxDue ? formatTime(maxDue) : ""}
                 disabled={!maxDue}
                 label="Latest due date after extension"
                 className="max-w-none flex-1"
