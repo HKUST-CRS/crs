@@ -5,6 +5,8 @@ import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
 import { SwapSectionRequest } from "./SwapSection";
+import { ExaminationAppealRequest } from "./Examination";
+
 
 export const RequestInits = [
   SwapSectionRequest.omit({
@@ -25,11 +27,19 @@ export const RequestInits = [
     timestamp: true,
     response: true,
   }),
+  ExaminationAppealRequest.omit({
+    id: true,
+    from: true,
+    timestamp: true,
+    response: true,
+  }),
 ] as const;
+
 export const Requests = [
   SwapSectionRequest,
   AbsentFromSectionRequest,
   DeadlineExtensionRequest,
+  ExaminationAppealRequest
 ] as const;
 
 export const Request = z.discriminatedUnion("type", Requests);
@@ -85,6 +95,13 @@ export namespace RequestSerialization {
         return {
           Assignment: r.metadata.assignment,
           "New Deadline": formatDateTime(r.metadata.deadline),
+        };
+      case "Examination Appeal":
+        return {
+          // "From Section": r.metadata.fromSection,
+          // "From Date": formatDate(r.metadata.fromDate),
+          // "To Section": r.metadata.toSection,
+          // "To Date": formatDate(r.metadata.toDate),
         };
     }
   }

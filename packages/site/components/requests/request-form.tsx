@@ -25,6 +25,11 @@ import {
   SwapSectionFormSchema,
   SwapSectionRequestForm,
 } from "./request-form-swap-section";
+import {
+  ExaminationAppealFormSchema,
+  ExaminationAppealRequestForm,
+} from "./request-form-examination-appeal";
+
 
 export type RequestFormProps = {
   viewonly?: boolean;
@@ -37,6 +42,7 @@ const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
   AbsentFromSectionFormSchema,
   DeadlineExtensionFormSchema,
+  ExaminationAppealFormSchema
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
 
@@ -90,7 +96,16 @@ export default function RequestForm(props: RequestFormProps) {
             metadata: meta.meta,
           });
         }
+        case "Examination Appeal": {
+          return await createRequest.mutateAsync({
+            class: base.class,
+            type: meta.type,
+            details: meta.details,
+            metadata: meta.meta,
+          });
+        }
       }
+
     }
     toast.promise(mutate(), {
       loading: "Submitting the request...",
@@ -180,7 +195,31 @@ export default function RequestForm(props: RequestFormProps) {
             />
           );
         }
+        case "Examination Appeal": {
+          const defMeta =
+            meta?.type === "Examination Appeal" ? meta : undefined;
+          const defProps =
+            props.default?.type === "Examination Appeal"
+              ? {
+                  type: base.type,
+                  meta: props.default?.metadata,
+                  details: props.default?.details,
+                }
+              : undefined;
+          return (
+            <ExaminationAppealRequestForm
+              base={base}
+              default={defMeta ?? defProps}
+              viewonly={viewonly}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
+            />
+          );
+        }
       }
+      
     }
     return null;
   };

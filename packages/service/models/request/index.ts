@@ -7,5 +7,6 @@ export * from "./Response";
 export * from "./SwapSection";
 export * from "./AbsentFromSection";
 export * from "./DeadlineExtension";
+export * from "./Examination";
 
 export * from "./Request";
