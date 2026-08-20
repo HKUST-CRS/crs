@@ -73,6 +73,11 @@ export default function StudentsView() {
               </u>
             </>
           )}
+          <br />
+          <br />
+          <u>
+            <Link href="/about">About CRS</Link>
+          </u>
         </div>
       </header>
       <section className="mx-auto">

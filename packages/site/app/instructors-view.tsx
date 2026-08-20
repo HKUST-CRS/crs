@@ -162,6 +162,11 @@ export default function InstructorsView() {
               </u>
             </>
           )}
+          <br />
+          <br />
+          <u>
+            <Link href="/about">About CRS</Link>
+          </u>
         </div>
       </header>
       <section>
@@ -228,12 +233,13 @@ export default function InstructorsView() {
             </DialogHeader>
             <CreateCourseForm onSubmit={handleCreateCourse} />
             <DialogDescription className="border-t pt-4">
-              Guide to <strong>Import Schedule</strong>. After entering the code and the
-              term, it looks up the course in HKUST's public schedule and fills
-              in its title, sections, and instructors; for safety reasons, the
-              emails of the instructors have to be provided explicitly.
-              Otherwise, just enter the code, the term, and the title manually
-              and then configure the sections and instructors later.
+              Guide to <strong>Import Schedule</strong>. After entering the code
+              and the term, it looks up the course in HKUST's public schedule
+              and fills in its title, sections, and instructors; for safety
+              reasons, the emails of the instructors have to be provided
+              explicitly. Otherwise, just enter the code, the term, and the
+              title manually and then configure the sections and instructors
+              later.
             </DialogDescription>
           </DialogContent>
         </Dialog>

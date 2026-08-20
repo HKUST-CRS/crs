@@ -44,6 +44,11 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
             <u>
               <Link href="/instructor">Instructors' View</Link>
             </u>
+            <br />
+            <br />
+            <u>
+              <Link href="/about">About CRS</Link>
+            </u>
           </div>
         )}
       </header>
