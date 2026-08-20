@@ -5,11 +5,13 @@
     "packages/*"
   ],
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "generate-license-file": "^4.2.1"
   },
   "scripts": {
     "dev": "concurrently --names Server,Site 'cd packages/server && bun run dev' 'cd packages/site && bun run dev'",
     "lint:fix": "bunx --bun biome check --write",
-    "typecheck": "bun run --filter='*' typecheck"
+    "typecheck": "bun run --filter='*' typecheck",
+    "licenses": "mkdir -p packages/site/public && bunx generate-license-file --input ./package.json --output /tmp/licenses-root.txt --overwrite && bunx generate-license-file --input ./packages/site/package.json --output /tmp/licenses-site.txt --overwrite && bunx generate-license-file --input ./packages/server/package.json --output /tmp/licenses-server.txt --overwrite && bunx generate-license-file --input ./packages/service/package.json --output /tmp/licenses-service.txt --overwrite && cat /tmp/licenses-root.txt /tmp/licenses-site.txt /tmp/licenses-server.txt /tmp/licenses-service.txt > packages/site/public/THIRD-PARTY-LICENSES.txt"
   }
 }
