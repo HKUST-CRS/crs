@@ -4,17 +4,20 @@ import Link from "next/link";
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     h1: (props) => (
-      <h1 className="text-4xl font-bold tracking-tight mb-8" {...props} />
+      <h1 className="mb-8 font-bold text-4xl tracking-tight" {...props} />
     ),
     h2: (props) => (
-      <h2 className="text-2xl font-semibold mt-12 mb-4 border-b border-border pb-2" {...props} />
+      <h2
+        className="mt-12 mb-4 border-border border-b pb-2 font-semibold text-2xl"
+        {...props}
+      />
     ),
     h3: (props) => (
-      <h3 className="text-xl font-semibold mt-8 mb-3" {...props} />
+      <h3 className="mt-8 mb-3 font-semibold text-xl" {...props} />
     ),
 
     p: (props) => (
-      <p className="leading-7 mb-5 text-muted-foreground" {...props} />
+      <p className="mb-5 text-muted-foreground leading-7" {...props} />
     ),
 
     a: ({ href, children, ...props }) => {
@@ -43,20 +46,25 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
       );
     },
 
-    ul: (props) => <ul className="list-disc pl-6 mb-5 space-y-2" {...props} />,
-    ol: (props) => <ol className="list-decimal pl-6 mb-5 space-y-2" {...props} />,
+    ul: (props) => <ul className="mb-5 list-disc space-y-2 pl-6" {...props} />,
+    ol: (props) => (
+      <ol className="mb-5 list-decimal space-y-2 pl-6" {...props} />
+    ),
     li: (props) => <li className="leading-7" {...props} />,
 
     hr: () => <hr className="my-10 border-border" />,
 
     pre: (props) => (
-      <pre className="rounded-lg bg-muted/50 p-4 overflow-x-auto mb-6 text-sm leading-relaxed whitespace-pre-wrap" {...props} />
+      <pre
+        className="mb-6 overflow-x-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-4 text-sm leading-relaxed"
+        {...props}
+      />
     ),
-    code: (props) => (
-      <code className="font-mono text-sm" {...props} />
-    ),
+    code: (props) => <code className="font-mono text-sm" {...props} />,
 
-    strong: (props) => <strong className="font-semibold text-foreground" {...props} />,
+    strong: (props) => (
+      <strong className="font-semibold text-foreground" {...props} />
+    ),
 
     ...components,
   };
