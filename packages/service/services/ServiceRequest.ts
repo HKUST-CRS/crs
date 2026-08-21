@@ -155,13 +155,41 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
+
+    let isTA = false;
+    try {
+      if (request.type === "Examination Appeal") {
+        const appealMeta = (request as any).metadata || (request as any).meta;
+        
+        if (appealMeta && appealMeta.appeals && Array.isArray(appealMeta.appeals)) {
+          const course = await this.repos.course.requireCourse(request.class.course); 
+          
+          if (course && course.examinations) {
+            isTA = appealMeta.appeals.some((appealItem: any) => {
+              const examData = course.examinations[appealItem.examCode];
+              return examData?.questions?.some(
+                (q: any) => 
+                  q.questionNumber === appealItem.questionNumber && 
+                  q.taId === user.email
+              );
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.error("TA Bypass Authentication failed", err);
+    }
+    
     // only instructors of the class can create responses
-    assertClassRole(
-      user,
-      request.class,
-      ["instructor"],
-      `creating response to request ${requestID}`,
-    );
+
+    if (!isTA) {
+      assertClassRole(
+        user,
+        request.class,
+        ["instructor"],
+        `creating response to request ${requestID}`,
+      );
+    }
     await this.repos.request.createResponse(this.user, requestID, response);
   }
 }
