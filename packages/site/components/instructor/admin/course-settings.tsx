@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc-client";
 import { AssignmentsConfig } from "./assignment/assignments-config";
 import { SectionsConfig } from "./section/sections-config";
+import { ExaminationsConfig } from "./examination/examinations-config";
 
 export function CourseSettings({ cid }: { cid: CourseID }) {
   const trpc = useTRPC();
@@ -27,6 +28,14 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
     },
   });
 
+  const updateExaminations = useMutation({
+    ...trpc.course.updateExaminations.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Successfully updated the examinations.");
+      refetch();
+    },
+  });
+
   if (!course) return null;
   return (
     <div className="space-y-8">
@@ -42,6 +51,12 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
           updateAssignments.mutate({ courseID: cid, assignments });
         }}
       />
+      <ExaminationsConfig 
+        course={course} 
+        onUpdate={(examinations) => {
+          updateExaminations.mutate({courseID: cid, examinations});  
+        }} 
+    />
     </div>
   );
 }

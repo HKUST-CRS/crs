@@ -127,6 +127,29 @@ export class CourseService<TUser extends UserID | null = null> {
   }
 
   /**
+   * Updates the examinations of a course.
+   *
+   * The current user must be an instructor or admin in the course.
+   *
+   * @param courseID The ID of the course to update.
+   * @param examinations The new examinations of the course.
+   */
+  async updateExaminations(
+    this: CourseService<UserID>,
+    courseID: CourseID,
+    examinations: Course["examinations"],
+  ): Promise<void> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(
+      user,
+      courseID,
+      ["instructor", "admin"],
+      `updating examinations of course ${Courses.formatID(courseID)}`,
+    );
+    await this.repos.course.updateExaminations(courseID, examinations);
+  }
+
+  /**
    * Updates the effective request types of a course.
    *
    * @param courseID The ID of the course to update.

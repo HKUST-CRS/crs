@@ -48,4 +48,16 @@ export const routerCourse = router({
         .auth(ctx.user.email)
         .updateAssignments(input.courseID, input.assignments);
     }),
+  updateExaminations: procedure
+    .input(
+      z.object({
+        courseID: CourseID, 
+        examinations: Course.shape.examinations, 
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .updateExaminations(input.courseID, input.examinations);
+    }),
 });

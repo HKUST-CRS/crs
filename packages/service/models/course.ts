@@ -49,6 +49,17 @@ export const Course = z
         }),
       }),
     ),
+    examinations: z.record(
+        z.string(), 
+        z.object({
+            questions: z.array(
+                z.object({
+                    questionNumber: z.string(), 
+                    taId: z.string(),           
+                })
+            ),
+        })
+    ),
     effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
       description:
         "A mapping of request types that are effective for this course.",

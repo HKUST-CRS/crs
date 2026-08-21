@@ -11,9 +11,13 @@ const AppealItem = z.object({
 });
 
 export const ExaminationAppealMeta = z.object({
-  appeals: z.array(AppealItem).min(1).meta({ 
-    description: "List of questions to appeal." 
-  }),
+  appeals: z.array(
+    z.object({
+      examCode: z.string().min(1, "Please select an examination"), 
+      questionNumber: z.string().min(1, "Please select a question"),
+      reason: z.string().min(1, "Reason is required"),
+    })
+  ),
 });
 
 export type ExaminationAppealMeta = z.infer<typeof ExaminationAppealMeta>;

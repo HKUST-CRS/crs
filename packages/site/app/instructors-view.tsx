@@ -102,10 +102,12 @@ export default function InstructorsView() {
         title: form.title,
         sections: {},
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": true,
         },
       },
       {

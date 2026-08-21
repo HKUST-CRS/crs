@@ -18,8 +18,19 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { RequestFormDetails } from "./details-request-form";
 import { FormSchema } from "./schema";
+
+import { useQuery } from "@tanstack/react-query";
+import { useTRPC } from "@/lib/trpc-client";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const ExaminationAppealFormSchema = FormSchema(
   "Examination Appeal",
@@ -38,6 +49,12 @@ export type ExaminationAppealRequestFormProps = {
 export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps> = (
   props,
 ) => {
+  const trpc = useTRPC();
+  const { data: course } = useQuery({
+      ...trpc.course.get.queryOptions(props.base.class.course),
+      enabled: !!props.base.class.course,
+    });
+  
   const form = useForm<ExaminationAppealFormSchema>({
     resolver: zodResolver(ExaminationAppealFormSchema),
     defaultValues: {
@@ -47,7 +64,7 @@ export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps>
         proof: [],
       },
       meta: {
-        appeals: [{ questionNumber: "", reason: "" }], 
+        appeals: [{ examCode: "", questionNumber: "", reason: "" } as any], 
       },
       ...props.default, 
     },
@@ -92,67 +109,117 @@ export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps>
         )}
       >
         <div className="space-y-6">
-          {fields.map((field, index) => (
-            <div
-              key={field.id}
-              className="relative grid grid-cols-1 gap-4 p-5 border rounded-lg dark:bg-transparent bg-slate-50/50 md:grid-cols-12"
-            >
-              <div className="flex items-center justify-between col-span-1 pb-2 border-b md:col-span-12 border-slate-200">
-                <h4 className="font-semibold">
-                  Appeal Item #{index + 1}
-                </h4>
-                {!viewonly && fields.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => remove(index)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Remove
-                  </Button>
-                )}
+          {fields.map((field, index) => {
+            const selectedExamCode = form.watch(`meta.appeals.${index}.examCode` as any);
+            const availableQuestions = selectedExamCode && course?.examinations
+              ? course.examinations[selectedExamCode]?.questions || []
+              : [];
+
+            return (
+              <div
+                key={field.id}
+                className="relative grid grid-cols-1 gap-4 p-5 border rounded-lg dark:bg-transparent bg-slate-50/50 md:grid-cols-12"
+              >
+                <div className="flex items-center justify-between col-span-1 pb-2 border-b md:col-span-12 border-slate-200">
+                  <h4 className="font-semibold">
+                    Appeal Item #{index + 1}
+                  </h4>
+                  {!viewonly && fields.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => remove(index)}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                <FormField
+                  name={`meta.appeals.${index}.examCode` as any}
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem className="col-span-1 md:col-span-3">
+                      <FormLabel>Examination</FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            form.setValue(`meta.appeals.${index}.questionNumber` as any, "");
+                          }}
+                          value={field.value}
+                          disabled={viewonly}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Exam" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {course?.examinations && Object.keys(course.examinations).map((code) => (
+                              <SelectItem key={code} value={code}>
+                                {code}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  name={`meta.appeals.${index}.questionNumber` as any}
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem className="col-span-1 md:col-span-3">
+                      <FormLabel>Question</FormLabel>
+                      <FormControl>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          disabled={viewonly || !selectedExamCode} 
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Question" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableQuestions.map((q) => (
+                              <SelectItem key={q.questionNumber} value={q.questionNumber}>
+                                {q.questionNumber}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  name={`meta.appeals.${index}.reason` as any}
+                  control={form.control}
+                  render={({ field }) => (
+                    <FormItem className="col-span-1 md:col-span-12">
+                      <FormLabel>Appeal Reason</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Explain why this question deserves a different score..."
+                          disabled={viewonly}
+                          className="resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-
-              <FormField
-                name={`meta.appeals.${index}.questionNumber`}
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem className="col-span-1 md:col-span-6">
-                    <FormLabel>Question Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., Q1a"
-                        disabled={viewonly}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                name={`meta.appeals.${index}.reason`}
-                control={form.control}
-                render={({ field }) => (
-                  <FormItem className="col-span-1 md:col-span-12">
-                    <FormLabel>Appeal Reason</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Explain why this question deserves a different score..."
-                        disabled={viewonly}
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {!viewonly && (
@@ -161,7 +228,7 @@ export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps>
             variant="outline"
             className="w-full border-2 border-dashed hover:text-primary hover:border-primary"
             onClick={() =>
-              append({ questionNumber: "", reason: "" })
+              append({ examCode: "", questionNumber: "", reason: "" } as any)
             }
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -170,10 +237,10 @@ export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps>
         )}
 
         {!viewonly && (
-        <div className="col-span-full flex justify-end">
-          <Button type="submit">Submit</Button>
-        </div>
-      )}
+          <div className="flex justify-end col-span-full">
+            <Button type="submit">Submit</Button>
+          </div>
+        )}
       </Wrapper>
     </Form>
   );

@@ -80,6 +80,20 @@ export class CourseRepo {
     );
   }
 
+  async updateExaminations(
+    courseID: CourseID,
+    examinations: Course["examinations"],
+  ): Promise<void> {
+    examinations = sortRecord(examinations);
+    await this.collections.courses.updateOne(
+      // cannot use courseID directly, in case of extra fields
+      { code: courseID.code, term: courseID.term },
+      {
+        $set: { examinations },
+      },
+    );
+  } 
+
   async updateEffectiveRequestTypes(
     courseID: CourseID,
     effectiveRequestTypes: Course["effectiveRequestTypes"],
