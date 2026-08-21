@@ -77,6 +77,43 @@ export class RequestService<TUser extends UserID | null = null> {
       const enrollments = user.enrollment.filter(
         (clazz) => clazz.role === "instructor" || clazz.role === "observer",
       );
+      
+      const studentCourses = await this.repos.course.getCoursesFromEnrollment(user, ["student"]);
+      
+      for (const course of studentCourses) {
+        const taResponsibilities: { examCode: string; questionNumber: string }[] = [];
+        
+        if (course.examinations) {
+          for (const [examCode, examData] of Object.entries(course.examinations)) {
+            for (const q of examData.questions || []) {
+              if (q.taId === user.email) {
+                taResponsibilities.push({ examCode, questionNumber: q.questionNumber });
+              }
+            }
+          }
+        }
+        
+        if (taResponsibilities.length > 0) {
+          const allCourseRequests = await this.repos.request.getRequestsInClasses([
+            { course: { code: course.code, term: course.term }, section: "*", role: "instructor" } as any
+          ]);
+          
+          const taSpecificRequests = allCourseRequests.filter(req => {
+            if (req.type !== "Examination Appeal") return false; 
+            
+            const appealMeta = req.metadata as any;
+            return appealMeta.appeals?.some((appealItem: any) => 
+              taResponsibilities.some(taTask => 
+                taTask.examCode === appealItem.examCode && 
+                taTask.questionNumber === appealItem.questionNumber
+              )
+            );
+          });
+          
+          requests.push(...taSpecificRequests);
+        }
+      }
+      
       requests.push(
         ...(await this.repos.request.getRequestsInClasses(enrollments)),
       );

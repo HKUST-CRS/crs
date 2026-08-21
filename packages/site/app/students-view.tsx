@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,7 +12,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
 import { DYK } from "./dyk";
-
 export default function StudentsView() {
   const router = useRouter();
 
@@ -24,9 +23,33 @@ export default function StudentsView() {
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
+
+  // Find all course this student as a role of student
+  const studentCourses = userQuery.data?.enrollment
+    ?.filter((e) => e.role === "student")
+    ?.map((e) => e.course) || [];
+
+
+  const courseQueries = useQueries({
+    queries: studentCourses.map((course) => ({
+      ...trpc.course.get.queryOptions(course),
+      enabled: !!course.code,
+    })),
+  });
+
+  // Check if the student is responsible for any exam question
+  const isTA = courseQueries.some((query) => {
+    const exams = query.data?.examinations;
+    if (!exams) return false;
+    
+    return Object.values(exams).some((examData: any) =>
+      examData.questions?.some((q: any) => q.taId === userQuery.data?.email)
+    );
+  });
+
   const hasTeachingRole = userQuery.data?.enrollment?.some(
     (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin",
+      e.role === "instructor" || e.role === "observer" || e.role === "admin" || isTA
   );
   useEffect(() => {
     if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {

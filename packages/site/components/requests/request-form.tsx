@@ -67,7 +67,7 @@ export default function RequestForm(props: RequestFormProps) {
 
     console.log({ message: "Submit Request", meta, base });
 
-    async function mutate(): Promise<string> {
+    async function mutate(): Promise<string | string[]> {
       if (!base) {
         throw new Error("base is undefined");
       }
@@ -97,12 +97,19 @@ export default function RequestForm(props: RequestFormProps) {
           });
         }
         case "Examination Appeal": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
+          const submitPromises = meta.meta.appeals.map((appealItem) => {
+            return createRequest.mutateAsync({
+              class: base.class,
+              type: meta.type,
+              details: meta.details, 
+              metadata: {
+                appeals: [appealItem], 
+              },
+            });
           });
+
+          const submittedIds = await Promise.all(submitPromises);
+          return submittedIds.length > 1 ? submittedIds : submittedIds[0];
         }
       }
 
@@ -111,8 +118,15 @@ export default function RequestForm(props: RequestFormProps) {
       loading: "Submitting the request...",
       success: (id) => {
         console.log({ message: "Submitted Request", id });
-        router.replace(`/request/${id}`);
-        return "Request submitted successfully!";
+        if (Array.isArray(id) && id.length != 1) {
+          router.replace("/"); // 直接帶佢返主頁 Dashboard
+          return `Successfully submitted ${id.length} appeal requests!`; // 彈句靚 Pop-up
+        } 
+        // 💡 4. 如果係普通單 (得一個 ID)
+        else {
+          router.replace(`/request/${id}`);
+          return "Request submitted successfully!";
+        }
       },
       error: (err) => {
         submitting.current = false;
