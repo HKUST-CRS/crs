@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
+import { LogoutButton } from "@/components/logout-button";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
 import { devUser } from "@/lib/auth";
 import { TRPCReactProvider } from "@/lib/trpc-client";
@@ -30,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} mx-2 antialiased md:mx-8`}
+        className={`${geistSans.variable} ${geistMono.variable} mx-4 antialiased md:mx-8`}
       >
         <SessionProvider>
           <TRPCReactProvider devAuth={!!devUser}>
@@ -40,7 +41,10 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
-              <ThemeToggleButton />
+              <div className="fixed top-4 right-4 z-[8] flex gap-2">
+                <ThemeToggleButton />
+                <LogoutButton />
+              </div>
               {children}
               <Toaster position="top-center" richColors />
             </ThemeProvider>
