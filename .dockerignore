@@ -17,6 +17,7 @@ docker-compose*.yml
 # Configurations
 .github
 .vscode
+**/.env*
 
 # Text
 **/README.md
