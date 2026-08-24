@@ -138,7 +138,7 @@ export default function InstructorsView() {
   };
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex max-w-4xl flex-col gap-8 md:my-32 lg:my-64">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -165,11 +165,12 @@ export default function InstructorsView() {
         </div>
       </header>
       <section>
-        <div className="flex flex-row items-end justify-between pb-4">
+        <div className="flex flex-row flex-wrap items-end justify-between gap-y-2 pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
           <Button
             onClick={() => void handleExportRequests()}
             size="sm"
+            className="whitespace-nowrap"
             disabled={isExporting}
           >
             <ArrowRightFromLine className="h-4 w-4" />
@@ -190,7 +191,7 @@ export default function InstructorsView() {
         )}
       </section>
       <section>
-        <div className="flex flex-row items-end justify-between pb-4">
+        <div className="flex flex-row flex-wrap items-end justify-between gap-y-2 pb-4">
           <p className="font-medium text-sm leading-none">Course Management</p>
           {userQuery.data?.sudoer && (
             <Button onClick={() => setCreateCourseOpen(true)} size="sm">
@@ -228,12 +229,13 @@ export default function InstructorsView() {
             </DialogHeader>
             <CreateCourseForm onSubmit={handleCreateCourse} />
             <DialogDescription className="border-t pt-4">
-              Guide to <strong>Import Schedule</strong>. After entering the code and the
-              term, it looks up the course in HKUST's public schedule and fills
-              in its title, sections, and instructors; for safety reasons, the
-              emails of the instructors have to be provided explicitly.
-              Otherwise, just enter the code, the term, and the title manually
-              and then configure the sections and instructors later.
+              Guide to <strong>Import Schedule</strong>. After entering the code
+              and the term, it looks up the course in HKUST's public schedule
+              and fills in its title, sections, and instructors; for safety
+              reasons, the emails of the instructors have to be provided
+              explicitly. Otherwise, just enter the code, the term, and the
+              title manually and then configure the sections and instructors
+              later.
             </DialogDescription>
           </DialogContent>
         </Dialog>

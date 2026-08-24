@@ -1,8 +1,5 @@
 "use client";
 
-import { sample } from "es-toolkit";
-import { useMemo } from "react";
-
 const url = {
   gh: "https://github.com/HKUST-CRS/crs",
   team: "https://github.com/HKUST-CRS/reports",
@@ -52,7 +49,8 @@ const facts = [
 ];
 
 export function DYK() {
-  const fact = useMemo(() => sample(facts), []);
+  // Seed the pick by UTC day so the server render and client hydration agree.
+  const fact = facts[Math.floor(Date.now() / 86_400_000) % facts.length];
   return (
     <div className="fixed top-4 left-4 z-[8] text-gray-500 text-xs">
       <div className="font-medium text-[0.675rem] uppercase">
