@@ -38,6 +38,7 @@ const course = Course.parse({
     "Absent from Section": true,
     "Deadline Extension": true,
     "Exam Appeal": true,
+    "Exam Special Arrangement": false,
   },
 });
 const clazz = {

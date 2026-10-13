@@ -204,7 +204,9 @@ export class RequestService<TUser extends UserID | null = null> {
       canComment: this.user === request.from || staff,
       canDecide:
         staff &&
-        (request.type !== "Exam Appeal" || this.user !== request.from) &&
+        ((request.type !== "Exam Appeal" &&
+          request.type !== "Exam Special Arrangement") ||
+          this.user !== request.from) &&
         DECISION_FROM.includes(request.status),
       canAppeal:
         this.user === request.from && APPEAL_FROM.includes(request.status),
@@ -296,6 +298,12 @@ export class RequestService<TUser extends UserID | null = null> {
           throw new InvalidRequestError(request.class.course, request.type);
         }
         break;
+      case "Exam Special Arrangement":
+        comment = CommentInit.parse({ ...comment, text: comment.text.trim() });
+        if (!Object.hasOwn(course.exams, request.metadata.examCode)) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
     }
     return this.repos.request.createRequest(this.user, request, comment);
   }
@@ -363,11 +371,15 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    if (request.type === "Exam Appeal" && this.user === request.from) {
+    if (
+      this.user === request.from &&
+      (request.type === "Exam Appeal" ||
+        request.type === "Exam Special Arrangement")
+    ) {
       throw new PermissionError(
         this.user,
         [],
-        `deciding own exam appeal ${requestID}`,
+        `deciding own ${request.type.toLowerCase()} ${requestID}`,
       );
     }
     await this.assertRequestAccess(

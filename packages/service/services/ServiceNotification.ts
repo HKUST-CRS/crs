@@ -113,11 +113,13 @@ export class NotificationService {
       : entries.length === 0
         ? "Request"
         : "Comment";
-    const question =
+    const exam =
       request.type === "Exam Appeal"
         ? ` (${request.metadata.examCode} ${request.metadata.question})`
-        : "";
-    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${question}`;
+        : request.type === "Exam Special Arrangement"
+          ? ` (${request.metadata.examCode})`
+          : "";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${exam}`;
 
     const content = await this.renderUpdate(
       request,

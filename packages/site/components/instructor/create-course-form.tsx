@@ -43,6 +43,7 @@ const requestTypes = {
   "Absent from Section": true,
   "Deadline Extension": true,
   "Exam Appeal": false,
+  "Exam Special Arrangement": false,
 };
 
 const weekdays = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

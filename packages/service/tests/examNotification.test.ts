@@ -44,6 +44,7 @@ test("exam notifications include only an enrolled assigned grader and follow rev
       "Absent from Section": true,
       "Deadline Extension": true,
       "Exam Appeal": true,
+      "Exam Special Arrangement": false,
     },
   };
   const request: Request = {

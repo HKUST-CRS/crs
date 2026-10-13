@@ -47,6 +47,9 @@ describe("exam appeal schemas", () => {
     });
     expect(course.exams).toEqual({});
     expect(course.effectiveRequestTypes["Exam Appeal"]).toBe(false);
+    expect(course.effectiveRequestTypes["Exam Special Arrangement"]).toBe(
+      false,
+    );
   });
 
   test("question keys are nonempty and each value contains one grader email", () => {

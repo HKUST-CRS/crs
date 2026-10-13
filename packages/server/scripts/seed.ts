@@ -46,6 +46,7 @@ const TEST_COURSE: Course = {
     "Absent from Section": true,
     "Deadline Extension": true,
     "Exam Appeal": true,
+    "Exam Special Arrangement": true,
   },
   sections: {
     LA1: {
@@ -81,6 +82,7 @@ const TEST_COURSE: Course = {
     },
   },
   exams: {
+    final: { questions: {} },
     midterm: {
       questions: {
         Q1: { grader: "dev-grader-q1@ust.hk" },

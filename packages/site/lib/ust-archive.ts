@@ -142,6 +142,7 @@ export function parseCourse(
         "Absent from Section": true,
         "Deadline Extension": true,
         "Exam Appeal": false,
+        "Exam Special Arrangement": false,
       },
     },
     instructors: [...instructors.values()]

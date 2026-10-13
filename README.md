@@ -44,6 +44,28 @@ The current plan is to preserve type-safety throughout the application by levera
 - The View mainly makes use of [React](https://reactjs.org/), [Next.js](https://nextjs.org/), [shadcn/ui](https://ui.shadcn.com/), and [Tailwind CSS](https://tailwindcss.com/) for building the beautiful server-side rendering site.
 - The Controller uses [tRPC](https://trpc.io/) for creating type-safe APIs, and [MongoDB](https://www.mongodb.com/) for (type-safe and efficient) persistent data storage.
 
+### Exam special arrangements
+
+Course instructors can enable **Exam Special Arrangement** in the request-type
+settings and add exam codes under **Exams**. Question graders are only needed
+for exam appeals; special arrangements also support exams with no questions
+configured. The new request type is disabled by default for existing courses.
+
+Students select an exam and explain the arrangement they need, such as a makeup
+or absence, in the opening message. Supporting documents, follow-up information,
+and instructor decisions stay in the request thread. The metadata contains only
+the exam code:
+
+```json
+{ "examCode": "final" }
+```
+
+The server checks student enrollment, whether the type is enabled, and whether
+the exam belongs to the course. Instructors can decide requests; observers have
+read-only access. Question graders do not gain access to special arrangements
+through an exam-question assignment, and requesters cannot decide their own
+special-arrangement requests.
+
 ## License
 
 All source code in this repository is licensed under the MIT License. Certain university-specific assets and materials are excluded from this license and are not open source. Those assets remain the exclusive property of the *Hong Kong University of Science and Technology* *(HKUST)* and/or the *Department of Computer Science and Engineering, HKUST* *(CSE)*, which reserve all rights not expressly granted herein.

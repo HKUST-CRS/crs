@@ -59,6 +59,13 @@ const formatRequestOverview = (
  */
 const formatRequestMetadata = (request: Request) => {
   switch (request.type) {
+    case "Exam Special Arrangement":
+      return (
+        <>
+          The student is requesting a special arrangement for exam{" "}
+          {request.metadata.examCode}.
+        </>
+      );
     case "Exam Appeal":
       return (
         <>

@@ -64,6 +64,7 @@ export const Course = z
         "Absent from Section": z.boolean(),
         "Deadline Extension": z.boolean(),
         "Exam Appeal": z.boolean().default(false),
+        "Exam Special Arrangement": z.boolean().default(false),
       })
       .meta({
         description:
