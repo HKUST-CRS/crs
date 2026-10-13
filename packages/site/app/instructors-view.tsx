@@ -67,6 +67,9 @@ export default function InstructorsView() {
     trpc.course.getAllFromEnrollment.queryOptions(["instructor", "admin"]),
   );
   const courses = coursesQuery.data;
+  const showCourseManagement = Boolean(
+    courses?.length || userQuery.data?.sudoer,
+  );
 
   useWindowFocus(
     useCallback(() => {
@@ -192,62 +195,59 @@ export default function InstructorsView() {
           <Spinner variant="ellipsis" />
         )}
       </section>
-      {courses?.length || userQuery.data?.sudoer ? (
-        <section>
-          <div className="flex flex-row items-end justify-between pb-4">
-            <p className="font-medium text-sm leading-none">
-              Course Management
-            </p>
-            {userQuery.data?.sudoer && (
-              <Button onClick={() => setCreateCourseOpen(true)} size="sm">
-                <Plus className="h-4 w-4" /> Create Course
-              </Button>
-            )}
-          </div>
+      <section hidden={!showCourseManagement}>
+        <div className="flex flex-row items-end justify-between pb-4">
+          <p className="font-medium text-sm leading-none">Course Management</p>
+          {userQuery.data?.sudoer && (
+            <Button onClick={() => setCreateCourseOpen(true)} size="sm">
+              <Plus className="h-4 w-4" /> Create Course
+            </Button>
+          )}
+        </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {courses ? (
-              courses.map((course) => {
-                return (
-                  <Link
-                    key={Courses.id2str(course)}
-                    href={`/instructor/admin/${Courses.id2str(course)}`}
-                  >
-                    <Card>
-                      <CardContent>
-                        <p className="font-medium">
-                          {Courses.formatID(course)}
-                        </p>
-                        <p className="text-sm">{course.title}</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })
-            ) : (
-              <Spinner variant="ellipsis" />
-            )}
-          </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {courses ? (
+            courses.map((course) => {
+              return (
+                <Link
+                  key={Courses.id2str(course)}
+                  href={`/instructor/admin/${Courses.id2str(course)}`}
+                >
+                  <Card>
+                    <CardContent>
+                      <p className="font-medium">{Courses.formatID(course)}</p>
+                      <p className="text-sm">{course.title}</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })
+          ) : (
+            <Spinner variant="ellipsis" />
+          )}
+        </div>
 
-          <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
-            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
-              <DialogHeader>
-                <DialogTitle>Create Course</DialogTitle>
-              </DialogHeader>
-              <CreateCourseForm onSubmit={handleCreateCourse} />
-              <DialogDescription className="border-t pt-4">
-                Guide to <strong>Import Schedule</strong>. After entering the
-                code and the term, it looks up the course in HKUST's public
-                schedule and fills in its title, sections, and instructors; for
-                safety reasons, the emails of the instructors have to be
-                provided explicitly. Otherwise, just enter the code, the term,
-                and the title manually and then configure the sections and
-                instructors later.
-              </DialogDescription>
-            </DialogContent>
-          </Dialog>
-        </section>
-      ) : null}
+        <Dialog
+          open={showCourseManagement && isCreateCourseOpen}
+          onOpenChange={setCreateCourseOpen}
+        >
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+            <DialogHeader>
+              <DialogTitle>Create Course</DialogTitle>
+            </DialogHeader>
+            <CreateCourseForm onSubmit={handleCreateCourse} />
+            <DialogDescription className="border-t pt-4">
+              Guide to <strong>Import Schedule</strong>. After entering the code
+              and the term, it looks up the course in HKUST's public schedule
+              and fills in its title, sections, and instructors; for safety
+              reasons, the emails of the instructors have to be provided
+              explicitly. Otherwise, just enter the code, the term, and the
+              title manually and then configure the sections and instructors
+              later.
+            </DialogDescription>
+          </DialogContent>
+        </Dialog>
+      </section>
     </article>
   );
 }
