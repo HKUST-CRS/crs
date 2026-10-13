@@ -151,7 +151,7 @@ export default function InstructorsView() {
             max: 240,
           }}
         />
-        <div className="text-muted-foreground text-xs">
+        <div className="text-gray-500 text-xs">
           (Instructors' View){" "}
           {hasStudentRole && (
             <>
