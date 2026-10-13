@@ -1,5 +1,11 @@
 import type { Collections } from "../db";
-import type { Course, CourseID, Role, User } from "../models";
+import {
+  Course,
+  type CourseID,
+  type Role,
+  type User,
+  type UserID,
+} from "../models";
 import { sortRecord } from "../utils/comparison";
 import { CourseNotFoundError } from "./error";
 
@@ -18,15 +24,16 @@ export class CourseRepo {
   async requireCourse(courseID: CourseID): Promise<Course> {
     const course = await this.collections.courses.findOne(courseID);
     if (!course) throw new CourseNotFoundError(courseID);
-    return course;
+    return Course.parse(course);
   }
 
   async getCourses(): Promise<Course[]> {
-    return await this.collections.courses
+    const courses = await this.collections.courses
       .find()
       .sort({ code: "ascending", term: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
+    return courses.map((course) => Course.parse(course));
   }
 
   async getCoursesFromEnrollment(user: User, roles: Role[]): Promise<Course[]> {
@@ -40,7 +47,7 @@ export class CourseRepo {
     if (courseIDs.length === 0) {
       return [];
     }
-    return await this.collections.courses
+    const courses = await this.collections.courses
       .find({
         // TODO: This $or query is unsafe. This silently fails if a course is
         // not found in the database instead of throwing an error. We should
@@ -50,6 +57,26 @@ export class CourseRepo {
       .sort({ code: "ascending", term: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
+    return courses.map((course) => Course.parse(course));
+  }
+
+  async getCoursesWithExaminationTA(email: UserID): Promise<Course[]> {
+    // ponytail: exam codes are dynamic keys, so this scans course catalogs;
+    // add a derived indexed TA list only if catalog volume warrants it.
+    const courses = await this.collections.courses
+      .aggregate<Course>([
+        {
+          $addFields: {
+            examinationEntries: {
+              $objectToArray: { $ifNull: ["$examinations", {}] },
+            },
+          },
+        },
+        { $match: { "examinationEntries.v.questions.taId": email } },
+        { $project: { examinationEntries: 0 } },
+      ])
+      .toArray();
+    return courses.map((course) => Course.parse(course));
   }
 
   async updateSections(
@@ -90,6 +117,16 @@ export class CourseRepo {
       {
         $set: { effectiveRequestTypes },
       },
+    );
+  }
+
+  async updateExaminations(
+    courseID: CourseID,
+    examinations: Course["examinations"],
+  ): Promise<void> {
+    await this.collections.courses.updateOne(
+      { code: courseID.code, term: courseID.term },
+      { $set: { examinations: sortRecord(examinations) } },
     );
   }
 }

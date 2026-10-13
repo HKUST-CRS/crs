@@ -59,6 +59,14 @@ const formatRequestOverview = (
  */
 const formatRequestMetadata = (request: Request) => {
   switch (request.type) {
+    case "Examination Appeal":
+      return (
+        <>
+          The student is requesting a grade review of examination{" "}
+          {request.metadata.examCode}, question{" "}
+          {request.metadata.questionNumber}.
+        </>
+      );
     case "Swap Section": {
       const fromDate = formatDate(request.metadata.fromDate);
       const toDate = formatDate(request.metadata.toDate);
@@ -92,6 +100,8 @@ const formatRequestMetadata = (request: Request) => {
       );
     }
   }
+  request satisfies never;
+  throw new Error("Unsupported request type");
 };
 
 // The opening comment holds the request's initial reason (+ proofs); it is the

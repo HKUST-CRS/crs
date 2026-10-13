@@ -42,6 +42,7 @@ const requestTypes = {
   "Swap Section": true,
   "Absent from Section": true,
   "Deadline Extension": true,
+  "Examination Appeal": false,
 };
 
 const weekdays = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -94,6 +95,7 @@ export function CreateCourseForm({
       ...data,
       sections: imported?.course.sections ?? {},
       assignments: {},
+      examinations: {},
       effectiveRequestTypes: requestTypes,
     };
     await onSubmit(

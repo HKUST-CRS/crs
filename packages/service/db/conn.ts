@@ -7,6 +7,12 @@ import {
 } from "mongodb";
 import type { Course, RequestDocument, User } from "../models";
 
+export interface RequestSubmissionDocument {
+  _id: string;
+  fingerprint: string;
+  ids: string[];
+}
+
 export interface Collections {
   withTransaction: <T>(
     fn: (session: ClientSession) => Promise<T>,
@@ -14,6 +20,7 @@ export interface Collections {
   users: Collection<User>;
   courses: Collection<Course>;
   requests: Collection<RequestDocument>;
+  requestSubmissions: Collection<RequestSubmissionDocument>;
   proofs: GridFSBucket;
 }
 
@@ -23,6 +30,13 @@ async function createIndexes(collections: Collections): Promise<void> {
     collections.courses.createIndex({ code: 1, term: 1 }, { unique: true }),
     collections.requests.createIndex({ timestamp: -1 }),
     collections.requests.createIndex({ "thread.proofs.id": 1 }),
+    collections.requests.createIndex({
+      type: 1,
+      "class.course.code": 1,
+      "class.course.term": 1,
+      "metadata.examCode": 1,
+      "metadata.questionNumber": 1,
+    }),
   ]);
 }
 
@@ -51,6 +65,8 @@ export class DbConn {
       users: db.collection<User>("users"),
       courses: db.collection<Course>("courses"),
       requests: db.collection<RequestDocument>("requests"),
+      requestSubmissions:
+        db.collection<RequestSubmissionDocument>("requestSubmissions"),
       proofs: new GridFSBucket(db, { bucketName: "proofs" }),
     };
     await createIndexes(this.collections);

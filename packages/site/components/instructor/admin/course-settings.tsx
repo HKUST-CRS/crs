@@ -1,10 +1,11 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Course, CourseID } from "service/models";
+import { Course, type CourseID } from "service/models";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc-client";
 import { AssignmentsConfig } from "./assignment/assignments-config";
+import { ExaminationsConfig } from "./examination/examinations-config";
 import { RequestTypesConfig } from "./request-types-config";
 import { SectionsConfig } from "./section/sections-config";
 
@@ -30,6 +31,14 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
     },
   });
 
+  const updateExaminations = useMutation({
+    ...trpc.course.updateExaminations.mutationOptions(),
+    onSuccess: () => {
+      toast.success("Successfully updated the examinations.");
+      refetch();
+    },
+  });
+
   const requestTypeMutationOptions =
     trpc.course.updateEffectiveRequestTypes.mutationOptions<{
       previousCourse: Course | undefined;
@@ -41,7 +50,14 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
       const previousCourse = queryClient.getQueryData(courseQuery.queryKey);
 
       queryClient.setQueryData(courseQuery.queryKey, (current) =>
-        current ? { ...current, effectiveRequestTypes } : current,
+        current
+          ? {
+              ...current,
+              effectiveRequestTypes: Course.shape.effectiveRequestTypes.parse(
+                effectiveRequestTypes,
+              ),
+            }
+          : current,
       );
 
       return { previousCourse };
@@ -79,6 +95,12 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
         course={course}
         onUpdate={(assignments) => {
           updateAssignments.mutate({ courseID: cid, assignments });
+        }}
+      />
+      <ExaminationsConfig
+        course={course}
+        onUpdate={async (examinations) => {
+          await updateExaminations.mutateAsync({ courseID: cid, examinations });
         }}
       />
     </div>

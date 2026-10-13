@@ -53,10 +53,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -88,10 +90,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const admin: User = {
@@ -135,10 +139,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -199,10 +205,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -250,10 +258,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -283,10 +293,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -318,10 +330,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -358,10 +372,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -397,10 +413,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const admin: User = {
@@ -437,10 +455,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -462,6 +482,7 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
+        "Examination Appeal": false,
       };
       await courseService
         .auth(instructor.email)
@@ -479,10 +500,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -503,6 +526,7 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
+        "Examination Appeal": false,
       };
       try {
         await courseService
@@ -521,10 +545,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const admin: User = {
@@ -546,6 +572,7 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
+        "Examination Appeal": false,
       };
       await courseService
         .auth(admin.email)
@@ -565,10 +592,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const admin: User = {
@@ -610,10 +639,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -664,10 +695,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       await insertData(conn, { users: [sudoer] });
@@ -694,10 +727,12 @@ describe("CourseService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       await insertData(conn, { users: [admin] });

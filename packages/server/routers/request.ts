@@ -1,10 +1,13 @@
+import { TRPCError } from "@trpc/server";
 import {
   CommentInit,
+  ExaminationAppealBatch,
   Request,
   RequestID,
   RequestInit,
   Role,
 } from "service/models";
+import { RequestSubmissionConflictError } from "service/repos/error";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -27,6 +30,62 @@ export const routerRequest = router({
     .output(z.array(Request))
     .query(({ input: role, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsAs(role);
+    }),
+  getAssignedExaminationAppeals: procedure
+    .output(z.array(Request))
+    .query(({ ctx }) => {
+      return services.request
+        .auth(ctx.user.email)
+        .getAssignedExaminationAppeals();
+    }),
+  getContext: procedure
+    .input(RequestID)
+    .output(
+      z.object({
+        courseTitle: z.string(),
+        assignedTA: z.object({ email: z.email(), name: z.string() }).nullable(),
+        authors: z.array(z.object({ email: z.email(), name: z.string() })),
+        canComment: z.boolean(),
+        canDecide: z.boolean(),
+        canAppeal: z.boolean(),
+      }),
+    )
+    .query(({ input, ctx }) => {
+      return services.request.auth(ctx.user.email).getContext(input);
+    }),
+  createExaminationAppeals: procedure
+    .input(ExaminationAppealBatch)
+    .output(z.array(RequestID))
+    .mutation(async ({ input, ctx }) => {
+      let result: { ids: string[]; created: boolean };
+      try {
+        result = await services.request
+          .auth(ctx.user.email)
+          .createExaminationAppeals(input);
+      } catch (error) {
+        if (error instanceof RequestSubmissionConflictError) {
+          throw new TRPCError({ code: "CONFLICT", message: error.message });
+        }
+        throw error;
+      }
+      if (result.created) {
+        for (const requestId of result.ids) {
+          try {
+            const request = await services.request
+              .auth(ctx.user.email)
+              .getRequest(requestId);
+            await services.notification.notifyRequestUpdate(request);
+          } catch (error) {
+            // The appeals are committed. Notification failure must not turn a
+            // successful submission into an error that invites a duplicate retry.
+            console.error("Examination appeal notification failed", {
+              requestId,
+              error,
+            });
+          }
+        }
+      }
+      return result.ids;
     }),
   create: procedure
     .input(

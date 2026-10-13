@@ -184,10 +184,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const courseB: Course = {
@@ -196,10 +198,12 @@ describe("UserService", () => {
         title: "Programming",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const sudoer: User = {
@@ -376,10 +380,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -440,10 +446,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const observer: User = {
@@ -488,10 +496,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -548,10 +558,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -596,10 +608,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const user: User = {
@@ -638,10 +652,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -685,10 +701,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -770,10 +788,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {

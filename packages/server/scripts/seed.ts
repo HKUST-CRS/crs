@@ -44,6 +44,7 @@ const TEST_COURSE: Course = {
     "Swap Section": true,
     "Absent from Section": true,
     "Deadline Extension": true,
+    "Examination Appeal": true,
   },
   sections: {
     LA1: {
@@ -76,6 +77,14 @@ const TEST_COURSE: Course = {
       name: "Further CRS Development",
       due: "2026-09-01T23:59:59.999+08:00",
       maxExtension: "PT5788800S",
+    },
+  },
+  examinations: {
+    Midterm: {
+      questions: [
+        { questionNumber: "Q1", taId: "dev-exam-ta@ust.hk" },
+        { questionNumber: "Q2", taId: "dev-exam-ta2@ust.hk" },
+      ],
     },
   },
 };

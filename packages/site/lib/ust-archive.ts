@@ -136,10 +136,12 @@ export function parseCourse(
       title: archiveCourse.title,
       sections,
       assignments: {},
+      examinations: {},
       effectiveRequestTypes: {
         "Swap Section": true,
         "Absent from Section": true,
         "Deadline Extension": true,
+        "Examination Appeal": false,
       },
     },
     instructors: [...instructors.values()]

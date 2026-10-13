@@ -45,6 +45,7 @@ export type BaseRequestFormProps = {
   default?: BaseRequestFormSchema;
 
   className?: string;
+  disabled?: boolean;
   onClassChange?: () => void;
 } & (
   | {
@@ -137,7 +138,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                         props.onClassChange?.();
                       }
                     }}
-                    disabled={viewonly}
+                    disabled={viewonly || props.disabled}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Choose a class" />
@@ -204,8 +205,9 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
             )}
           </FormControl>
           <FormDescription>
-            The course instructor(s) of your course section, who will also be
-            responsible for handling your request.
+            {type === "Examination Appeal"
+              ? "The course instructors. Each examination question’s assigned TA will handle its appeal."
+              : "The course instructor(s) of your course section, who will also be responsible for handling your request."}
           </FormDescription>
           <FormMessage />
         </FormItem>
@@ -221,7 +223,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                 <Select
                   onValueChange={field.onChange}
                   value={field.value}
-                  disabled={viewonly || !course}
+                  disabled={viewonly || props.disabled || !course}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Request Type" />

@@ -48,58 +48,19 @@ export type RequestThreadProps = {
 
 export default function RequestThread({ request }: RequestThreadProps) {
   const trpc = useTRPC();
-  // Resolve author names for everyone who may appear in the thread. We use the
-  // class-scoped roster endpoints (instructors + observers) rather than per-user
-  // `user.get`, because a student viewing the thread is not permitted to fetch
-  // arbitrary instructor/observer users by id — the roster endpoints are
-  // allowed for any class member. The requester and the viewer are covered by
-  // `getCurrent` and by the rosters when they are staff.
-  const instructors = useQuery(
-    trpc.user.getAllFromClass.queryOptions({
-      class: request.class,
-      role: "instructor",
-    }),
-  ).data;
-  const observers = useQuery(
-    trpc.user.getAllFromClass.queryOptions({
-      class: request.class,
-      role: "observer",
-    }),
-  ).data;
+  const contextQuery = useQuery(
+    trpc.request.getContext.queryOptions(request.id),
+  );
+  const context = contextQuery.data;
   const currentUser = useQuery(trpc.user.getCurrent.queryOptions()).data;
-
-  const roster = useMemo(() => {
-    const map = new Map<string, User>();
-    for (const u of instructors ?? []) map.set(u.email, u);
-    for (const u of observers ?? []) map.set(u.email, u);
-    if (currentUser) map.set(currentUser.email, currentUser);
-    return map;
-  }, [instructors, observers, currentUser]);
-
-  // The requester may be a student who is no longer enrolled or otherwise not
-  // returned by the roster endpoints; fall back to a direct lookup only for
-  // that single email. `user.get` permits reading your own record.
-  const requesterQuery = useQuery({
-    ...trpc.user.get.queryOptions(request.from),
-    enabled: !roster.has(request.from),
-  });
-
-  const authors = useMemo(() => {
-    if (!requesterQuery.data || roster.has(request.from)) return roster;
-    return new Map(roster).set(request.from, requesterQuery.data);
-  }, [roster, requesterQuery.data, request.from]);
+  const authors = useMemo(
+    () =>
+      new Map((context?.authors ?? []).map((author) => [author.email, author])),
+    [context?.authors],
+  );
 
   const user = currentUser;
   const isRequester = !!user && user.email === request.from;
-  const isInstructor =
-    !!user &&
-    user.enrollment.some(
-      (e) =>
-        e.course.code === request.class.course.code &&
-        e.course.term === request.class.course.term &&
-        (e.section === request.class.section || e.section === "*") &&
-        e.role === "instructor",
-    );
   const status = request.status;
   // The latest status-change entry is the current decision; every earlier
   // status entry is superseded (e.g. rejected-then-approved) and rendered muted.
@@ -110,18 +71,65 @@ export default function RequestThread({ request }: RequestThreadProps) {
   // including after cancellation. Observers have read-only access. Status
   // changes are gated by role and (for re-decision) by the request not being
   // cancelled.
-  const canComment = isRequester || isInstructor;
-  const canDecide = isInstructor && status !== "cancelled";
+  const canComment = context?.canComment ?? false;
+  const canDecide = context?.canDecide ?? false;
   const canCancel = isRequester && status !== "cancelled";
-  const canAppeal =
-    isRequester && (status === "approved" || status === "rejected");
+  const canAppeal = context?.canAppeal ?? false;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <StatusBanner status={status} />
 
       {/* Immutable request header */}
-      <RequestForm default={request} viewonly />
+      {request.type === "Examination Appeal" ? (
+        <dl className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <dt className="typo-muted text-sm">Class</dt>
+            <dd>
+              {request.class.course.code} · {context?.courseTitle} ·{" "}
+              {request.class.section}
+            </dd>
+          </div>
+          <div>
+            <dt className="typo-muted text-sm">Request Type</dt>
+            <dd>{request.type}</dd>
+          </div>
+          <div>
+            <dt className="typo-muted text-sm">Examination & Question</dt>
+            <dd>
+              {request.metadata.examCode} · {request.metadata.questionNumber}
+            </dd>
+          </div>
+          <div>
+            <dt className="typo-muted text-sm">Assigned TA</dt>
+            <dd>
+              {context?.assignedTA ? (
+                <>
+                  <span>{context.assignedTA.name}</span>
+                  <br />
+                  <a
+                    href={`mailto:${context.assignedTA.email}`}
+                    className="break-all underline"
+                  >
+                    {context.assignedTA.email}
+                  </a>
+                </>
+              ) : context ? (
+                "No TA is currently assigned. Contact your instructor."
+              ) : (
+                "Loading…"
+              )}
+            </dd>
+          </div>
+        </dl>
+      ) : (
+        <RequestForm default={request} viewonly />
+      )}
+      {contextQuery.error && (
+        <p role="alert" className="text-destructive text-sm">
+          Could not load request permissions: {contextQuery.error.message}
+        </p>
+      )}
 
       <hr />
 
@@ -180,7 +188,7 @@ function ThreadEntryView({
   superseded = false,
 }: {
   entry: ThreadEntry;
-  author?: User;
+  author?: Pick<User, "email" | "name">;
   superseded?: boolean;
 }) {
   const authorLabel = author ? (
@@ -202,10 +210,10 @@ function ThreadEntryView({
   if (entry.kind === "comment") {
     return (
       <div className="flex flex-col gap-2 rounded-md border p-3">
-        <div className="typo-muted text-sm">
+        <div className="typo-muted break-words text-sm">
           {authorLabel} commented · {timestamp}
         </div>
-        <p className="whitespace-pre-wrap text-sm">{entry.text}</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{entry.text}</p>
         {entry.proofs && entry.proofs.length > 0 && (
           <ProofList proofs={entry.proofs} />
         )}
@@ -227,7 +235,7 @@ function ThreadEntryView({
     );
   }
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 text-sm">
       <span
         className={clsx(
           "rounded px-2 py-0.5 font-medium",

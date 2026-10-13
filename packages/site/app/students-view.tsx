@@ -19,20 +19,36 @@ export default function StudentsView() {
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
+  const assignedQuery = useQuery(
+    trpc.request.getAssignedExaminationAppeals.queryOptions(),
+  );
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
-  const hasTeachingRole = userQuery.data?.enrollment?.some(
-    (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin",
-  );
+  const hasTeachingRole =
+    !!assignedQuery.data?.length ||
+    userQuery.data?.enrollment?.some(
+      (e) =>
+        e.role === "instructor" || e.role === "observer" || e.role === "admin",
+    );
   useEffect(() => {
-    if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {
+    if (
+      userQuery.data !== undefined &&
+      assignedQuery.isSuccess &&
+      !hasStudentRole &&
+      hasTeachingRole
+    ) {
       router.replace("/instructor");
     }
-  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+  }, [
+    router,
+    userQuery.data,
+    assignedQuery.isSuccess,
+    hasStudentRole,
+    hasTeachingRole,
+  ]);
 
   // Requests
   const requestsQuery = useQuery(
@@ -44,11 +60,12 @@ export default function StudentsView() {
     useCallback(() => {
       userQuery.refetch();
       requestsQuery.refetch();
-    }, [userQuery, requestsQuery]),
+      assignedQuery.refetch();
+    }, [userQuery, requestsQuery, assignedQuery]),
   );
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>
@@ -69,7 +86,7 @@ export default function StudentsView() {
               <br />
               Alternatively, click for{" "}
               <u>
-                <Link href="/instructor">Instructor's View</Link>
+                <Link href="/instructor">Staff View</Link>
               </u>
             </>
           )}

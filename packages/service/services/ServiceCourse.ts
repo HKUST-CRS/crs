@@ -1,5 +1,5 @@
 import {
-  type Course,
+  Course,
   type CourseID,
   Courses,
   type Role,
@@ -124,6 +124,23 @@ export class CourseService<TUser extends UserID | null = null> {
       `updating assignments of course ${Courses.formatID(courseID)}`,
     );
     await this.repos.course.updateAssignments(courseID, assignments);
+  }
+
+  async updateExaminations(
+    this: CourseService<UserID>,
+    courseID: CourseID,
+    examinations: Course["examinations"],
+  ): Promise<void> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(
+      user,
+      courseID,
+      ["instructor", "admin"],
+      `updating examinations of course ${Courses.formatID(courseID)}`,
+    );
+    await this.repos.course.requireCourse(courseID);
+    const validated = Course.shape.examinations.parse(examinations);
+    await this.repos.course.updateExaminations(courseID, validated);
   }
 
   /**
