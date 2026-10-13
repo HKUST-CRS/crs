@@ -1,13 +1,15 @@
-import type {
-  Comment,
+import {
+  type Comment,
   CommentInit,
-  Request,
-  RequestID,
+  Courses,
+  type Request,
+  type RequestID,
   RequestInit,
-  RequestStatus,
-  Role,
-  ThreadEntry,
-  UserID,
+  type RequestStatus,
+  type Role,
+  type ThreadEntry,
+  type User,
+  type UserID,
 } from "../models";
 import { validateAbsentFromSection } from "../models/request/AbsentFromSection";
 import { validateDeadlineExtension } from "../models/request/DeadlineExtension";
@@ -20,7 +22,7 @@ import {
   PermissionError,
   RequestTypeNotEffectiveError,
 } from "./error";
-import { assertClassRole } from "./permission";
+import { assertClassRole, hasClassRole } from "./permission";
 
 // Statuses from which each status change is admissible. The lifecycle is
 // intentionally permissive: an instructor may re-decide (approve/reject from a
@@ -35,6 +37,26 @@ const DECISION_FROM: RequestStatus[] = [
   "rejected",
 ];
 const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
+
+/** A question assignment is effective only while its grader is enrolled in the request's class. */
+export async function resolveExamGrader(
+  repos: Repos,
+  request: RequestInit,
+): Promise<UserID | null> {
+  if (request.type !== "Exam Appeal") return null;
+  const course = await repos.course.requireCourse(request.class.course);
+  if (!Object.hasOwn(course.exams, request.metadata.examCode)) return null;
+  const questions = course.exams[request.metadata.examCode]?.questions;
+  if (!questions || !Object.hasOwn(questions, request.metadata.question)) {
+    return null;
+  }
+  const email = questions[request.metadata.question]?.grader;
+  if (!email) return null;
+  const grader = await repos.user.getUser(email);
+  return grader && hasClassRole(grader, request.class, ["grader"])
+    ? email
+    : null;
+}
 
 export class RequestService<TUser extends UserID | null = null> {
   public user: TUser;
@@ -52,12 +74,23 @@ export class RequestService<TUser extends UserID | null = null> {
     return new RequestService(this.repos, user);
   }
 
+  private async assertRequestAccess(
+    user: User,
+    request: Request,
+    roles: Role[],
+    operation: string,
+  ): Promise<void> {
+    if (hasClassRole(user, request.class, roles)) return;
+    if ((await resolveExamGrader(this.repos, request)) === user.email) return;
+    assertClassRole(user, request.class, roles, operation);
+  }
+
   /**
    * Gets a specific request.
    *
    * If the user has a role of student in the course, they can only view their own requests. If the
    * user has a role of instructor or observer in the class, they can view all requests for that
-   * class.
+   * class. An enrolled grader can also view appeals for their assigned exam question.
    */
   async getRequest(
     this: RequestService<UserID>,
@@ -66,10 +99,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
-      // only the requester or instructors/observers in the class can view the request
-      assertClassRole(
+      await this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor", "observer"],
         `getting request ${requestID}`,
       );
@@ -86,7 +118,8 @@ export class RequestService<TUser extends UserID | null = null> {
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no requests.
+   * If the role is "grader", this returns appeals for their assigned exam questions
+   * in classes where they are enrolled as graders. "admin" returns no requests.
    *
    * @param roles The roles to fetch requests as.
    * @returns The requests visible to the user for the specified roles.
@@ -113,14 +146,76 @@ export class RequestService<TUser extends UserID | null = null> {
         ...(await this.repos.request.getRequestsInClasses(enrollments)),
       );
     }
-    return requests;
+    if (roles.includes("grader")) {
+      const enrollments = user.enrollment.filter((e) => e.role === "grader");
+      const [courses, candidates] = await Promise.all([
+        this.repos.course.getCoursesFromEnrollment(user, ["grader"]),
+        this.repos.request.getRequestsInClasses(enrollments),
+      ]);
+      const catalogs = new Map(
+        courses.map((course) => [Courses.id2str(course), course]),
+      );
+      requests.push(
+        ...candidates.filter((request) => {
+          if (request.type !== "Exam Appeal") return false;
+          const course = catalogs.get(Courses.id2str(request.class.course));
+          if (
+            !course ||
+            !Object.hasOwn(course.exams, request.metadata.examCode)
+          ) {
+            return false;
+          }
+          const questions = course.exams[request.metadata.examCode]?.questions;
+          return (
+            questions &&
+            Object.hasOwn(questions, request.metadata.question) &&
+            questions[request.metadata.question]?.grader === user.email
+          );
+        }),
+      );
+    }
+    return [
+      ...new Map(requests.map((request) => [request.id, request])).values(),
+    ];
+  }
+
+  async getContext(this: RequestService<UserID>, requestID: RequestID) {
+    const request = await this.getRequest(requestID);
+    const user = await this.repos.user.requireUser(this.user);
+    const course = await this.repos.course.requireCourse(request.class.course);
+    const assignedEmail = await resolveExamGrader(this.repos, request);
+    const authors = [...new Set(request.thread.map((entry) => entry.from))];
+    const profiles = await Promise.all(
+      [...new Set([...authors, ...(assignedEmail ? [assignedEmail] : [])])].map(
+        (email) => this.repos.user.getUser(email),
+      ),
+    );
+    const displayName = (email: string) =>
+      profiles.find((profile) => profile?.email === email)?.name || email;
+    const staff =
+      hasClassRole(user, request.class, ["instructor"]) ||
+      assignedEmail === this.user;
+    return {
+      courseTitle: course.title,
+      assignedGrader: assignedEmail
+        ? { email: assignedEmail, name: displayName(assignedEmail) }
+        : null,
+      authors: authors.map((email) => ({ email, name: displayName(email) })),
+      canComment: this.user === request.from || staff,
+      canDecide:
+        staff &&
+        (request.type !== "Exam Appeal" || this.user !== request.from) &&
+        DECISION_FROM.includes(request.status),
+      canAppeal:
+        this.user === request.from && APPEAL_FROM.includes(request.status),
+    };
   }
 
   /**
    * Gets specific requests by their IDs.
    *
    * The current user can access a request if they are the requester, or if they have the
-   * instructor or observer role in the request's class.
+   * instructor or observer role in the request's class, or are its enrolled assigned grader.
    *
    * Missing request IDs are ignored.
    *
@@ -136,9 +231,9 @@ export class RequestService<TUser extends UserID | null = null> {
 
     for (const request of requests) {
       if (this.user !== request.from) {
-        assertClassRole(
+        await this.assertRequestAccess(
           user,
-          request.class,
+          request,
           ["instructor", "observer"],
           `getting request ${request.id}`,
         );
@@ -164,7 +259,7 @@ export class RequestService<TUser extends UserID | null = null> {
     comment: CommentInit,
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
-    // only students in the class can create requests
+    request = RequestInit.parse(request);
     assertClassRole(user, request.class, ["student"], "creating request");
     const course = await this.repos.course.requireCourse(request.class.course);
     if (!course.effectiveRequestTypes[request.type]) {
@@ -172,6 +267,9 @@ export class RequestService<TUser extends UserID | null = null> {
         request.class.course,
         request.type,
       );
+    }
+    if (!Object.hasOwn(course.sections, request.class.section)) {
+      throw new InvalidRequestError(request.class.course, request.type);
     }
     switch (request.type) {
       case "Swap Section":
@@ -192,6 +290,12 @@ export class RequestService<TUser extends UserID | null = null> {
           );
         }
         break;
+      case "Exam Appeal":
+        comment = CommentInit.parse({ ...comment, text: comment.text.trim() });
+        if (!(await resolveExamGrader(this.repos, request))) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
     }
     return this.repos.request.createRequest(this.user, request, comment);
   }
@@ -199,7 +303,7 @@ export class RequestService<TUser extends UserID | null = null> {
   /**
    * Adds a comment (optionally with supporting documents) to the request thread.
    *
-   * The requester or an instructor in the class may comment at any point —
+   * The requester, class instructor or enrolled assigned grader may comment at any point —
    * including after the request is cancelled — to provide more information.
    * Observers have read-only access to the thread. The request body itself is
    * never edited; clarification is given via comments.
@@ -214,9 +318,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
     if (this.user !== request.from) {
-      assertClassRole(
+      await this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor"],
         `commenting on request ${requestID}`,
       );
@@ -225,7 +329,7 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Approves the request. Only an instructor of the class may approve, and the
+   * Approves the request. A class instructor or enrolled assigned grader may approve, and the
    * request must be in a state open to a decision (open, appealed, or already
    * decided — re-decisions are allowed). An optional comment is recorded
    * immediately before the status change.
@@ -259,9 +363,16 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    assertClassRole(
+    if (request.type === "Exam Appeal" && this.user === request.from) {
+      throw new PermissionError(
+        this.user,
+        [],
+        `deciding own exam appeal ${requestID}`,
+      );
+    }
+    await this.assertRequestAccess(
       user,
-      request.class,
+      request,
       ["instructor"],
       `${status === "approved" ? "approving" : "rejecting"} request ${requestID}`,
     );
@@ -341,7 +452,7 @@ export class RequestService<TUser extends UserID | null = null> {
 
   /**
    * Reads the bytes of a stored proof file. Only a participant of the request
-   * that owns the file (the requester or an instructor/observer in the class)
+   * that owns the file (the requester, class instructor/observer, or enrolled assigned grader)
    * may download it; the file must belong to a visible request's thread.
    *
    * @returns The file content as base64.
@@ -354,9 +465,9 @@ export class RequestService<TUser extends UserID | null = null> {
     const request = await this.repos.request.getRequestByProof(proofID);
     if (!request) throw new ProofNotFoundError(proofID);
     if (this.user !== request.from) {
-      assertClassRole(
+      await this.assertRequestAccess(
         user,
-        request.class,
+        request,
         ["instructor", "observer"],
         `downloading proof ${proofID}`,
       );

@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { isEqual } from "es-toolkit";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type { Request, RequestInit } from "service/models";
+import { Classes, type Request, type RequestInit } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
 import { useTRPC } from "@/lib/trpc-client";
@@ -21,6 +21,7 @@ import {
   DeadlineExtensionFormSchema,
   DeadlineExtensionRequestForm,
 } from "./request-form-deadline-extension";
+import { ExamAppealRequestForm } from "./request-form-exam-appeal";
 import {
   SwapSectionFormSchema,
   SwapSectionRequestForm,
@@ -52,6 +53,7 @@ export default function RequestForm(props: RequestFormProps) {
     props.default ?? null,
   );
   const [meta, setMeta] = useState<MetaFormSchema | null>(null);
+  const [examPending, setExamPending] = useState(false);
 
   const submitting = useRef(false);
 
@@ -106,9 +108,17 @@ export default function RequestForm(props: RequestFormProps) {
     });
   }
 
-  const MetaForm = () => {
+  const renderMetaForm = () => {
     if (base) {
       switch (base.type) {
+        case "Exam Appeal":
+          return viewonly ? null : (
+            <ExamAppealRequestForm
+              key={Classes.id2str(base.class)}
+              base={base}
+              onPendingChange={setExamPending}
+            />
+          );
         case "Swap Section": {
           const defMeta = meta?.type === "Swap Section" ? meta : undefined;
           const defProps =
@@ -184,6 +194,7 @@ export default function RequestForm(props: RequestFormProps) {
       className={clsx("flex flex-col justify-stretch gap-4", props.className)}
     >
       <BaseRequestForm
+        disabled={examPending}
         onSubmit={(data) => {
           // The condition is to avoid an infinite loop of update. The
           // BaseRequestForm calls onSubmit as soon as the user fills the form.
@@ -200,7 +211,7 @@ export default function RequestForm(props: RequestFormProps) {
         default={base ?? undefined}
         viewonly={viewonly}
       />
-      <MetaForm />
+      {renderMetaForm()}
     </div>
   );
 }

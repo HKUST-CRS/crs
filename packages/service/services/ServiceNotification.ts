@@ -16,6 +16,7 @@ import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { formatRequest, formatUpdate } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
+import { resolveExamGrader } from "./ServiceRequest";
 
 const STATUS_SUBJECT: Record<RequestStatus, string> = {
   open: "Reopened",
@@ -92,6 +93,14 @@ export class NotificationService {
       request.class,
       "instructor",
     );
+    const graderEmail = await resolveExamGrader(this.repos, request);
+    if (
+      graderEmail &&
+      !instructors.some((user) => user.email === graderEmail)
+    ) {
+      const grader = await this.repos.user.requireUser(graderEmail);
+      instructors.push(grader);
+    }
     const observers = await this.repos.user.getUsersInClass(
       request.class,
       "observer",
@@ -104,7 +113,11 @@ export class NotificationService {
       : entries.length === 0
         ? "Request"
         : "Comment";
-    const subject = `${subjectPrefix} - ${Classes.format(request.class)}`;
+    const question =
+      request.type === "Exam Appeal"
+        ? ` (${request.metadata.examCode} ${request.metadata.question})`
+        : "";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${question}`;
 
     const content = await this.renderUpdate(
       request,

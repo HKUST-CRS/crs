@@ -133,7 +133,13 @@ const columns: ColumnDef<Request>[] = [
     },
   },
   {
-    accessorKey: "type",
+    id: "type",
+    accessorFn: (row) =>
+      row.type === "Exam Appeal"
+        ? `${row.type} ${row.metadata.examCode} ${row.metadata.question}`
+        : row.type,
+    sortingFn: (rowA, rowB) =>
+      rowA.original.type.localeCompare(rowB.original.type),
     header: ({ column }) => {
       return (
         <Button
@@ -147,7 +153,17 @@ const columns: ColumnDef<Request>[] = [
       );
     },
     cell: ({ row }) => {
-      return <div className="font-medium">{row.original.type}</div>;
+      return (
+        <div>
+          <div className="font-medium">{row.original.type}</div>
+          {row.original.type === "Exam Appeal" && (
+            <div className="text-muted-foreground text-xs">
+              {row.original.metadata.examCode} ·{" "}
+              {row.original.metadata.question}
+            </div>
+          )}
+        </div>
+      );
     },
   },
   {

@@ -4,6 +4,7 @@ import { formatDate, formatDateTime } from "../../utils/datetime";
 import { Terms } from "../course";
 import { AbsentFromSectionRequest } from "./AbsentFromSection";
 import { DeadlineExtensionRequest } from "./DeadlineExtension";
+import { ExamAppealRequest } from "./ExamAppeal";
 import type { RequestStatus } from "./RequestStatus";
 import { SwapSectionRequest } from "./SwapSection";
 
@@ -29,11 +30,19 @@ export const RequestInits = [
     thread: true,
     status: true,
   }),
+  ExamAppealRequest.omit({
+    id: true,
+    from: true,
+    timestamp: true,
+    thread: true,
+    status: true,
+  }),
 ] as const;
 export const Requests = [
   SwapSectionRequest,
   AbsentFromSectionRequest,
   DeadlineExtensionRequest,
+  ExamAppealRequest,
 ] as const;
 export const RequestInit = z.discriminatedUnion("type", RequestInits);
 export type RequestInit = z.infer<typeof RequestInit>;
@@ -46,6 +55,7 @@ export const RequestDocument = z.discriminatedUnion("type", [
   SwapSectionRequest.omit({ status: true }),
   AbsentFromSectionRequest.omit({ status: true }),
   DeadlineExtensionRequest.omit({ status: true }),
+  ExamAppealRequest.omit({ status: true }),
 ] as const);
 export type RequestDocument = z.infer<typeof RequestDocument>;
 
@@ -95,6 +105,9 @@ export namespace RequestSerialization {
     // Deadline Extension
     "Assignment",
     "New Deadline",
+    // Exam Appeal
+    "Exam",
+    "Question",
   ];
 
   function serializeMeta(r: Request) {
@@ -115,6 +128,11 @@ export namespace RequestSerialization {
         return {
           Assignment: r.metadata.assignment,
           "New Deadline": formatDateTime(r.metadata.deadline),
+        };
+      case "Exam Appeal":
+        return {
+          Exam: r.metadata.examCode,
+          Question: r.metadata.question,
         };
     }
   }

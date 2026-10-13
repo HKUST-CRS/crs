@@ -1,5 +1,11 @@
-import { initTRPC } from "@trpc/server";
+import { initTRPC, TRPCError } from "@trpc/server";
 import * as jose from "jose";
+import {
+  ClassPermissionError,
+  CoursePermissionError,
+  PermissionError,
+  SudoerPermissionError,
+} from "service/services/error";
 import { ZodError, z } from "zod";
 import type { Context } from "./auth";
 import { services } from "./services";
@@ -64,6 +70,18 @@ export const procedure = t.procedure.use(async (opts) => {
 
   if (!result.ok) {
     console.warn(`[TRPC] Error details:`, result.error);
+    if (
+      result.error.cause instanceof PermissionError ||
+      result.error.cause instanceof ClassPermissionError ||
+      result.error.cause instanceof CoursePermissionError ||
+      result.error.cause instanceof SudoerPermissionError
+    ) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: result.error.message,
+        cause: result.error.cause,
+      });
+    }
   }
 
   return result;

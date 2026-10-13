@@ -28,6 +28,25 @@ export const routerRequest = router({
     .query(({ input: role, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsAs(role);
     }),
+  getContext: procedure
+    .input(RequestID)
+    .output(
+      z.strictObject({
+        courseTitle: z.string(),
+        assignedGrader: z
+          .strictObject({ email: z.email(), name: z.string() })
+          .nullable(),
+        authors: z.array(
+          z.strictObject({ email: z.email(), name: z.string() }),
+        ),
+        canComment: z.boolean(),
+        canDecide: z.boolean(),
+        canAppeal: z.boolean(),
+      }),
+    )
+    .query(({ input, ctx }) => {
+      return services.request.auth(ctx.user.email).getContext(input);
+    }),
   create: procedure
     .input(
       z.object({

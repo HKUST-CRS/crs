@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { fromISO } from "../utils/datetime";
-import { RequestType } from "./request/RequestType";
+
+export const Exam = z.strictObject({
+  questions: z.record(
+    z.string().trim().min(1),
+    z.strictObject({ grader: z.email() }),
+  ),
+});
+export type Exam = z.infer<typeof Exam>;
 
 export const Course = z
   .object({
@@ -50,10 +57,18 @@ export const Course = z
         }),
       }),
     ),
-    effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
-      description:
-        "A mapping of request types that are effective for this course.",
-    }),
+    exams: z.record(z.string().trim().min(1), Exam).default({}),
+    effectiveRequestTypes: z
+      .strictObject({
+        "Swap Section": z.boolean(),
+        "Absent from Section": z.boolean(),
+        "Deadline Extension": z.boolean(),
+        "Exam Appeal": z.boolean().default(false),
+      })
+      .meta({
+        description:
+          "A mapping of request types that are effective for this course.",
+      }),
   })
   .meta({
     description: "An *offering* of a course in a specific term.",

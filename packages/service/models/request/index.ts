@@ -9,5 +9,6 @@ export * from "./BaseRequest";
 export * from "./SwapSection";
 export * from "./AbsentFromSection";
 export * from "./DeadlineExtension";
+export * from "./ExamAppeal";
 
 export * from "./Request";
