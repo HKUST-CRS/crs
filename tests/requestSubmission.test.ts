@@ -24,7 +24,7 @@ const input: RequestBatch = {
   submissionId: randomUUID(),
   requests: ["1", "2"].map((question) => ({
     request: {
-      type: "Examination Appeal",
+      type: "Exam Appeal",
       class: clazz,
       metadata: { examCode: "midterm", question },
     },
@@ -57,7 +57,7 @@ mock.module("../packages/server/services", () => ({
           return {
             id,
             from: "alice@ust.hk",
-            type: "Examination Appeal",
+            type: "Exam Appeal",
             class: clazz,
             metadata: { examCode: "midterm", question: "1" },
             status: "open",
@@ -136,7 +136,7 @@ test("API rejects invalid cardinality and forged question fields before invoking
     [
       {
         request: {
-          type: "Examination Appeal",
+          type: "Exam Appeal",
           class: clazz,
           metadata: { examCode: "midterm", questions: ["1", "2"] },
         },
@@ -175,7 +175,7 @@ test("ordinary request types use the same batch API", async () => {
   expect(notifications).toBe(1);
 });
 
-test("ordinary create accepts one examination question through the usual request API", async () => {
+test("ordinary create accepts one exam question through the usual request API", async () => {
   const entry = input.requests[0];
   if (!entry) throw new Error("Missing request");
   notificationFailures = false;
@@ -184,9 +184,9 @@ test("ordinary create accepts one examination question through the usual request
   expect(notifications).toBe(1);
 });
 
-test("mixed examination and ordinary requests reach the same batch operation", async () => {
+test("mixed exam and ordinary requests reach the same batch operation", async () => {
   const first = input.requests[0];
-  if (!first) throw new Error("Missing examination request");
+  if (!first) throw new Error("Missing exam request");
   const mixed: RequestBatch = {
     submissionId: randomUUID(),
     requests: [

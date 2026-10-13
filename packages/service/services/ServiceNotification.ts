@@ -114,7 +114,7 @@ export class NotificationService {
         ? "Request"
         : "Comment";
     const question =
-      request.type === "Examination Appeal"
+      request.type === "Exam Appeal"
         ? ` (${request.metadata.examCode} ${request.metadata.question})`
         : "";
     const subject = `${subjectPrefix} - ${Classes.format(request.class)}${question}`;

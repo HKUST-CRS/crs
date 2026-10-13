@@ -44,7 +44,7 @@ export async function resolveExamGrader(
   repos: Repos,
   request: RequestInit,
 ): Promise<UserID | null> {
-  if (request.type !== "Examination Appeal") return null;
+  if (request.type !== "Exam Appeal") return null;
   const course = await repos.course.requireCourse(request.class.course);
   if (!Object.hasOwn(course.exams, request.metadata.examCode)) return null;
   const email = course.exams[request.metadata.examCode]?.questions.find(
@@ -89,7 +89,7 @@ export class RequestService<TUser extends UserID | null = null> {
    *
    * If the user has a role of student in the course, they can only view their own requests. If the
    * user has a role of instructor or observer in the class, they can view all requests for that
-   * class. An enrolled grader can also view appeals for their assigned examination question.
+   * class. An enrolled grader can also view appeals for their assigned exam question.
    */
   async getRequest(
     this: RequestService<UserID>,
@@ -117,7 +117,7 @@ export class RequestService<TUser extends UserID | null = null> {
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "grader", this returns appeals for their assigned examination questions
+   * If the role is "grader", this returns appeals for their assigned exam questions
    * in classes where they are enrolled as graders. "admin" returns no requests.
    *
    * @param roles The roles to fetch requests as.
@@ -156,7 +156,7 @@ export class RequestService<TUser extends UserID | null = null> {
       );
       requests.push(
         ...candidates.filter((request) => {
-          if (request.type !== "Examination Appeal") return false;
+          if (request.type !== "Exam Appeal") return false;
           const course = catalogs.get(Courses.id2str(request.class.course));
           return (
             course &&
@@ -200,7 +200,7 @@ export class RequestService<TUser extends UserID | null = null> {
       canComment: this.user === request.from || staff,
       canDecide:
         staff &&
-        (request.type !== "Examination Appeal" || this.user !== request.from) &&
+        (request.type !== "Exam Appeal" || this.user !== request.from) &&
         DECISION_FROM.includes(request.status),
       canAppeal:
         this.user === request.from && APPEAL_FROM.includes(request.status),
@@ -294,7 +294,7 @@ export class RequestService<TUser extends UserID | null = null> {
           );
         }
         break;
-      case "Examination Appeal":
+      case "Exam Appeal":
         if (!(await resolveExamGrader(this.repos, request))) {
           throw new InvalidRequestError(request.class.course, request.type);
         }
@@ -383,11 +383,11 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    if (request.type === "Examination Appeal" && this.user === request.from) {
+    if (request.type === "Exam Appeal" && this.user === request.from) {
       throw new PermissionError(
         this.user,
         [],
-        `deciding own examination appeal ${requestID}`,
+        `deciding own exam appeal ${requestID}`,
       );
     }
     await this.assertRequestAccess(

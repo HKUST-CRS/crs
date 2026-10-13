@@ -15,10 +15,11 @@ export const RequestBatch = z.strictObject({
       }),
     )
     .min(1)
+    // Bound the work in one transaction; this is not an exam question limit.
     .max(50)
     .refine((entries) => {
       const targets = entries.flatMap(({ request }) =>
-        request.type === "Examination Appeal"
+        request.type === "Exam Appeal"
           ? [
               JSON.stringify([
                 request.class.course.code,

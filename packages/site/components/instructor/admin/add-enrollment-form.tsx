@@ -105,9 +105,8 @@ export function AddEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="add-enrollment-roster">Roaster</FieldLabel>
+            <FieldLabel>Roaster</FieldLabel>
             <Textarea
-              id="add-enrollment-roster"
               placeholder={
                 "example1@connect.ust.hk\n" +
                 "example2@connect.ust.hk\n" +
@@ -141,8 +140,8 @@ export function AddEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="add-enrollment-section">Section</FieldLabel>
-            <Input id="add-enrollment-section" placeholder="L1" {...field} />
+            <FieldLabel>Section</FieldLabel>
+            <Input placeholder="L1" {...field} />
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
@@ -160,9 +159,9 @@ export function AddEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="add-enrollment-role">Role</FieldLabel>
-            <Select value={field.value ?? ""} onValueChange={field.onChange}>
-              <SelectTrigger id="add-enrollment-role" className="w-full">
+            <FieldLabel>Role</FieldLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>

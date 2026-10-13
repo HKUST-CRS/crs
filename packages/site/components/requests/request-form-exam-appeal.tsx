@@ -6,7 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExaminationAppealMeta, RequestBatch } from "service/models";
+import { ExamAppealMeta, RequestBatch } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ const FormSchema = z.object({
   appeals: z
     .array(
       z.object({
-        ...ExaminationAppealMeta.shape,
+        ...ExamAppealMeta.shape,
         comment: RequestBatch.shape.requests.element.shape.comment,
       }),
     )
@@ -62,7 +62,7 @@ const emptyAppeal = () => ({
   comment: { text: "" },
 });
 
-export function ExaminationAppealRequestForm({
+export function ExamAppealRequestForm({
   base,
   onPendingChange,
 }: {
@@ -94,7 +94,7 @@ export function ExaminationAppealRequestForm({
       requests: data.appeals.map(({ comment, ...metadata }) => ({
         request: {
           class: base.class,
-          type: "Examination Appeal" as const,
+          type: "Exam Appeal" as const,
           metadata,
         },
         comment,

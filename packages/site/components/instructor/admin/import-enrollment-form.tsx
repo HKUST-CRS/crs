@@ -124,9 +124,8 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="import-enrollment-roster">Roaster</FieldLabel>
+            <FieldLabel>Roaster</FieldLabel>
             <Input
-              id="import-enrollment-roster"
               onChange={async (e) => {
                 const files = e.target.files;
 
@@ -172,8 +171,8 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="import-enrollment-section">Section</FieldLabel>
-            <Input id="import-enrollment-section" placeholder="L1" {...field} />
+            <FieldLabel>Section</FieldLabel>
+            <Input placeholder="L1" {...field} />
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
@@ -191,9 +190,9 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="import-enrollment-role">Role</FieldLabel>
-            <Select value={field.value ?? ""} onValueChange={field.onChange}>
-              <SelectTrigger id="import-enrollment-role" className="w-full">
+            <FieldLabel>Role</FieldLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>

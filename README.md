@@ -36,45 +36,6 @@ Set the same optional `CRS_DEV_USER` email in both environment files to bypass M
 bun dev
 ```
 
-### Examination appeals
-
-Instructors first enroll reviewers with the `grader` role using the existing
-Enrollment Manager, then assign those graders to questions in course exam
-settings and enable Examination Appeal. Use section `*` for a grader who handles
-all sections. Grader enrollment alone grants no request access: the request must
-also target the grader's assigned exam question in an enrolled section. Removing
-the role or question assignment revokes delegated access. Existing class
-instructor and observer access still applies; observer enrollment alone grants
-read-only access. A requester cannot decide their own examination appeal.
-
-Each question is stored as one immutable request with `{ examCode, question }`
-metadata. Its reason and supporting documents belong to the opening thread
-comment. Later comments, decisions, cancellation, and appeals use
-the existing request thread and status lifecycle.
-
-Appeals are ordinary requests with different metadata. `request.getAllAs` accepts
-the `grader` role and returns only targeted cases; student and instructor inboxes
-use the same API. Both `request.create` and the generic `request.createMany`
-accept examination appeals. `createMany` takes `{ submissionId, requests }`,
-where the UUID identifies 1–50 `{ request, comment }` entries. The server checks
-student eligibility, section and exam/question membership, course enablement,
-and the assigned grader's enrollment. Repeated exam/question targets in the
-same class are rejected.
-
-All batched requests and a generic submission receipt commit in one MongoDB
-transaction. The receipt stores the payload fingerprint and resulting IDs; it
-contains no separate appeal data. Retrying the same normalized payload with the
-same UUID returns the original IDs, even if enrollment or course configuration
-subsequently changes. Reusing a UUID with a different payload returns a conflict. The form
-retains the UUID for an unchanged retry after an unconfirmed response; leaving
-or reloading the form starts a new submission.
-
-Notifications run only for a newly committed batch. Email failure does not
-invalidate the saved submission; durable email recovery remains separate work.
-GridFS uploads happen before the transaction because GridFS does not support
-multi-document transactions. Failed or uncertain transactions may leave unused
-uploads for attachment reconciliation (#136); committed proofs are retained.
-
 ### Tech Stack
 
 The current plan is to preserve type-safety throughout the application by leveraging TypeScript and its powerful type system. In particular,

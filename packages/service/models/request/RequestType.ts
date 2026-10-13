@@ -4,6 +4,6 @@ export const RequestType = z.enum([
   "Swap Section",
   "Absent from Section",
   "Deadline Extension",
-  "Examination Appeal",
+  "Exam Appeal",
 ]);
 export type RequestType = z.infer<typeof RequestType>;

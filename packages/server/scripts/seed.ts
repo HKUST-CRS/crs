@@ -45,7 +45,7 @@ const TEST_COURSE: Course = {
     "Swap Section": true,
     "Absent from Section": true,
     "Deadline Extension": true,
-    "Examination Appeal": true,
+    "Exam Appeal": true,
   },
   sections: {
     LA1: {

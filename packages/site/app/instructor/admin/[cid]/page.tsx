@@ -22,7 +22,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
   const { data: course } = useQuery(trpc.course.get.queryOptions(courseID));
 
   return (
-    <article className="mx-auto my-32 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-64">
+    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -36,7 +36,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
           }}
         />
         {course && (
-          <div className="text-muted-foreground text-xs">
+          <div className="text-gray-500 text-xs">
             (Admin View for {Courses.formatCourse(course)})
             <br />
             Alternatively, click for{" "}

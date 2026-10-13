@@ -21,7 +21,7 @@ import {
   DeadlineExtensionFormSchema,
   DeadlineExtensionRequestForm,
 } from "./request-form-deadline-extension";
-import { ExaminationAppealRequestForm } from "./request-form-examination-appeal";
+import { ExamAppealRequestForm } from "./request-form-exam-appeal";
 import {
   SwapSectionFormSchema,
   SwapSectionRequestForm,
@@ -53,7 +53,7 @@ export default function RequestForm(props: RequestFormProps) {
     props.default ?? null,
   );
   const [meta, setMeta] = useState<MetaFormSchema | null>(null);
-  const [examinationPending, setExaminationPending] = useState(false);
+  const [examPending, setExamPending] = useState(false);
 
   const submitting = useRef(false);
 
@@ -111,12 +111,12 @@ export default function RequestForm(props: RequestFormProps) {
   const renderMetaForm = () => {
     if (base) {
       switch (base.type) {
-        case "Examination Appeal":
+        case "Exam Appeal":
           return viewonly ? null : (
-            <ExaminationAppealRequestForm
+            <ExamAppealRequestForm
               key={Classes.id2str(base.class)}
               base={base}
-              onPendingChange={setExaminationPending}
+              onPendingChange={setExamPending}
             />
           );
         case "Swap Section": {
@@ -194,7 +194,7 @@ export default function RequestForm(props: RequestFormProps) {
       className={clsx("flex flex-col justify-stretch gap-4", props.className)}
     >
       <BaseRequestForm
-        disabled={examinationPending}
+        disabled={examPending}
         onSubmit={(data) => {
           // The condition is to avoid an infinite loop of update. The
           // BaseRequestForm calls onSubmit as soon as the user fills the form.

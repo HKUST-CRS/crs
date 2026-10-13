@@ -59,10 +59,10 @@ const formatRequestOverview = (
  */
 const formatRequestMetadata = (request: Request) => {
   switch (request.type) {
-    case "Examination Appeal":
+    case "Exam Appeal":
       return (
         <>
-          The student is requesting a grade review of examination{" "}
+          The student is requesting a grade review of exam{" "}
           {request.metadata.examCode}, question {request.metadata.question}.
         </>
       );

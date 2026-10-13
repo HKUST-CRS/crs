@@ -43,14 +43,14 @@ test("exam notifications include only an enrolled assigned grader and follow rev
       "Swap Section": true,
       "Absent from Section": true,
       "Deadline Extension": true,
-      "Examination Appeal": true,
+      "Exam Appeal": true,
     },
   };
   const request: Request = {
     id: "exam-request",
     from: student.email,
     class: { course: { code: course.code, term: course.term }, section: "L1" },
-    type: "Examination Appeal",
+    type: "Exam Appeal",
     metadata: { examCode: "Midterm", question: "Q1" },
     timestamp: "2026-10-13T12:00:00+08:00",
     status: "open",

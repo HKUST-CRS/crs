@@ -13,14 +13,10 @@ export default function RequestDisplay({ requestID }: { requestID: string }) {
       error: requestQuery.error,
       requestID,
     });
-    return (
-      <p role="alert">
-        Could not load this request: {requestQuery.error.message}
-      </p>
-    );
+    return null;
   }
   return (
-    <div className="w-full min-w-0">
+    <div className="m-4">
       {requestQuery.data ? (
         <RequestThread request={requestQuery.data} />
       ) : (

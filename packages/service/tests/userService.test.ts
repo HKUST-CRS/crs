@@ -189,7 +189,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const courseB: Course = {
@@ -203,7 +203,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const sudoer: User = {
@@ -385,7 +385,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const instructor: User = {
@@ -451,7 +451,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const observer: User = {
@@ -501,7 +501,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const student: User = {
@@ -563,7 +563,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const student: User = {
@@ -613,7 +613,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const user: User = {
@@ -657,7 +657,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const student: User = {
@@ -706,7 +706,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const instructor: User = {
@@ -793,7 +793,7 @@ describe("UserService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Examination Appeal": false,
+          "Exam Appeal": false,
         },
       };
       const instructor: User = {

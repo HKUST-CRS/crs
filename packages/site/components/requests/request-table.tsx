@@ -135,7 +135,7 @@ const columns: ColumnDef<Request>[] = [
   {
     id: "type",
     accessorFn: (row) =>
-      row.type === "Examination Appeal"
+      row.type === "Exam Appeal"
         ? `${row.type} ${row.metadata.examCode} ${row.metadata.question}`
         : row.type,
     sortingFn: (rowA, rowB) =>
@@ -156,7 +156,7 @@ const columns: ColumnDef<Request>[] = [
       return (
         <div>
           <div className="font-medium">{row.original.type}</div>
-          {row.original.type === "Examination Appeal" && (
+          {row.original.type === "Exam Appeal" && (
             <div className="text-muted-foreground text-xs">
               {row.original.metadata.examCode} ·{" "}
               {row.original.metadata.question}
@@ -346,8 +346,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       <div className="flex flex-col gap-4">
         <div className="flex items-center">
           <Input
-            aria-label="Search requests"
-            placeholder="Search…"
+            placeholder="Search..."
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(String(e.target.value))}
             className="max-w-full"
@@ -355,7 +354,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field className="col-span-1">
-            <FieldLabel htmlFor="request-filter-status">Status</FieldLabel>
+            <FieldLabel>Status</FieldLabel>
             <Select
               value={statusFilter ?? "__all"}
               onValueChange={(value) => {
@@ -365,7 +364,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger id="request-filter-status" className="w-full">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a status" />
               </SelectTrigger>
               <SelectContent>
@@ -380,7 +379,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field className="col-span-1">
-            <FieldLabel htmlFor="request-filter-term">Term</FieldLabel>
+            <FieldLabel>Term</FieldLabel>
             <Select
               value={termFilter ?? "__all"}
               onValueChange={(value) => {
@@ -388,7 +387,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger id="request-filter-term" className="w-full">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a term" />
               </SelectTrigger>
               <SelectContent>
@@ -402,8 +401,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-1 md:col-span-2">
-            <FieldLabel htmlFor="request-filter-course">Course</FieldLabel>
+          <Field className="col-span-2">
+            <FieldLabel>Course</FieldLabel>
             <Select
               value={courseFilter ? Courses.id2str(courseFilter) : "__all"}
               onValueChange={(value) => {
@@ -412,7 +411,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                 );
               }}
             >
-              <SelectTrigger id="request-filter-course" className="w-full">
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a course" />
               </SelectTrigger>
               <SelectContent>
@@ -430,10 +429,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="request-filter-from">From</FieldLabel>
+            <FieldLabel>From</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button id="request-filter-from" variant="outline">
+                <Button variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {fromFilter ? (
                     formatDate(fromFilter)
@@ -460,10 +459,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="request-filter-to">To</FieldLabel>
+            <FieldLabel>To</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button id="request-filter-to" variant="outline">
+                <Button variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {toFilter ? formatDate(toFilter) : <span>Pick a date</span>}
                 </Button>

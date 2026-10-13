@@ -205,7 +205,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
             )}
           </FormControl>
           <FormDescription>
-            {type === "Examination Appeal"
+            {type === "Exam Appeal"
               ? "The course instructors. Each exam question’s assigned grader will handle its appeal."
               : "The course instructor(s) of your course section, who will also be responsible for handling your request."}
           </FormDescription>

@@ -141,7 +141,7 @@ export default function InstructorsView() {
   };
 
   return (
-    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
+    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -154,7 +154,7 @@ export default function InstructorsView() {
             max: 240,
           }}
         />
-        <div className="text-muted-foreground text-xs">
+        <div className="text-gray-500 text-xs">
           (Staff View){" "}
           {hasStudentRole && (
             <>
@@ -168,23 +168,19 @@ export default function InstructorsView() {
         </div>
       </header>
       <section>
-        <div className="flex flex-wrap items-end justify-between gap-3 pb-4">
+        <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
           <Button
             onClick={() => void handleExportRequests()}
             size="sm"
-            disabled={isExporting || !requests}
+            disabled={isExporting}
           >
             <ArrowRightFromLine className="h-4 w-4" />
             {isExporting ? "Exporting..." : "Export Requests"}
           </Button>
         </div>
 
-        {requestsQuery.error ? (
-          <p role="alert">
-            Could not load received requests. Please reload to try again.
-          </p>
-        ) : requests ? (
+        {requests ? (
           <RequestTable
             ref={tableRef}
             data={requests}

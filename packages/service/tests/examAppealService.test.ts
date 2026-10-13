@@ -23,7 +23,7 @@ import { clearData, insertData } from "./tests";
 const course = Course.parse({
   code: "COMP 9999",
   term: "2510",
-  title: "Examination Appeal Testing",
+  title: "Exam Appeal Testing",
   sections: { L1: { schedule: [] }, L2: { schedule: [] } },
   assignments: {},
   exams: {
@@ -38,7 +38,7 @@ const course = Course.parse({
     "Swap Section": true,
     "Absent from Section": true,
     "Deadline Extension": true,
-    "Examination Appeal": true,
+    "Exam Appeal": true,
   },
 });
 const clazz = {
@@ -71,7 +71,7 @@ function batch(questions = ["1", "2"]): RequestBatch {
     submissionId: randomUUID(),
     requests: questions.map((question) => ({
       request: {
-        type: "Examination Appeal",
+        type: "Exam Appeal",
         class: { ...clazz, course: { ...clazz.course } },
         metadata: { examCode: "Midterm", question },
       },
@@ -145,7 +145,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
     await conn.collections.courses.updateOne(clazz.course, {
       $set: {
         exams: {},
-        "effectiveRequestTypes.Examination Appeal": false,
+        "effectiveRequestTypes.Exam Appeal": false,
       },
     });
     await conn.collections.users.updateOne(
@@ -593,7 +593,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
         InvalidRequestError,
       );
     await conn.collections.courses.updateOne(clazz.course, {
-      $set: { "effectiveRequestTypes.Examination Appeal": false },
+      $set: { "effectiveRequestTypes.Exam Appeal": false },
     });
     await expectFailure(
       requests.auth(student.email).createRequests(batch(["1"])),
@@ -658,10 +658,10 @@ describe("Exam appeals use exact-question thread permissions", () => {
     expect(await conn.collections.requests.countDocuments()).toBe(0);
   });
 
-  test("single create accepts an examination appeal using the shared validation", async () => {
+  test("single create accepts an exam appeal using the shared validation", async () => {
     const id = await requests.auth(student.email).createRequest(
       {
-        type: "Examination Appeal",
+        type: "Exam Appeal",
         class: clazz,
         metadata: { examCode: "Midterm", question: "1" },
       },
@@ -673,7 +673,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
     await expectFailure(
       requests.auth(student.email).createRequest(
         {
-          type: "Examination Appeal",
+          type: "Exam Appeal",
           class: clazz,
           metadata: { examCode: "Final", question: "1" },
         },

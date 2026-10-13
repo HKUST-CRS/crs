@@ -12,7 +12,7 @@ import { DbConn } from "../db";
 import {
   Course,
   Exam,
-  ExaminationAppealMeta,
+  ExamAppealMeta,
   RequestBatch,
   RequestInit,
   RequestSerialization,
@@ -34,7 +34,7 @@ function makeBatch(): RequestBatch {
     submissionId: crypto.randomUUID(),
     requests: ["1", "2"].map((question) => ({
       request: {
-        type: "Examination Appeal",
+        type: "Exam Appeal",
         class: clazz,
         metadata: { examCode: "midterm", question },
       },
@@ -46,7 +46,7 @@ function makeBatch(): RequestBatch {
   };
 }
 
-describe("examination appeal schemas", () => {
+describe("exam appeal schemas", () => {
   test("legacy courses default to no exams and disabled appeals", () => {
     const course = Course.parse({
       ...courseID,
@@ -60,7 +60,7 @@ describe("examination appeal schemas", () => {
       },
     });
     expect(course.exams).toEqual({});
-    expect(course.effectiveRequestTypes["Examination Appeal"]).toBe(false);
+    expect(course.effectiveRequestTypes["Exam Appeal"]).toBe(false);
   });
 
   test("question identifiers are nonempty and unique, and grader addresses are emails", () => {
@@ -78,18 +78,17 @@ describe("examination appeal schemas", () => {
 
   test("stored metadata contains exactly one exam/question pair", () => {
     expect(
-      ExaminationAppealMeta.safeParse({
+      ExamAppealMeta.safeParse({
         examCode: "midterm",
         question: "1",
       }).success,
     ).toBe(true);
     expect(
-      ExaminationAppealMeta.safeParse({ requests: makeBatch().requests })
-        .success,
+      ExamAppealMeta.safeParse({ requests: makeBatch().requests }).success,
     ).toBe(false);
     expect(
       RequestInit.safeParse({
-        type: "Examination Appeal",
+        type: "Exam Appeal",
         class: clazz,
         metadata: {
           examCode: "midterm",
@@ -119,7 +118,7 @@ describe("examination appeal schemas", () => {
       { ...batch, requests: [first, first] },
       { ...batch, requests: [{ ...first, comment: { text: "  " } }] },
       { ...batch, requests: [{ ...first, grader: student }] },
-      { ...batch, type: "Examination Appeal" },
+      { ...batch, type: "Exam Appeal" },
     ]) {
       expect(RequestBatch.safeParse(invalid).success).toBe(false);
     }
@@ -171,7 +170,7 @@ describe("request submission storage", () => {
     expect(await conn.collections.requestSubmissions.countDocuments()).toBe(1);
     for (const [index, id] of result.ids.entries()) {
       const request = await repo.requireRequest(id);
-      expect(request.type).toBe("Examination Appeal");
+      expect(request.type).toBe("Exam Appeal");
       expect(request.metadata).toEqual({
         examCode: "midterm",
         question: String(index + 1),
@@ -379,8 +378,8 @@ describe("request submission storage", () => {
     );
     const requests = await repo.getRequestsByID(result.ids);
     expect(requests.map((request) => request.type)).toEqual([
-      "Examination Appeal",
-      "Examination Appeal",
+      "Exam Appeal",
+      "Exam Appeal",
       "Absent from Section",
     ]);
     expect(requests[0]?.status).toBe("approved");

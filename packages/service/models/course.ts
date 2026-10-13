@@ -14,7 +14,7 @@ export const Exam = z.object({
       (questions) =>
         new Set(questions.map((question) => question.question)).size ===
         questions.length,
-      "Question identifiers must be unique within an examination.",
+      "Question identifiers must be unique within an exam.",
     ),
 });
 export type Exam = z.infer<typeof Exam>;
@@ -72,7 +72,7 @@ export const Course = z
         "Swap Section": z.boolean(),
         "Absent from Section": z.boolean(),
         "Deadline Extension": z.boolean(),
-        "Examination Appeal": z.boolean().default(false),
+        "Exam Appeal": z.boolean().default(false),
       })
       .meta({
         description:
