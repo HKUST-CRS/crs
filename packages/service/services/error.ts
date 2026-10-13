@@ -3,7 +3,7 @@ import {
   Classes,
   type CourseID,
   Courses,
-  type RequestID,
+  type RequestType,
   type Role,
   type UserID,
 } from "../models";
@@ -64,9 +64,29 @@ export class SudoerPermissionError extends Error {
   }
 }
 
-export class ResponseNotFoundError extends Error {
-  constructor(requestID: RequestID) {
-    super(`Request ${requestID} does not have a response yet`);
-    this.name = "ResponseNotFoundError";
+export class RequestTypeNotEffectiveError extends Error {
+  constructor(courseID: CourseID, type: RequestType) {
+    super(
+      `Request type ${type} is not effective for course ${Courses.formatID(courseID)}.`,
+    );
+    this.name = "RequestTypeNotEffectiveError";
+  }
+}
+
+export class DeadlineExtensionNotAllowedError extends Error {
+  constructor(courseID: CourseID, assignment: string) {
+    super(
+      `Deadline extension for assignment ${assignment} is not allowed for course ${Courses.formatID(courseID)}.`,
+    );
+    this.name = "DeadlineExtensionNotAllowedError";
+  }
+}
+
+export class InvalidRequestError extends Error {
+  constructor(courseID: CourseID, type: RequestType) {
+    super(
+      `Request data for ${type} is not valid for course ${Courses.formatID(courseID)}.`,
+    );
+    this.name = "InvalidRequestError";
   }
 }

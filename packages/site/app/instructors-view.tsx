@@ -1,26 +1,27 @@
 "use client";
 
-import { useMutation, useQuery, useQueries } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightFromLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
+import { toast } from "sonner";
 import {
+  type CourseCreationSubmission,
   CreateCourseForm,
-  type CreateCourseFormSchema,
 } from "@/components/instructor/create-course-form";
 import {
-  ExportRequestsForm,
-  type ExportRequestsFormSchema,
-} from "@/components/instructor/export-requests-form";
-import { RequestTable } from "@/components/requests/request-table";
+  RequestTable,
+  type RequestTableHandle,
+} from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -33,52 +34,59 @@ export default function InstructorsView() {
   const router = useRouter();
 
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
+  const assignedQuery = useQuery(
+    trpc.request.getAssignedExaminationAppeals.queryOptions(),
+  );
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
-
-  // Find all course this student as a role of student
-  const studentCourses = userQuery.data?.enrollment
-    ?.filter((e) => e.role === "student")
-    ?.map((e) => e.course) || [];
-
-
-  const courseQueries = useQueries({
-    queries: studentCourses.map((course) => ({
-      ...trpc.course.get.queryOptions(course),
-      enabled: !!course.code,
-    })),
-  });
-
-  // Check if the student is responsible for any exam question
-  const isTA = courseQueries.some((query) => {
-    const exams = query.data?.examinations;
-    if (!exams) return false;
-    
-    return Object.values(exams).some((examData: any) =>
-      examData.questions?.some((q: any) => q.taId === userQuery.data?.email)
+  const hasTeachingRole =
+    !!assignedQuery.data?.length ||
+    userQuery.data?.enrollment?.some(
+      (e) =>
+        e.role === "instructor" || e.role === "observer" || e.role === "admin",
     );
-  });
-
-  const hasTeachingRole = userQuery.data?.enrollment?.some(
-    (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin" || isTA,
-  );
   useEffect(() => {
-    if (userQuery.data !== undefined && hasStudentRole && !hasTeachingRole) {
+    if (
+      userQuery.data !== undefined &&
+      assignedQuery.isSuccess &&
+      hasStudentRole &&
+      !hasTeachingRole
+    ) {
       router.replace("/");
     }
-  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+  }, [
+    router,
+    userQuery.data,
+    assignedQuery.isSuccess,
+    hasStudentRole,
+    hasTeachingRole,
+  ]);
 
   // Requests
   const requestsQuery = useQuery(
     trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
   );
-  const requests = requestsQuery.data;
+  const requests = useMemo(
+    () =>
+      requestsQuery.data && assignedQuery.data
+        ? [
+            ...new Map(
+              [...requestsQuery.data, ...assignedQuery.data].map((request) => [
+                request.id,
+                request,
+              ]),
+            ).values(),
+          ]
+        : undefined,
+    [requestsQuery.data, assignedQuery.data],
+  );
+  const tableRef = useRef<RequestTableHandle>(null);
 
   // Courses
   const coursesQuery = useQuery(
@@ -91,26 +99,25 @@ export default function InstructorsView() {
       userQuery.refetch();
       requestsQuery.refetch();
       coursesQuery.refetch();
-    }, [userQuery, requestsQuery, coursesQuery]),
+      assignedQuery.refetch();
+    }, [userQuery, requestsQuery, coursesQuery, assignedQuery]),
   );
 
-  // Export Requests (Dialog)
-  const [isExportRequestsOpen, setExportRequestsOpen] = useState(false);
-  const handleExportRequests = (form: ExportRequestsFormSchema) => {
-    const requestsToExport = (requests ?? []).filter(
-      (c) => Courses.id2str(c.class.course) === Courses.id2str(form.course),
-    );
-    const csv = RequestSerialization.toCSV(
-      requestsToExport,
-      window.location.origin,
-    );
+  // Export Requests
+  const [isExporting, setExporting] = useState(false);
+  const handleExportRequests = async () => {
+    const requestIDs = tableRef.current?.getExportIDs() ?? [];
+    setExporting(true);
+    try {
+      const rs = await queryClient.fetchQuery(
+        trpc.request.getAllByID.queryOptions(requestIDs),
+      );
+      const csv = RequestSerialization.toCSV(rs, window.location.origin);
 
-    download(
-      `${Courses.formatID(form.course)}-requests.csv`,
-      new Blob([csv], { type: "text/csv" }),
-    );
-
-    setExportRequestsOpen(false);
+      download("requests.csv", new Blob([csv], { type: "text/csv" }));
+    } finally {
+      setExporting(false);
+    }
   };
 
   // Create Course (Dialog)
@@ -118,32 +125,50 @@ export default function InstructorsView() {
   const createCourseMutation = useMutation(
     trpc.course.create.mutationOptions(),
   );
-  const handleCreateCourse = (form: CreateCourseFormSchema) => {
-    createCourseMutation.mutate(
-      {
-        code: form.code,
-        term: form.term,
-        title: form.title,
-        sections: {},
-        assignments: {},
-        examinations: {},
-        effectiveRequestTypes: {
-          "Swap Section": true,
-          "Absent from Section": true,
-          "Deadline Extension": true,
-          "Examination Appeal": true,
-        },
-      },
-      {
-        onSuccess: (cid) => {
-          router.push(`/instructor/admin/${Courses.id2str(cid)}`);
-        },
-      },
-    );
+  const createEnrollmentMutation = useMutation(
+    trpc.user.createEnrollment.mutationOptions(),
+  );
+  const suggestUserNameMutation = useMutation(
+    trpc.user.suggestName.mutationOptions(),
+  );
+  const handleCreateCourse = async (submission: CourseCreationSubmission) => {
+    try {
+      const cid = await createCourseMutation.mutateAsync(submission.course);
+
+      if (submission.kind === "automatic") {
+        const results = await Promise.allSettled(
+          submission.instructors.map(async (instructor) => {
+            await Promise.all(
+              instructor.sections.map((section) =>
+                createEnrollmentMutation.mutateAsync({
+                  uid: instructor.email,
+                  enrollment: { course: cid, section, role: "instructor" },
+                }),
+              ),
+            );
+            await suggestUserNameMutation.mutateAsync({
+              uid: instructor.email,
+              name: instructor.name,
+            });
+          }),
+        );
+        if (results.some((result) => result.status === "rejected")) {
+          toast.warning(
+            "Course created, but some instructor enrollments need review.",
+          );
+        }
+      }
+
+      router.push(`/instructor/admin/${Courses.id2str(cid)}`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Course creation failed.",
+      );
+    }
   };
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -157,7 +182,7 @@ export default function InstructorsView() {
           }}
         />
         <div className="text-gray-500 text-xs">
-          (Instructors' View){" "}
+          (Staff View){" "}
           {hasStudentRole && (
             <>
               <br />
@@ -170,77 +195,90 @@ export default function InstructorsView() {
         </div>
       </header>
       <section>
-        <div className="flex flex-row items-end justify-between pb-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 pb-4">
           <p className="font-medium text-sm leading-none">Received Requests</p>
-          <Button onClick={() => setExportRequestsOpen(true)} size="sm">
-            <ArrowRightFromLine className="h-4 w-4" /> Export Requests
+          <Button
+            onClick={() => void handleExportRequests()}
+            size="sm"
+            disabled={isExporting || !requests}
+          >
+            <ArrowRightFromLine className="h-4 w-4" />
+            {isExporting ? "Exporting..." : "Export Requests"}
           </Button>
         </div>
 
-        {requests ? (
+        {requestsQuery.error || assignedQuery.error ? (
+          <p role="alert">
+            Could not load received requests. Please reload to try again.
+          </p>
+        ) : requests ? (
           <RequestTable
+            ref={tableRef}
             data={requests}
             onClick={(request) => {
-              router.push(`/response/${request.id}`);
+              router.push(`/request/${request.id}?from=instructor`);
             }}
           />
         ) : (
           <Spinner variant="ellipsis" />
         )}
-
-        <Dialog
-          open={isExportRequestsOpen}
-          onOpenChange={setExportRequestsOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Export Requests</DialogTitle>
-            </DialogHeader>
-            <ExportRequestsForm onSubmit={handleExportRequests} />
-          </DialogContent>
-        </Dialog>
       </section>
-      <section>
-        <div className="flex flex-row items-end justify-between pb-4">
-          <p className="font-medium text-sm leading-none">Course Management</p>
-          {userQuery.data?.sudoer && (
-            <Button onClick={() => setCreateCourseOpen(true)} size="sm">
-              <Plus className="h-4 w-4" /> Create Course
-            </Button>
-          )}
-        </div>
+      {courses?.length || userQuery.data?.sudoer ? (
+        <section>
+          <div className="flex flex-row items-end justify-between pb-4">
+            <p className="font-medium text-sm leading-none">
+              Course Management
+            </p>
+            {userQuery.data?.sudoer && (
+              <Button onClick={() => setCreateCourseOpen(true)} size="sm">
+                <Plus className="h-4 w-4" /> Create Course
+              </Button>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {courses ? (
-            courses.map((course) => {
-              return (
-                <Link
-                  key={Courses.id2str(course)}
-                  href={`/instructor/admin/${Courses.id2str(course)}`}
-                >
-                  <Card>
-                    <CardContent>
-                      <p className="font-medium">{Courses.formatID(course)}</p>
-                      <p className="text-sm">{course.title}</p>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })
-          ) : (
-            <Spinner variant="ellipsis" />
-          )}
-        </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {courses ? (
+              courses.map((course) => {
+                return (
+                  <Link
+                    key={Courses.id2str(course)}
+                    href={`/instructor/admin/${Courses.id2str(course)}`}
+                  >
+                    <Card>
+                      <CardContent>
+                        <p className="font-medium">
+                          {Courses.formatID(course)}
+                        </p>
+                        <p className="text-sm">{course.title}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })
+            ) : (
+              <Spinner variant="ellipsis" />
+            )}
+          </div>
 
-        <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Course</DialogTitle>
-            </DialogHeader>
-            <CreateCourseForm onSubmit={handleCreateCourse} />
-          </DialogContent>
-        </Dialog>
-      </section>
+          <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
+            <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+              <DialogHeader>
+                <DialogTitle>Create Course</DialogTitle>
+              </DialogHeader>
+              <CreateCourseForm onSubmit={handleCreateCourse} />
+              <DialogDescription className="border-t pt-4">
+                Guide to <strong>Import Schedule</strong>. After entering the
+                code and the term, it looks up the course in HKUST's public
+                schedule and fills in its title, sections, and instructors; for
+                safety reasons, the emails of the instructors have to be
+                provided explicitly. Otherwise, just enter the code, the term,
+                and the title manually and then configure the sections and
+                instructors later.
+              </DialogDescription>
+            </DialogContent>
+          </Dialog>
+        </section>
+      ) : null}
     </article>
   );
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { type Course, Courses } from "../course";
 import { createRequestType } from "./BaseRequest";
 
 export const AbsentFromSectionMeta = z.object({
@@ -19,3 +20,14 @@ export const AbsentFromSectionRequest = createRequestType(
   description: "Request for being absent from a section for one class",
 });
 export type AbsentFromSectionRequest = z.infer<typeof AbsentFromSectionRequest>;
+
+export function validateAbsentFromSection(
+  course: Course,
+  metadata: AbsentFromSectionMeta,
+): boolean {
+  return Courses.isSectionScheduledOnDate(
+    course,
+    metadata.fromSection,
+    metadata.fromDate,
+  );
+}

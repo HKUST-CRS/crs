@@ -4,6 +4,7 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import { ThemeToggleButton } from "@/components/theme-toggle-button";
+import { devUser } from "@/lib/auth";
 import { TRPCReactProvider } from "@/lib/trpc-client";
 import { ThemeProvider } from "./ThemeProvider";
 
@@ -32,7 +33,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} mx-2 antialiased md:mx-8`}
       >
         <SessionProvider>
-          <TRPCReactProvider>
+          <TRPCReactProvider devAuth={!!devUser}>
             <ThemeProvider
               attribute="class"
               defaultTheme="system"

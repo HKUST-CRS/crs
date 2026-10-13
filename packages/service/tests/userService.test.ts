@@ -17,7 +17,6 @@ import {
   ClassPermissionError,
   CoursePermissionError,
   PermissionError,
-  SudoerPermissionError,
 } from "../services/error";
 import { clearData, insertData } from "./tests";
 
@@ -185,10 +184,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const courseB: Course = {
@@ -197,10 +198,12 @@ describe("UserService", () => {
         title: "Programming",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const sudoer: User = {
@@ -325,55 +328,6 @@ describe("UserService", () => {
     });
   });
 
-  describe("getSudoers", () => {
-    test("sudoers should be able to list sudoers", async () => {
-      const sudoer: User = {
-        email: "sudoer1@ust.hk",
-        name: "sudoer1",
-        enrollment: [],
-        sudoer: true,
-      };
-      const nonSudoer: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [],
-        sudoer: false,
-      };
-      await insertData(conn, { users: [sudoer, nonSudoer] });
-
-      const sudoers = await userService.auth(sudoer.email).getSudoers();
-      expect(sudoers.map((u) => u.email)).toEqual(
-        expect.arrayContaining([sudoer.email]),
-      );
-      expect(sudoers.map((u) => u.email)).not.toEqual(
-        expect.arrayContaining([nonSudoer.email]),
-      );
-    });
-
-    test("non-sudoers should not be able to list sudoers", async () => {
-      const sudoer: User = {
-        email: "sudoer1@ust.hk",
-        name: "sudoer1",
-        enrollment: [],
-        sudoer: true,
-      };
-      const nonSudoer: User = {
-        email: "student1@connect.ust.hk",
-        name: "student1",
-        enrollment: [],
-        sudoer: false,
-      };
-      await insertData(conn, { users: [sudoer, nonSudoer] });
-
-      try {
-        await userService.auth(nonSudoer.email).getSudoers();
-        expect.unreachable("should have thrown an error");
-      } catch (error) {
-        expect(error).toBeInstanceOf(SudoerPermissionError);
-      }
-    });
-  });
-
   describe("getUsersInCourse", () => {
     test("admins should be able to view users in a course", async () => {
       const courseID = { code: "COMP 1023", term: "2510" };
@@ -426,10 +380,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -490,10 +446,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const observer: User = {
@@ -538,10 +496,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -598,10 +558,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -646,10 +608,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const user: User = {
@@ -688,10 +652,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const student: User = {
@@ -735,10 +701,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {
@@ -820,10 +788,12 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        examinations: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Examination Appeal": false,
         },
       };
       const instructor: User = {

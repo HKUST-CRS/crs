@@ -6,7 +6,12 @@ import { DateTime } from "luxon";
 import { type FC, type ReactNode, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { AbsentFromSectionMeta } from "service/models";
-import { formatDate, formatTime, fromISO } from "service/utils/datetime";
+import {
+  formatDate,
+  formatMonth,
+  formatTime,
+  fromISO,
+} from "service/utils/datetime";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -32,7 +37,7 @@ import {
 } from "@/components/ui/select";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
-import { RequestFormDetails } from "./details-request-form";
+import { RequestFormComment } from "./request-form-comment";
 import { FormSchema } from "./schema";
 
 export const AbsentFromSectionFormSchema = FormSchema(
@@ -46,7 +51,7 @@ export type AbsentFromSectionFormSchema = z.infer<
 export type AbsentFromSectionRequestFormProps = {
   viewonly?: boolean;
   base: BaseRequestFormSchema;
-  default?: AbsentFromSectionFormSchema;
+  default?: Partial<AbsentFromSectionFormSchema>;
 
   onSubmit?: (data: AbsentFromSectionFormSchema) => void;
 
@@ -60,9 +65,9 @@ export const AbsentFromSectionRequestForm: FC<
     resolver: zodResolver(AbsentFromSectionFormSchema),
     defaultValues: {
       type: "Absent from Section",
-      details: {
-        reason: "",
-        proof: [],
+      comment: {
+        text: "",
+        proofs: [],
       },
       ...props.default,
     },
@@ -194,7 +199,13 @@ export const AbsentFromSectionRequestForm: FC<
                               ),
                           ),
                         }}
+                        captionLayout="dropdown"
+                        startMonth={new Date(2020, 0)}
+                        endMonth={new Date(2030, 11)}
                         className="rounded-lg border shadow-sm"
+                        formatters={{
+                          formatMonthDropdown: (date) => formatMonth(date),
+                        }}
                       />
                     )}
                   </PopoverContent>
@@ -222,7 +233,7 @@ export const AbsentFromSectionRequestForm: FC<
               </div>
             );
           })()}
-        {isMetaDone && <RequestFormDetails form={form} viewonly={viewonly} />}
+        {isMetaDone && <RequestFormComment form={form} viewonly={viewonly} />}
       </Wrapper>
     </Form>
   );

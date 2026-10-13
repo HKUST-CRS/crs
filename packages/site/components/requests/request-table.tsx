@@ -10,12 +10,41 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
-import { useState } from "react";
-import type { Request, Response } from "service/models";
-import { formatDateTime, fromISO } from "service/utils/datetime";
+import { sortBy, uniqBy } from "es-toolkit";
+import { ArrowUpDown, CalendarIcon } from "lucide-react";
+import { DateTime } from "luxon";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
+import {
+  type CourseID,
+  Courses,
+  type Request,
+  type RequestStatus,
+  RequestStatus as RequestStatusSchema,
+  Terms,
+} from "service/models";
+import { formatDate, formatDateTime, fromISO } from "service/utils/datetime";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -25,11 +54,67 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
   data: Request[];
   onClick?: (row: Request) => void;
 }
+
+export interface RequestTableHandle {
+  getExportIDs: () => string[];
+}
+
+/** Sort order for the Status column (open first, cancelled last). */
+const STATUS_ORDER: Record<RequestStatus, number> = {
+  open: 0,
+  appealed: 1,
+  approved: 2,
+  rejected: 3,
+  cancelled: 4,
+};
+
+const requestFilter =
+  (filterOptions: {
+    status: RequestStatus | null;
+    term: string | null;
+    course: CourseID | null;
+    from: DateTime | null;
+    to: DateTime | null;
+  }) =>
+  (request: Request) => {
+    if (
+      filterOptions.status !== null &&
+      request.status !== filterOptions.status
+    ) {
+      return false;
+    }
+    if (
+      filterOptions.term !== null &&
+      filterOptions.term !== request.class.course.term
+    ) {
+      return false;
+    }
+    if (
+      filterOptions.course !== null &&
+      Courses.compare(request.class.course, filterOptions.course) !== 0
+    ) {
+      return false;
+    }
+
+    const timestamp = fromISO(request.timestamp);
+    const fromDate = filterOptions.from?.toISODate() ?? null;
+    const toDate = filterOptions.to?.toISODate() ?? null;
+
+    if (fromDate !== null && timestamp < fromISO(fromDate).startOf("day")) {
+      return false;
+    }
+    if (toDate !== null && timestamp > fromISO(toDate).endOf("day")) {
+      return false;
+    }
+
+    return true;
+  };
 
 const columns: ColumnDef<Request>[] = [
   {
@@ -48,7 +133,13 @@ const columns: ColumnDef<Request>[] = [
     },
   },
   {
-    accessorKey: "type",
+    id: "type",
+    accessorFn: (row) =>
+      row.type === "Examination Appeal"
+        ? `${row.type} ${row.metadata.examCode} ${row.metadata.questionNumber}`
+        : row.type,
+    sortingFn: (rowA, rowB) =>
+      rowA.original.type.localeCompare(rowB.original.type),
     header: ({ column }) => {
       return (
         <Button
@@ -62,7 +153,17 @@ const columns: ColumnDef<Request>[] = [
       );
     },
     cell: ({ row }) => {
-      return <div className="font-medium">{row.original.type}</div>;
+      return (
+        <div>
+          <div className="font-medium">{row.original.type}</div>
+          {row.original.type === "Examination Appeal" && (
+            <div className="text-muted-foreground text-xs">
+              {row.original.metadata.examCode} ·{" "}
+              {row.original.metadata.questionNumber}
+            </div>
+          )}
+        </div>
+      );
     },
   },
   {
@@ -122,10 +223,8 @@ const columns: ColumnDef<Request>[] = [
     },
   },
   {
-    id: "decision",
-    accessorFn: (row) => {
-      return row.response?.decision || "Pending";
-    },
+    id: "status",
+    accessorFn: (row) => REQUEST_STATUS_LABEL[row.status],
     header: ({ column }) => {
       return (
         <Button
@@ -133,158 +232,331 @@ const columns: ColumnDef<Request>[] = [
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className={cn(column.getIsSorted() && "underline")}
         >
-          Decision
+          Status
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
     },
     cell: ({ row }) => {
-      const response = row.original.response;
-      return response ? (
-        response.decision === "Approve" ? (
-          <span>
-            <span className="text-green-800 dark:text-green-400">Approve</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : response.decision === "Reject" ? (
-          <span>
-            <span className="text-red-800 dark:text-red-400">Reject</span>{" "}
-            <span>({response.from})</span>
-          </span>
-        ) : (
-          <span>
-            <span className="text-yellow-800 dark:text-yellow-400">
-              Unknown ({response.decision})
-            </span>{" "}
-            <span>({response.from})</span>
-          </span>
-        )
-      ) : (
-        <span className="text-yellow-800 dark:text-yellow-400">Pending</span>
-      );
+      const status = row.original.status;
+      const label = REQUEST_STATUS_LABEL[status];
+      const color =
+        status === "approved"
+          ? "text-green-800 dark:text-green-400"
+          : status === "rejected"
+            ? "text-red-800 dark:text-red-400"
+            : status === "cancelled"
+              ? "text-gray-500 dark:text-gray-400"
+              : "text-yellow-800 dark:text-yellow-400";
+      return <span className={color}>{label}</span>;
     },
     sortingFn: (rowA, rowB) => {
-      function toStatus(r: Response | null) {
-        return r?.decision ?? "pending";
-      }
-      return toStatus(rowA.original.response) > toStatus(rowB.original.response)
-        ? 1
-        : -1;
+      const a = STATUS_ORDER[rowA.original.status];
+      const b = STATUS_ORDER[rowB.original.status];
+      return a - b;
     },
   },
 ];
 
-export function RequestTable({ data, onClick }: RequestTableProps) {
-  const [sorting, setSorting] = useState<SortingState>([
-    {
-      id: "time",
-      desc: true,
-    },
-  ]);
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [pagination, setPagination] = useState({
-    pageIndex: 0,
-    pageSize: 50,
-  });
+export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
+  function RequestTable({ data: rawData, onClick }: RequestTableProps, ref) {
+    const [sorting, setSorting] = useState<SortingState>([
+      {
+        id: "time",
+        desc: true,
+      },
+    ]);
+    const [globalFilter, setGlobalFilter] = useState("");
+    const [pagination, setPagination] = useState({
+      pageIndex: 0,
+      pageSize: 50,
+    });
+    const [statusFilter, setStatusFilter] = useState<RequestStatus | null>(
+      null,
+    );
+    const [termFilter, setTermFilter] = useState<string | null>(null);
+    const [courseFilter, setCourseFilter] = useState<CourseID | null>(null);
+    const [fromFilter, setFromFilter] = useState<DateTime | null>(null);
+    const [toFilter, setToFilter] = useState<DateTime | null>(null);
 
-  const table = useReactTable({
-    data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    globalFilterFn: "includesString",
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    onPaginationChange: setPagination,
-    state: {
-      sorting,
-      globalFilter,
-      pagination,
-    },
-  });
+    const termOptions = useMemo(() => {
+      let terms = rawData.map((request) => request.class.course.term);
+      terms = uniqBy(terms, Terms.term2num);
+      // @ts-expect-error fuck es-toolkit; it doesn't support string[]
+      terms = sortBy(terms, [(term) => -Terms.term2num(term)]);
+      return terms;
+    }, [rawData]);
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center">
-        <Input
-          placeholder="Search..."
-          value={globalFilter}
-          onChange={(e) => table.setGlobalFilter(String(e.target.value))}
-          className="max-w-full"
-        />
-      </div>
-      <div className="overflow-hidden rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext(),
-                          )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  onClick={() => onClick?.(row.original)}
-                  className="cursor-pointer"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
-                    </TableCell>
-                  ))}
+    const courseOptions = useMemo(() => {
+      let courses = rawData.map((request) => request.class.course);
+      courses = uniqBy(courses, Courses.id2str);
+      courses = courses.sort(Courses.compare);
+      courses = courses.filter(
+        (c) => termFilter === null || c.term === termFilter,
+      );
+      return courses;
+    }, [rawData, termFilter]);
+
+    useEffect(() => {
+      setTermFilter(termOptions[0] ?? null);
+    }, [termOptions]);
+
+    const data = useMemo(
+      () =>
+        rawData.filter(
+          requestFilter({
+            status: statusFilter,
+            term: termFilter,
+            course: courseFilter,
+            from: fromFilter,
+            to: toFilter,
+          }),
+        ),
+      [rawData, statusFilter, fromFilter, courseFilter, termFilter, toFilter],
+    );
+
+    const table = useReactTable({
+      data,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      globalFilterFn: "includesString",
+      onSortingChange: setSorting,
+      onGlobalFilterChange: setGlobalFilter,
+      onPaginationChange: setPagination,
+      state: {
+        sorting,
+        globalFilter,
+        pagination,
+      },
+    });
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getExportIDs: () =>
+          table.getSortedRowModel().rows.map((row) => row.original.id),
+      }),
+      [table],
+    );
+
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center">
+          <Input
+            aria-label="Search requests"
+            placeholder="Search…"
+            value={globalFilter}
+            onChange={(e) => table.setGlobalFilter(String(e.target.value))}
+            className="max-w-full"
+          />
+        </div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <Field className="col-span-1">
+            <FieldLabel htmlFor="request-filter-status">Status</FieldLabel>
+            <Select
+              value={statusFilter ?? "__all"}
+              onValueChange={(value) => {
+                setStatusFilter(
+                  value === "__all" ? null : (value as RequestStatus),
+                );
+              }}
+              disabled={!termOptions.length}
+            >
+              <SelectTrigger id="request-filter-status" className="w-full">
+                <SelectValue placeholder="Choose a status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All statuses</SelectItem>
+                {RequestStatusSchema.options.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {REQUEST_STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field className="col-span-1">
+            <FieldLabel htmlFor="request-filter-term">Term</FieldLabel>
+            <Select
+              value={termFilter ?? "__all"}
+              onValueChange={(value) => {
+                setTermFilter(value === "__all" ? null : value);
+              }}
+              disabled={!termOptions.length}
+            >
+              <SelectTrigger id="request-filter-term" className="w-full">
+                <SelectValue placeholder="Choose a term" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All terms</SelectItem>
+                {termOptions.map((term) => (
+                  <SelectItem key={term} value={term}>
+                    {Terms.formatTerm(term)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field className="col-span-1 md:col-span-2">
+            <FieldLabel htmlFor="request-filter-course">Course</FieldLabel>
+            <Select
+              value={courseFilter ? Courses.id2str(courseFilter) : "__all"}
+              onValueChange={(value) => {
+                setCourseFilter(
+                  value === "__all" ? null : Courses.str2id(value),
+                );
+              }}
+            >
+              <SelectTrigger id="request-filter-course" className="w-full">
+                <SelectValue placeholder="Choose a course" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all">All courses</SelectItem>
+                {courseOptions.map((course) => (
+                  <SelectItem
+                    key={Courses.id2str(course)}
+                    value={Courses.id2str(course)}
+                  >
+                    {Courses.formatID(course)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="request-filter-from">From</FieldLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="request-filter-from" variant="outline">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {fromFilter ? (
+                    formatDate(fromFilter)
+                  ) : (
+                    <span>Pick a date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={fromFilter ? fromFilter.toJSDate() : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      setFromFilter(DateTime.fromJSDate(date));
+                    } else {
+                      setFromFilter(null);
+                    }
+                  }}
+                  className="rounded-lg border shadow-sm"
+                />
+              </PopoverContent>
+            </Popover>
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="request-filter-to">To</FieldLabel>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="request-filter-to" variant="outline">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {toFilter ? formatDate(toFilter) : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={toFilter ? toFilter.toJSDate() : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      setToFilter(DateTime.fromJSDate(date));
+                    } else {
+                      setToFilter(null);
+                    }
+                  }}
+                  className="rounded-lg border shadow-sm"
+                />
+              </PopoverContent>
+            </Popover>
+          </Field>
+        </div>
+
+        <div className="mt-2 overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    return (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No requests.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    onClick={() => onClick?.(row.original)}
+                    className="cursor-pointer"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No requests.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-end space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Next
+          </Button>
+        </div>
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
-  );
-}
+    );
+  },
+);

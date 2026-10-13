@@ -1,5 +1,5 @@
 import {
-  type Course,
+  Course,
   type CourseID,
   Courses,
   type Role,
@@ -126,14 +126,6 @@ export class CourseService<TUser extends UserID | null = null> {
     await this.repos.course.updateAssignments(courseID, assignments);
   }
 
-  /**
-   * Updates the examinations of a course.
-   *
-   * The current user must be an instructor or admin in the course.
-   *
-   * @param courseID The ID of the course to update.
-   * @param examinations The new examinations of the course.
-   */
   async updateExaminations(
     this: CourseService<UserID>,
     courseID: CourseID,
@@ -146,7 +138,9 @@ export class CourseService<TUser extends UserID | null = null> {
       ["instructor", "admin"],
       `updating examinations of course ${Courses.formatID(courseID)}`,
     );
-    await this.repos.course.updateExaminations(courseID, examinations);
+    await this.repos.course.requireCourse(courseID);
+    const validated = Course.shape.examinations.parse(examinations);
+    await this.repos.course.updateExaminations(courseID, validated);
   }
 
   /**

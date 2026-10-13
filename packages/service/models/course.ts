@@ -1,6 +1,23 @@
 import { z } from "zod";
 import { compareString } from "../utils/comparison";
-import { RequestType } from "./request/RequestType";
+import { fromISO } from "../utils/datetime";
+
+export const Examination = z.object({
+  questions: z
+    .array(
+      z.strictObject({
+        questionNumber: z.string().trim().min(1),
+        taId: z.email(),
+      }),
+    )
+    .refine(
+      (questions) =>
+        new Set(questions.map((question) => question.questionNumber)).size ===
+        questions.length,
+      "Question identifiers must be unique within an examination.",
+    ),
+});
+export type Examination = z.infer<typeof Examination>;
 
 export const Course = z
   .object({
@@ -49,21 +66,18 @@ export const Course = z
         }),
       }),
     ),
-    examinations: z.record(
-        z.string(), 
-        z.object({
-            questions: z.array(
-                z.object({
-                    questionNumber: z.string(), 
-                    taId: z.string(),           
-                })
-            ),
-        })
-    ),
-    effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
-      description:
-        "A mapping of request types that are effective for this course.",
-    }),
+    examinations: z.record(z.string().trim().min(1), Examination).default({}),
+    effectiveRequestTypes: z
+      .strictObject({
+        "Swap Section": z.boolean(),
+        "Absent from Section": z.boolean(),
+        "Deadline Extension": z.boolean(),
+        "Examination Appeal": z.boolean().default(false),
+      })
+      .meta({
+        description:
+          "A mapping of request types that are effective for this course.",
+      }),
   })
   .meta({
     description: "An *offering* of a course in a specific term.",
@@ -179,6 +193,19 @@ export namespace Courses {
 
   export function compare(a: CourseID, b: CourseID): number {
     return compareString(Courses.id2str(a), Courses.id2str(b));
+  }
+
+  export function isSectionScheduledOnDate(
+    course: Course,
+    section: string,
+    date: string,
+  ): boolean {
+    const sectionData = course.sections[section];
+    const dateTime = fromISO(date);
+    return (
+      dateTime.isValid &&
+      sectionData?.schedule.some(({ day }) => day === dateTime.weekday) === true
+    );
   }
 }
 

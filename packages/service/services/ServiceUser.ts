@@ -11,12 +11,7 @@ import {
   type UserID,
 } from "../models";
 import type { Repos } from "../repos";
-import {
-  assertClassRole,
-  assertCourseRole,
-  assertRole,
-  assertSudoer,
-} from "./permission";
+import { assertClassRole, assertCourseRole, assertRole } from "./permission";
 
 export class UserService<TUser extends UserID | null = null> {
   public user: TUser;
@@ -118,19 +113,6 @@ export class UserService<TUser extends UserID | null = null> {
    */
   async getCurrentUser(this: UserService<UserID>): Promise<User> {
     return this.repos.user.requireUser(this.user);
-  }
-
-  /**
-   * Get all sudoers in the system.
-   *
-   * The current user must be a sudoer.
-   *
-   * @returns The list of sudoer users.
-   */
-  async getSudoers(this: UserService<UserID>): Promise<User[]> {
-    const user = await this.repos.user.requireUser(this.user);
-    assertSudoer(user, "getting sudoers");
-    return this.repos.user.getSudoers();
   }
 
   /**

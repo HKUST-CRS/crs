@@ -5,7 +5,7 @@ import clsx from "clsx";
 import { isEqual } from "es-toolkit";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type { Request } from "service/models";
+import { Classes, type Request, type RequestInit } from "service/models";
 import { toast } from "sonner";
 import z from "zod";
 import { useTRPC } from "@/lib/trpc-client";
@@ -21,15 +21,11 @@ import {
   DeadlineExtensionFormSchema,
   DeadlineExtensionRequestForm,
 } from "./request-form-deadline-extension";
+import { ExaminationAppealRequestForm } from "./request-form-examination-appeal";
 import {
   SwapSectionFormSchema,
   SwapSectionRequestForm,
 } from "./request-form-swap-section";
-import {
-  ExaminationAppealFormSchema,
-  ExaminationAppealRequestForm,
-} from "./request-form-examination-appeal";
-
 
 export type RequestFormProps = {
   viewonly?: boolean;
@@ -42,7 +38,6 @@ const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
   AbsentFromSectionFormSchema,
   DeadlineExtensionFormSchema,
-  ExaminationAppealFormSchema
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
 
@@ -58,6 +53,7 @@ export default function RequestForm(props: RequestFormProps) {
     props.default ?? null,
   );
   const [meta, setMeta] = useState<MetaFormSchema | null>(null);
+  const [examinationPending, setExaminationPending] = useState(false);
 
   const submitting = useRef(false);
 
@@ -67,66 +63,40 @@ export default function RequestForm(props: RequestFormProps) {
 
     console.log({ message: "Submit Request", meta, base });
 
-    async function mutate(): Promise<string | string[]> {
+    async function mutate(): Promise<string> {
       if (!base) {
         throw new Error("base is undefined");
       }
-      switch (meta.type) {
-        case "Swap Section": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
-        }
-        case "Absent from Section": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
-        }
-        case "Deadline Extension": {
-          return await createRequest.mutateAsync({
-            class: base.class,
-            type: meta.type,
-            details: meta.details,
-            metadata: meta.meta,
-          });
-        }
-        case "Examination Appeal": {
-          const submitPromises = meta.meta.appeals.map((appealItem) => {
-            return createRequest.mutateAsync({
+      const request: RequestInit = (() => {
+        switch (meta.type) {
+          case "Swap Section":
+            return {
               class: base.class,
               type: meta.type,
-              details: meta.details, 
-              metadata: {
-                appeals: [appealItem], 
-              },
-            });
-          });
-
-          const submittedIds = await Promise.all(submitPromises);
-          return submittedIds.length > 1 ? submittedIds : submittedIds[0];
+              metadata: meta.meta,
+            };
+          case "Absent from Section":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
+          case "Deadline Extension":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
         }
-      }
-
+      })();
+      return createRequest.mutateAsync({ request, comment: meta.comment });
     }
     toast.promise(mutate(), {
       loading: "Submitting the request...",
       success: (id) => {
         console.log({ message: "Submitted Request", id });
-        if (Array.isArray(id) && id.length != 1) {
-          router.replace("/"); // 直接帶佢返主頁 Dashboard
-          return `Successfully submitted ${id.length} appeal requests!`; // 彈句靚 Pop-up
-        } 
-        // 💡 4. 如果係普通單 (得一個 ID)
-        else {
-          router.replace(`/request/${id}`);
-          return "Request submitted successfully!";
-        }
+        router.replace(`/request/${id}`);
+        return "Request submitted successfully!";
       },
       error: (err) => {
         submitting.current = false;
@@ -138,9 +108,17 @@ export default function RequestForm(props: RequestFormProps) {
     });
   }
 
-  const MetaForm = () => {
+  const renderMetaForm = () => {
     if (base) {
       switch (base.type) {
+        case "Examination Appeal":
+          return viewonly ? null : (
+            <ExaminationAppealRequestForm
+              key={Classes.id2str(base.class)}
+              base={base}
+              onPendingChange={setExaminationPending}
+            />
+          );
         case "Swap Section": {
           const defMeta = meta?.type === "Swap Section" ? meta : undefined;
           const defProps =
@@ -148,7 +126,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -171,7 +148,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -194,7 +170,6 @@ export default function RequestForm(props: RequestFormProps) {
               ? {
                   type: base.type,
                   meta: props.default?.metadata,
-                  details: props.default?.details,
                 }
               : undefined;
           return (
@@ -209,31 +184,7 @@ export default function RequestForm(props: RequestFormProps) {
             />
           );
         }
-        case "Examination Appeal": {
-          const defMeta =
-            meta?.type === "Examination Appeal" ? meta : undefined;
-          const defProps =
-            props.default?.type === "Examination Appeal"
-              ? {
-                  type: base.type,
-                  meta: props.default?.metadata,
-                  details: props.default?.details,
-                }
-              : undefined;
-          return (
-            <ExaminationAppealRequestForm
-              base={base}
-              default={defMeta ?? defProps}
-              viewonly={viewonly}
-              onSubmit={(data) => {
-                setMeta(data);
-                onSubmit(data);
-              }}
-            />
-          );
-        }
       }
-      
     }
     return null;
   };
@@ -243,6 +194,7 @@ export default function RequestForm(props: RequestFormProps) {
       className={clsx("flex flex-col justify-stretch gap-4", props.className)}
     >
       <BaseRequestForm
+        disabled={examinationPending}
         onSubmit={(data) => {
           // The condition is to avoid an infinite loop of update. The
           // BaseRequestForm calls onSubmit as soon as the user fills the form.
@@ -252,10 +204,14 @@ export default function RequestForm(props: RequestFormProps) {
             setBase(data);
           }
         }}
+        onClassChange={() => {
+          setBase(null);
+          setMeta(null);
+        }}
         default={base ?? undefined}
         viewonly={viewonly}
       />
-      <MetaForm />
+      {renderMetaForm()}
     </div>
   );
 }

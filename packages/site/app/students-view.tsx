@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,50 +12,43 @@ import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import { useWindowFocus } from "@/lib/useWindowFocus";
 import { DYK } from "./dyk";
+
 export default function StudentsView() {
   const router = useRouter();
 
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
+  const assignedQuery = useQuery(
+    trpc.request.getAssignedExaminationAppeals.queryOptions(),
+  );
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
-
-  // Find all course this student as a role of student
-  const studentCourses = userQuery.data?.enrollment
-    ?.filter((e) => e.role === "student")
-    ?.map((e) => e.course) || [];
-
-
-  const courseQueries = useQueries({
-    queries: studentCourses.map((course) => ({
-      ...trpc.course.get.queryOptions(course),
-      enabled: !!course.code,
-    })),
-  });
-
-  // Check if the student is responsible for any exam question
-  const isTA = courseQueries.some((query) => {
-    const exams = query.data?.examinations;
-    if (!exams) return false;
-    
-    return Object.values(exams).some((examData: any) =>
-      examData.questions?.some((q: any) => q.taId === userQuery.data?.email)
+  const hasTeachingRole =
+    !!assignedQuery.data?.length ||
+    userQuery.data?.enrollment?.some(
+      (e) =>
+        e.role === "instructor" || e.role === "observer" || e.role === "admin",
     );
-  });
-
-  const hasTeachingRole = userQuery.data?.enrollment?.some(
-    (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin" || isTA
-  );
   useEffect(() => {
-    if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {
+    if (
+      userQuery.data !== undefined &&
+      assignedQuery.isSuccess &&
+      !hasStudentRole &&
+      hasTeachingRole
+    ) {
       router.replace("/instructor");
     }
-  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+  }, [
+    router,
+    userQuery.data,
+    assignedQuery.isSuccess,
+    hasStudentRole,
+    hasTeachingRole,
+  ]);
 
   // Requests
   const requestsQuery = useQuery(
@@ -67,11 +60,12 @@ export default function StudentsView() {
     useCallback(() => {
       userQuery.refetch();
       requestsQuery.refetch();
-    }, [userQuery, requestsQuery]),
+      assignedQuery.refetch();
+    }, [userQuery, requestsQuery, assignedQuery]),
   );
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>
@@ -92,7 +86,7 @@ export default function StudentsView() {
               <br />
               Alternatively, click for{" "}
               <u>
-                <Link href="/instructor">Instructor's View</Link>
+                <Link href="/instructor">Staff View</Link>
               </u>
             </>
           )}

@@ -6,7 +6,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Course } from "service/models";
+import { Examination } from "service/models";
 import z from "zod";
 import {
   Table,
@@ -17,10 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-
 export const ExaminationRow = z.object({
-  code: Course.shape.examinations.keyType,
-  ...Course.shape.examinations.valueType.shape,
+  code: z.string().trim().min(1),
+  ...Examination.shape,
 });
 
 export type ExaminationRow = z.infer<typeof ExaminationRow>;
@@ -36,7 +35,7 @@ export const columns: ColumnDef<ExaminationRow>[] = [
     cell: ({ row }) => {
       const questions = row.original.questions;
       if (!questions || questions.length === 0) return "No questions assigned";
-      return `${questions.length} questions`;
+      return `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
     },
   },
 ];
@@ -88,7 +87,24 @@ export function ExaminationTable({
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {cell.column.id === "code" ? (
+                      <button
+                        type="button"
+                        aria-label={`Edit examination ${row.original.code}`}
+                        className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onClickRow(row.original);
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </button>
+                    ) : (
+                      flexRender(cell.column.columnDef.cell, cell.getContext())
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

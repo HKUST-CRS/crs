@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import RequestForm from "@/components/requests/request-form";
+import RequestThread from "@/components/requests/request-thread";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 
@@ -13,12 +13,16 @@ export default function RequestDisplay({ requestID }: { requestID: string }) {
       error: requestQuery.error,
       requestID,
     });
-    return null;
+    return (
+      <p role="alert">
+        Could not load this request: {requestQuery.error.message}
+      </p>
+    );
   }
   return (
-    <div className="m-4">
+    <div className="w-full min-w-0">
       {requestQuery.data ? (
-        <RequestForm default={requestQuery.data} viewonly />
+        <RequestThread request={requestQuery.data} />
       ) : (
         <Spinner variant="ellipsis" />
       )}

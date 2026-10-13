@@ -1,218 +1,258 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import clsx from "clsx";
-import { Plus, Trash2 } from "lucide-react"; 
-import { type FC, type ReactNode, useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExaminationAppealMeta } from "service/models";
+import { ExaminationAppealBatch } from "service/models";
+import { toast } from "sonner";
 import type z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-
-import type { BaseRequestFormSchema } from "./base-request-form";
-import { FormSchema } from "./schema";
-
-import { useQuery } from "@tanstack/react-query";
-import { useTRPC } from "@/lib/trpc-client";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Spinner } from "@/components/ui/spinner";
+import { Textarea } from "@/components/ui/textarea";
+import { useTRPC } from "@/lib/trpc-client";
+import type { BaseRequestFormSchema } from "./base-request-form";
 
-export const ExaminationAppealFormSchema = FormSchema(
-  "Examination Appeal",
-  ExaminationAppealMeta,
-);
-export type ExaminationAppealFormSchema = z.infer<typeof ExaminationAppealFormSchema>;
+const FormSchema = ExaminationAppealBatch.pick({ appeals: true });
+type FormValues = z.infer<typeof FormSchema>;
+const emptyAppeal = () => ({
+  examCode: "",
+  questionNumber: "",
+  comment: { text: "" },
+});
 
-export type ExaminationAppealRequestFormProps = {
-  viewonly?: boolean;
+export function ExaminationAppealRequestForm({
+  base,
+  onPendingChange,
+}: {
   base: BaseRequestFormSchema;
-  default?: ExaminationAppealFormSchema;
-  onSubmit?: (data: ExaminationAppealFormSchema) => void;
-  className?: string;
-};
-
-export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps> = (
-  props,
-) => {
+  onPendingChange: (pending: boolean) => void;
+}) {
   const trpc = useTRPC();
-  const { data: course } = useQuery({
-      ...trpc.course.get.queryOptions(props.base.class.course),
-      enabled: !!props.base.class.course,
-    });
-  
-  const form = useForm<ExaminationAppealFormSchema>({
-    resolver: zodResolver(ExaminationAppealFormSchema),
-    defaultValues: {
-      type: "Examination Appeal",
-      details: {
-        reason: "N/A - Reasons are provided in individual appeal items.", 
-        proof: [],
-      },
-      meta: {
-        appeals: [{ examCode: "", questionNumber: "", reason: "" } as any], 
-      },
-      ...props.default, 
-    },
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const courseQuery = useQuery(trpc.course.get.queryOptions(base.class.course));
+  const mutation = useMutation(
+    trpc.request.createExaminationAppeals.mutationOptions(),
+  );
+  const retry = useRef<{ fingerprint: string; submissionId: string } | null>(
+    null,
+  );
+  const submitting = useRef(false);
+  const form = useForm<FormValues>({
+    resolver: zodResolver(FormSchema),
+    defaultValues: { appeals: [emptyAppeal()] },
   });
-
-  const { viewonly = false, onSubmit = () => {} } = props;
-
   const { fields, append, remove } = useFieldArray({
     control: form.control,
-    name: "meta.appeals", 
+    name: "appeals",
   });
+  const onSubmit = async (data: FormValues) => {
+    if (submitting.current) return;
+    submitting.current = true;
+    onPendingChange(true);
+    const payload = { class: base.class, appeals: data.appeals };
+    const fingerprint = JSON.stringify(payload);
+    if (retry.current?.fingerprint !== fingerprint) {
+      retry.current = { fingerprint, submissionId: crypto.randomUUID() };
+    }
+    const toastId = toast.loading("Submitting appeals…");
+    try {
+      const ids = await mutation.mutateAsync({
+        submissionId: retry.current.submissionId,
+        ...payload,
+      });
+      toast.success(
+        `${ids.length} ${ids.length === 1 ? "appeal" : "appeals"} submitted.`,
+        { id: toastId },
+      );
+      await queryClient.invalidateQueries({ queryKey: trpc.request.pathKey() });
+      router.replace(ids.length === 1 ? `/request/${ids[0]}` : "/");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not submit appeals.",
+        { id: toastId },
+      );
+      form.setError("root", {
+        message:
+          "Submission could not be confirmed. Retry without editing to reuse this submission and avoid duplicate requests.",
+      });
+    } finally {
+      submitting.current = false;
+      onPendingChange(false);
+    }
+  };
 
-  const Wrapper = useCallback(
-    (props: { className: string; children: ReactNode }) => {
-      if (viewonly) {
-        return <div className={props.className}>{props.children}</div>;
-      } else {
-        return (
-          <form
-            className={props.className}
-            onSubmit={(e) => {
-              form.handleSubmit(onSubmit, (err) => {
-                console.error("Examination form submission error", err);
-              })(e);
-            }}
-          >
-            {props.children}
-          </form>
-        );
-      }
-    },
-    [viewonly, form.handleSubmit, onSubmit],
-  );
+  if (courseQuery.isPending) return <Spinner variant="ellipsis" />;
+  if (courseQuery.error)
+    return (
+      <p role="alert">
+        Could not load examinations: {courseQuery.error.message}
+      </p>
+    );
+  const examinations = courseQuery.data?.examinations ?? {};
+  if (!Object.keys(examinations).length)
+    return (
+      <p className="typo-muted">
+        No examinations are configured. Please contact your course instructor.
+      </p>
+    );
+  const busy = form.formState.isSubmitting;
 
   return (
     <Form {...form}>
-      <Wrapper
-        className={clsx(
-          "flex flex-col gap-6",
-          viewonly && "pointer-events-none",
-          props.className,
-        )}
+      <form
+        className="flex flex-col gap-6"
+        onSubmit={form.handleSubmit(onSubmit)}
       >
+        <p className="typo-muted text-sm">
+          Each question creates its own request thread for the assigned TA. All
+          questions in this submission are saved together.
+        </p>
         <div className="space-y-6">
-          {fields.map((field, index) => {
-            const selectedExamCode = form.watch(`meta.appeals.${index}.examCode` as any);
-            const availableQuestions = selectedExamCode && course?.examinations
-              ? course.examinations[selectedExamCode]?.questions || []
-              : [];
-
+          {fields.map((item, index) => {
+            const selectedExamCode = form.watch(`appeals.${index}.examCode`);
+            const questions = examinations[selectedExamCode]?.questions ?? [];
+            const questionNumber = form.watch(
+              `appeals.${index}.questionNumber`,
+            );
+            const assignedTA = questions.find(
+              (question) => question.questionNumber === questionNumber,
+            )?.taId;
             return (
               <div
-                key={field.id}
-                className="relative grid grid-cols-1 gap-4 p-5 border rounded-lg dark:bg-transparent bg-slate-50/50 md:grid-cols-12"
+                key={item.id}
+                className="grid grid-cols-1 gap-4 rounded-lg border bg-slate-50/50 p-5 md:grid-cols-12 dark:bg-transparent"
               >
-                <div className="flex items-center justify-between col-span-1 pb-2 border-b md:col-span-12 border-slate-200">
-                  <h4 className="font-semibold">
-                    Appeal Item #{index + 1}
-                  </h4>
-                  {!viewonly && fields.length > 1 && (
+                <div className="flex items-center justify-between border-b pb-2 md:col-span-12">
+                  <h4 className="font-semibold">Appeal Item #{index + 1}</h4>
+                  {fields.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      disabled={busy}
                       onClick={() => remove(index)}
+                      aria-label={`Remove appeal item ${index + 1}`}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" />
+                      <Trash2 className="mr-2 h-4 w-4" />
                       Remove
                     </Button>
                   )}
                 </div>
-
                 <FormField
-                  name={`meta.appeals.${index}.examCode` as any}
+                  name={`appeals.${index}.examCode`}
                   control={form.control}
                   render={({ field }) => (
-                    <FormItem className="col-span-1 md:col-span-3">
+                    <FormItem className="md:col-span-6">
                       <FormLabel>Examination</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={(val) => {
-                            field.onChange(val);
-                            form.setValue(`meta.appeals.${index}.questionNumber` as any, "");
-                          }}
-                          value={field.value}
-                          disabled={viewonly}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Exam" />
+                      <Select
+                        value={field.value}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          form.setValue(`appeals.${index}.questionNumber`, "");
+                        }}
+                        disabled={busy}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Examination" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {course?.examinations && Object.keys(course.examinations).map((code) => (
+                        </FormControl>
+                        <SelectContent>
+                          {Object.keys(examinations)
+                            .sort()
+                            .map((code) => (
                               <SelectItem key={code} value={code}>
                                 {code}
                               </SelectItem>
                             ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
-                  name={`meta.appeals.${index}.questionNumber` as any}
+                  name={`appeals.${index}.questionNumber`}
                   control={form.control}
                   render={({ field }) => (
-                    <FormItem className="col-span-1 md:col-span-3">
+                    <FormItem className="md:col-span-6">
                       <FormLabel>Question</FormLabel>
-                      <FormControl>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={viewonly || !selectedExamCode} 
-                        >
-                          <SelectTrigger>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={
+                          busy || !selectedExamCode || !questions.length
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select Question" />
                           </SelectTrigger>
-                          <SelectContent>
-                            {availableQuestions.map((q) => (
-                              <SelectItem key={q.questionNumber} value={q.questionNumber}>
-                                {q.questionNumber}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </FormControl>
+                        </FormControl>
+                        <SelectContent>
+                          {questions.map((question) => (
+                            <SelectItem
+                              key={question.questionNumber}
+                              value={question.questionNumber}
+                            >
+                              {question.questionNumber}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {assignedTA ? (
+                          <>
+                            Assigned TA:{" "}
+                            <span className="break-all">{assignedTA}</span>
+                          </>
+                        ) : selectedExamCode && !questions.length ? (
+                          "No questions are configured for this examination. Contact your course instructor."
+                        ) : (
+                          "Choose the question to review."
+                        )}
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
-                  name={`meta.appeals.${index}.reason` as any}
+                  name={`appeals.${index}.comment.text`}
                   control={form.control}
                   render={({ field }) => (
-                    <FormItem className="col-span-1 md:col-span-12">
+                    <FormItem className="md:col-span-12">
                       <FormLabel>Appeal Reason</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Explain why this question deserves a different score..."
-                          disabled={viewonly}
-                          className="resize-none"
                           {...field}
+                          disabled={busy}
+                          placeholder="Explain the grading issue for this question…"
                         />
                       </FormControl>
+                      <FormDescription>
+                        Your reason opens the question’s request thread. You can
+                        add supporting documents there.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -221,27 +261,34 @@ export const ExaminationAppealRequestForm: FC<ExaminationAppealRequestFormProps>
             );
           })}
         </div>
-
-        {!viewonly && (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full border-2 border-dashed hover:text-primary hover:border-primary"
-            onClick={() =>
-              append({ examCode: "", questionNumber: "", reason: "" } as any)
-            }
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Another Question
+        {(form.formState.errors.appeals?.message ||
+          form.formState.errors.appeals?.root?.message) && (
+          <p role="alert" className="text-destructive text-sm">
+            {form.formState.errors.appeals.message ||
+              form.formState.errors.appeals.root?.message}
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full border-2 border-dashed"
+          disabled={busy || fields.length >= 50}
+          onClick={() => append(emptyAppeal())}
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Another Question
+        </Button>
+        {form.formState.errors.root?.message && (
+          <p role="alert" className="text-destructive text-sm">
+            {form.formState.errors.root.message}
+          </p>
+        )}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={busy}>
+            {busy ? "Submitting…" : "Submit"}
           </Button>
-        )}
-
-        {!viewonly && (
-          <div className="flex justify-end col-span-full">
-            <Button type="submit">Submit</Button>
-          </div>
-        )}
-      </Wrapper>
+        </div>
+      </form>
     </Form>
   );
-};
+}

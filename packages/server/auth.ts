@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 import * as jose from "jose";
+import { z } from "zod";
 
 function EntraIDIssuer(tid: string) {
   return `https://sts.windows.net/${tid}/`;
@@ -53,7 +54,21 @@ function formatName(family_name: string, given_name: string, name: string) {
   return name;
 }
 
+export function getDevUser(): string | null {
+  const user = Bun.env.CRS_DEV_USER;
+  if (!user) return null;
+  if (Bun.env.NODE_ENV === "production") {
+    throw new Error("CRS_DEV_USER cannot be used in production");
+  }
+  return z.email().parse(user);
+}
+
 export async function createContext({ req }: CreateHTTPContextOptions) {
+  const devUser = getDevUser();
+  if (devUser) {
+    return { user: { email: devUser, name: devUser } };
+  }
+
   async function auth() {
     const authHeader = req.headers.authorization;
     if (!authHeader) {

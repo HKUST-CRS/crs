@@ -69,25 +69,31 @@ export function assertClassRole(
   roles: Role[],
   op?: string,
 ) {
-  if (!Array.isArray(classes))
-    return assertClassRole(user, [classes], roles, op);
-  const hasRole = user.enrollment.some(
+  if (!hasClassRole(user, classes, roles)) {
+    throw new ClassPermissionError(
+      user.email,
+      roles,
+      Array.isArray(classes) ? classes : [classes],
+      op || "accessing the class",
+    );
+  }
+}
+
+export function hasClassRole(
+  user: User,
+  classes: Class | Class[],
+  roles: Role[],
+): boolean {
+  const classList = Array.isArray(classes) ? classes : [classes];
+  return user.enrollment.some(
     (e) =>
-      classes.some(
+      classList.some(
         (c) =>
           e.course.code === c.course.code &&
           e.course.term === c.course.term &&
           (e.section === c.section || e.section === "*"),
       ) && roles.includes(e.role),
   );
-  if (!hasRole) {
-    throw new ClassPermissionError(
-      user.email,
-      roles,
-      classes,
-      op || "accessing the class",
-    );
-  }
 }
 
 /**

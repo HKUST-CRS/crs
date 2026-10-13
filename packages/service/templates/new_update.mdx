@@ -1,0 +1,20 @@
+Dear {props.Recipient},
+
+You have received a new request or a new update on a request in the CSE Request System (CRS). Please review the request at <a href={props.Link}>{props.Link}</a>.
+
+{props.Update}
+
+{props.Summary}
+
+Best regards,<br/>
+CRS, on behalf of {props.Sender}
+
+<hr/>
+
+<small>
+_This is a system-generated email. Please do not reply to this email._
+</small>
+<small style={{color: "gray"}}>
+_Ref & Sig: {props.ID}_<br/>
+_{props.Sig}_
+</small>
