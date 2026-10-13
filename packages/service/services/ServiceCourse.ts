@@ -127,6 +127,15 @@ export class CourseService<TUser extends UserID | null = null> {
     await this.repos.course.updateAssignments(courseID, assignments);
   }
 
+  /**
+   * Updates the exams of a course.
+   *
+   * The current user must be an instructor or admin in the course.
+   * Assigned graders must already be enrolled as graders in the course.
+   *
+   * @param courseID The ID of the course to update.
+   * @param exams The new exams of the course.
+   */
   async updateExams(
     this: CourseService<UserID>,
     courseID: CourseID,
@@ -145,6 +154,7 @@ export class CourseService<TUser extends UserID | null = null> {
     await this.repos.course.updateExams(courseID, validated);
   }
 
+  /** Checks that each assigned grader exists and has a grader enrollment in the course. */
   private async validateExamGraders(
     courseID: CourseID,
     exams: Course["exams"],
