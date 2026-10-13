@@ -21,14 +21,15 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     ),
 
     a: ({ href, children, ...props }) => {
-      const isExternal = href?.startsWith("http");
-      if (isExternal) {
+      const isInternal = href?.startsWith("/") && !href.startsWith("//");
+      if (!isInternal) {
+        const isExternal = /^(https?:)?\/\//i.test(href ?? "");
         return (
           <a
             href={href}
             className="text-primary underline underline-offset-4 hover:opacity-80"
-            target="_blank"
-            rel="noopener noreferrer"
+            target={isExternal ? "_blank" : undefined}
+            rel={isExternal ? "noopener noreferrer" : undefined}
             {...props}
           >
             {children}

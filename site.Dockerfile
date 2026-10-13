@@ -25,6 +25,7 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN bun run licenses
 RUN cd packages/site && bun run build
 
 # Production image, copy all the files and run next
@@ -41,8 +42,8 @@ ENV NODE_ENV=production \
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# No /public directory in this project now, so commented out.
-# COPY --from=builder /app/packages/site/public ./public
+# Public assets live beside the standalone site's server.
+COPY --from=builder --chown=nextjs:nodejs /app/packages/site/public ./packages/site/public
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
