@@ -7,6 +7,7 @@ import {
 } from "mongodb";
 import type { Course, RequestDocument, User } from "../models";
 
+/** Generic retry receipt; request content lives only in the requests collection. */
 export interface RequestSubmissionDocument {
   _id: string;
   fingerprint: string;
@@ -20,6 +21,8 @@ export interface Collections {
   users: Collection<User>;
   courses: Collection<Course>;
   requests: Collection<RequestDocument>;
+  // A unique [requester, submissionId] receipt commits with its requests, so a
+  // lost response or concurrent retry returns the same IDs without duplicates.
   requestSubmissions: Collection<RequestSubmissionDocument>;
   proofs: GridFSBucket;
 }
@@ -30,13 +33,6 @@ async function createIndexes(collections: Collections): Promise<void> {
     collections.courses.createIndex({ code: 1, term: 1 }, { unique: true }),
     collections.requests.createIndex({ timestamp: -1 }),
     collections.requests.createIndex({ "thread.proofs.id": 1 }),
-    collections.requests.createIndex({
-      type: 1,
-      "class.course.code": 1,
-      "class.course.term": 1,
-      "metadata.examCode": 1,
-      "metadata.questionNumber": 1,
-    }),
   ]);
 }
 

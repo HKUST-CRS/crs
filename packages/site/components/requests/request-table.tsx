@@ -136,7 +136,7 @@ const columns: ColumnDef<Request>[] = [
     id: "type",
     accessorFn: (row) =>
       row.type === "Examination Appeal"
-        ? `${row.type} ${row.metadata.examCode} ${row.metadata.questionNumber}`
+        ? `${row.type} ${row.metadata.examCode} ${row.metadata.question}`
         : row.type,
     sortingFn: (rowA, rowB) =>
       rowA.original.type.localeCompare(rowB.original.type),
@@ -159,7 +159,7 @@ const columns: ColumnDef<Request>[] = [
           {row.original.type === "Examination Appeal" && (
             <div className="text-muted-foreground text-xs">
               {row.original.metadata.examCode} ·{" "}
-              {row.original.metadata.questionNumber}
+              {row.original.metadata.question}
             </div>
           )}
         </div>

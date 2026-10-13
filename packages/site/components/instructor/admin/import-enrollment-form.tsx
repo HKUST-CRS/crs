@@ -124,8 +124,9 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Roaster</FieldLabel>
+            <FieldLabel htmlFor="import-enrollment-roster">Roaster</FieldLabel>
             <Input
+              id="import-enrollment-roster"
               onChange={async (e) => {
                 const files = e.target.files;
 
@@ -171,13 +172,14 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Section</FieldLabel>
-            <Input placeholder="L1" {...field} />
+            <FieldLabel htmlFor="import-enrollment-section">Section</FieldLabel>
+            <Input id="import-enrollment-section" placeholder="L1" {...field} />
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
-              section can only be responded by an instructor in the section.
-              Specifically, an asterisk (*) denotes all/any sections.
+              section can be handled by an instructor in the section, or by its
+              assigned grader for an exam question. An asterisk (*) covers all
+              sections; use it for a grader responsible for the whole course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
@@ -189,9 +191,9 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Role</FieldLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="w-full">
+            <FieldLabel htmlFor="import-enrollment-role">Role</FieldLabel>
+            <Select value={field.value ?? ""} onValueChange={field.onChange}>
+              <SelectTrigger id="import-enrollment-role" className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -206,7 +208,9 @@ export function ImportEnrollmentForm({
               A student can create requests. An instructor can view the
               requests, manage the course (such as setting up sections and
               assignments), and approve/reject the requests. An observer can
-              only view the requests. An admin can only manage the course.
+              only view the requests. A grader can view, comment on, and decide
+              appeals for their assigned exam questions, within their enrolled
+              sections. An admin can only manage the course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>

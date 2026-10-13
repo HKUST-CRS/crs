@@ -98,7 +98,7 @@ describe("schedule browser adapter", () => {
           L10: { schedule: [{ day: 2, from: "08:00", to: "09:00" }] },
         },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,

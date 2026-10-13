@@ -12,3 +12,4 @@ export * from "./DeadlineExtension";
 export * from "./ExaminationAppeal";
 
 export * from "./Request";
+export * from "./RequestBatch";

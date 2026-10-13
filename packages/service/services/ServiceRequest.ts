@@ -1,12 +1,11 @@
 import {
-  type Class,
   type Comment,
   type CommentInit,
-  type Course,
-  ExaminationAppealBatch,
+  Courses,
   type Request,
+  RequestBatch,
   type RequestID,
-  type RequestInit,
+  RequestInit,
   type RequestStatus,
   type Role,
   type ThreadEntry,
@@ -40,38 +39,22 @@ const DECISION_FROM: RequestStatus[] = [
 ];
 const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
 
-/** Resolve responsibility for this exact examination question from the current catalog. */
-export async function resolveExaminationTA(
+/** A question assignment is effective only while its grader is enrolled in the request's class. */
+export async function resolveExamGrader(
   repos: Repos,
-  request: Request,
+  request: RequestInit,
 ): Promise<UserID | null> {
   if (request.type !== "Examination Appeal") return null;
   const course = await repos.course.requireCourse(request.class.course);
-  return (
-    course.examinations[request.metadata.examCode]?.questions.find(
-      (question) => question.questionNumber === request.metadata.questionNumber,
-    )?.taId ?? null
-  );
-}
-
-function validateExaminationTarget(
-  course: Course,
-  clazz: Class,
-  examCode: string,
-  questionNumber: string,
-): void {
-  if (!course.effectiveRequestTypes["Examination Appeal"]) {
-    throw new RequestTypeNotEffectiveError(clazz.course, "Examination Appeal");
-  }
-  if (
-    !Object.hasOwn(course.sections, clazz.section) ||
-    !Object.hasOwn(course.examinations, examCode) ||
-    !course.examinations[examCode]?.questions.some(
-      (question) => question.questionNumber === questionNumber,
-    )
-  ) {
-    throw new InvalidRequestError(clazz.course, "Examination Appeal");
-  }
+  if (!Object.hasOwn(course.exams, request.metadata.examCode)) return null;
+  const email = course.exams[request.metadata.examCode]?.questions.find(
+    (question) => question.question === request.metadata.question,
+  )?.grader;
+  if (!email) return null;
+  const grader = await repos.user.getUser(email);
+  return grader && hasClassRole(grader, request.class, ["grader"])
+    ? email
+    : null;
 }
 
 export class RequestService<TUser extends UserID | null = null> {
@@ -97,8 +80,7 @@ export class RequestService<TUser extends UserID | null = null> {
     operation: string,
   ): Promise<void> {
     if (hasClassRole(user, request.class, roles)) return;
-    if ((await resolveExaminationTA(this.repos, request)) === user.email)
-      return;
+    if ((await resolveExamGrader(this.repos, request)) === user.email) return;
     assertClassRole(user, request.class, roles, operation);
   }
 
@@ -107,7 +89,7 @@ export class RequestService<TUser extends UserID | null = null> {
    *
    * If the user has a role of student in the course, they can only view their own requests. If the
    * user has a role of instructor or observer in the class, they can view all requests for that
-   * class. The assigned TA can also view appeals for their exact examination question.
+   * class. An enrolled grader can also view appeals for their assigned examination question.
    */
   async getRequest(
     this: RequestService<UserID>,
@@ -135,7 +117,8 @@ export class RequestService<TUser extends UserID | null = null> {
    * classes that the user is an instructor or observer of. Enrollments with section "*" include
    * all sections in the course.
    *
-   * If the role is "admin", this returns no requests.
+   * If the role is "grader", this returns appeals for their assigned examination questions
+   * in classes where they are enrolled as graders. "admin" returns no requests.
    *
    * @param roles The roles to fetch requests as.
    * @returns The requests visible to the user for the specified roles.
@@ -162,35 +145,41 @@ export class RequestService<TUser extends UserID | null = null> {
         ...(await this.repos.request.getRequestsInClasses(enrollments)),
       );
     }
-    return requests;
-  }
-
-  async getAssignedExaminationAppeals(
-    this: RequestService<UserID>,
-  ): Promise<Request[]> {
-    await this.repos.user.requireUser(this.user);
-    const courses = await this.repos.course.getCoursesWithExaminationTA(
-      this.user,
-    );
-    const targets = courses.flatMap((course) =>
-      Object.entries(course.examinations).flatMap(([examCode, exam]) =>
-        exam.questions
-          .filter((question) => question.taId === this.user)
-          .map((question) => ({
-            course: { code: course.code, term: course.term },
-            examCode,
-            questionNumber: question.questionNumber,
-          })),
-      ),
-    );
-    return this.repos.request.getExaminationAppealsForTargets(targets);
+    if (roles.includes("grader")) {
+      const enrollments = user.enrollment.filter((e) => e.role === "grader");
+      const [courses, candidates] = await Promise.all([
+        this.repos.course.getCoursesFromEnrollment(user, ["grader"]),
+        this.repos.request.getRequestsInClasses(enrollments),
+      ]);
+      const catalogs = new Map(
+        courses.map((course) => [Courses.id2str(course), course]),
+      );
+      requests.push(
+        ...candidates.filter((request) => {
+          if (request.type !== "Examination Appeal") return false;
+          const course = catalogs.get(Courses.id2str(request.class.course));
+          return (
+            course &&
+            Object.hasOwn(course.exams, request.metadata.examCode) &&
+            course.exams[request.metadata.examCode]?.questions.some(
+              (question) =>
+                question.question === request.metadata.question &&
+                question.grader === user.email,
+            )
+          );
+        }),
+      );
+    }
+    return [
+      ...new Map(requests.map((request) => [request.id, request])).values(),
+    ];
   }
 
   async getContext(this: RequestService<UserID>, requestID: RequestID) {
     const request = await this.getRequest(requestID);
     const user = await this.repos.user.requireUser(this.user);
     const course = await this.repos.course.requireCourse(request.class.course);
-    const assignedEmail = await resolveExaminationTA(this.repos, request);
+    const assignedEmail = await resolveExamGrader(this.repos, request);
     const authors = [...new Set(request.thread.map((entry) => entry.from))];
     const profiles = await Promise.all(
       [...new Set([...authors, ...(assignedEmail ? [assignedEmail] : [])])].map(
@@ -204,7 +193,7 @@ export class RequestService<TUser extends UserID | null = null> {
       assignedEmail === this.user;
     return {
       courseTitle: course.title,
-      assignedTA: assignedEmail
+      assignedGrader: assignedEmail
         ? { email: assignedEmail, name: displayName(assignedEmail) }
         : null,
       authors: authors.map((email) => ({ email, name: displayName(email) })),
@@ -222,7 +211,7 @@ export class RequestService<TUser extends UserID | null = null> {
    * Gets specific requests by their IDs.
    *
    * The current user can access a request if they are the requester, or if they have the
-   * instructor or observer role in the request's class, or are the exact question's TA.
+   * instructor or observer role in the request's class, or are its enrolled assigned grader.
    *
    * Missing request IDs are ignored.
    *
@@ -266,11 +255,15 @@ export class RequestService<TUser extends UserID | null = null> {
     comment: CommentInit,
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
-    // Examination appeals use the atomic, replay-safe batch endpoint even for one question.
-    if (request.type === "Examination Appeal") {
-      throw new InvalidRequestError(request.class.course, request.type);
-    }
-    // only students in the class can create requests
+    request = RequestInit.parse(request);
+    await this.validateNewRequest(user, request);
+    return this.repos.request.createRequest(this.user, request, comment);
+  }
+
+  private async validateNewRequest(
+    user: User,
+    request: RequestInit,
+  ): Promise<void> {
     assertClassRole(user, request.class, ["student"], "creating request");
     const course = await this.repos.course.requireCourse(request.class.course);
     if (!course.effectiveRequestTypes[request.type]) {
@@ -278,6 +271,9 @@ export class RequestService<TUser extends UserID | null = null> {
         request.class.course,
         request.type,
       );
+    }
+    if (!Object.hasOwn(course.sections, request.class.section)) {
+      throw new InvalidRequestError(request.class.course, request.type);
     }
     switch (request.type) {
       case "Swap Section":
@@ -298,43 +294,36 @@ export class RequestService<TUser extends UserID | null = null> {
           );
         }
         break;
+      case "Examination Appeal":
+        if (!(await resolveExamGrader(this.repos, request))) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
     }
-    return this.repos.request.createRequest(this.user, request, comment);
   }
 
-  async createExaminationAppeals(
+  /** Validate every request before the repository atomically saves the batch and its retry receipt. */
+  async createRequests(
     this: RequestService<UserID>,
-    input: ExaminationAppealBatch,
+    input: RequestBatch,
   ): Promise<{ ids: string[]; created: boolean }> {
-    const batch = ExaminationAppealBatch.parse(input);
+    const batch = RequestBatch.parse(input);
     const user = await this.repos.user.requireUser(this.user);
-    const existing = await this.repos.request.getExaminationAppealSubmission(
+    const existing = await this.repos.request.getRequestSubmission(
       this.user,
       batch,
     );
     if (existing) return existing;
-    assertClassRole(
-      user,
-      batch.class,
-      ["student"],
-      "creating examination appeals",
-    );
-    const course = await this.repos.course.requireCourse(batch.class.course);
-    for (const appeal of batch.appeals) {
-      validateExaminationTarget(
-        course,
-        batch.class,
-        appeal.examCode,
-        appeal.questionNumber,
-      );
+    for (const { request } of batch.requests) {
+      await this.validateNewRequest(user, request);
     }
-    return this.repos.request.createExaminationAppeals(this.user, batch);
+    return this.repos.request.createRequests(this.user, batch);
   }
 
   /**
    * Adds a comment (optionally with supporting documents) to the request thread.
    *
-   * The requester, class instructor or exact question's TA may comment at any point —
+   * The requester, class instructor or enrolled assigned grader may comment at any point —
    * including after the request is cancelled — to provide more information.
    * Observers have read-only access to the thread. The request body itself is
    * never edited; clarification is given via comments.
@@ -360,7 +349,7 @@ export class RequestService<TUser extends UserID | null = null> {
   }
 
   /**
-   * Approves the request. A class instructor or exact question's TA may approve, and the
+   * Approves the request. A class instructor or enrolled assigned grader may approve, and the
    * request must be in a state open to a decision (open, appealed, or already
    * decided — re-decisions are allowed). An optional comment is recorded
    * immediately before the status change.
@@ -483,7 +472,7 @@ export class RequestService<TUser extends UserID | null = null> {
 
   /**
    * Reads the bytes of a stored proof file. Only a participant of the request
-   * that owns the file (the requester, class instructor/observer, or exact question's TA)
+   * that owns the file (the requester, class instructor/observer, or enrolled assigned grader)
    * may download it; the file must belong to a visible request's thread.
    *
    * @returns The file content as base64.

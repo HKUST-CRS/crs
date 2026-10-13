@@ -184,7 +184,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -198,7 +198,7 @@ describe("UserService", () => {
         title: "Programming",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -380,7 +380,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -446,7 +446,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -496,7 +496,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -558,7 +558,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -608,7 +608,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -652,7 +652,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -701,7 +701,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
@@ -788,7 +788,7 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
-        examinations: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,

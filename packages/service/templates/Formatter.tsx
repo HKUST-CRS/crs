@@ -63,8 +63,7 @@ const formatRequestMetadata = (request: Request) => {
       return (
         <>
           The student is requesting a grade review of examination{" "}
-          {request.metadata.examCode}, question{" "}
-          {request.metadata.questionNumber}.
+          {request.metadata.examCode}, question {request.metadata.question}.
         </>
       );
     case "Swap Section": {

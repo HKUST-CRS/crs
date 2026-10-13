@@ -41,6 +41,7 @@ export class CourseService<TUser extends UserID | null = null> {
   ): Promise<CourseID> {
     const user = await this.repos.user.requireUser(this.user);
     assertSudoer(user, `creating a new course ${Courses.formatCourse(course)}`);
+    await this.validateExamGraders(course, course.exams);
     await this.repos.course.createCourse(course);
     return Courses.toID(course);
   }
@@ -126,21 +127,47 @@ export class CourseService<TUser extends UserID | null = null> {
     await this.repos.course.updateAssignments(courseID, assignments);
   }
 
-  async updateExaminations(
+  async updateExams(
     this: CourseService<UserID>,
     courseID: CourseID,
-    examinations: Course["examinations"],
+    exams: Course["exams"],
   ): Promise<void> {
     const user = await this.repos.user.requireUser(this.user);
     assertCourseRole(
       user,
       courseID,
       ["instructor", "admin"],
-      `updating examinations of course ${Courses.formatID(courseID)}`,
+      `updating exams of course ${Courses.formatID(courseID)}`,
     );
     await this.repos.course.requireCourse(courseID);
-    const validated = Course.shape.examinations.parse(examinations);
-    await this.repos.course.updateExaminations(courseID, validated);
+    const validated = Course.shape.exams.parse(exams);
+    await this.validateExamGraders(courseID, validated);
+    await this.repos.course.updateExams(courseID, validated);
+  }
+
+  private async validateExamGraders(
+    courseID: CourseID,
+    exams: Course["exams"],
+  ) {
+    const emails = new Set(
+      Object.values(exams).flatMap((exam) =>
+        exam.questions.map((q) => q.grader),
+      ),
+    );
+    for (const email of emails) {
+      const grader = await this.repos.user.getUser(email);
+      if (!grader) {
+        throw new Error(
+          `Enroll ${email} as a grader before assigning exam questions.`,
+        );
+      }
+      assertCourseRole(
+        grader,
+        courseID,
+        ["grader"],
+        "being assigned exam questions",
+      );
+    }
   }
 
   /**

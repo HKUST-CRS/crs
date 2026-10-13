@@ -40,7 +40,7 @@ const baseCourse: Course = {
     L2: { schedule: [{ day: 3, from: "09:00:00", to: "10:00:00" }] },
   },
   assignments: {},
-  examinations: {},
+  exams: {},
   effectiveRequestTypes: {
     "Swap Section": true,
     "Absent from Section": true,

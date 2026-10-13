@@ -5,7 +5,7 @@ import { Course, type CourseID } from "service/models";
 import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc-client";
 import { AssignmentsConfig } from "./assignment/assignments-config";
-import { ExaminationsConfig } from "./examination/examinations-config";
+import { ExamsConfig } from "./exam/exams-config";
 import { RequestTypesConfig } from "./request-types-config";
 import { SectionsConfig } from "./section/sections-config";
 
@@ -31,10 +31,10 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
     },
   });
 
-  const updateExaminations = useMutation({
-    ...trpc.course.updateExaminations.mutationOptions(),
+  const updateExams = useMutation({
+    ...trpc.course.updateExams.mutationOptions(),
     onSuccess: () => {
-      toast.success("Successfully updated the examinations.");
+      toast.success("Successfully updated the exams.");
       refetch();
     },
   });
@@ -97,10 +97,10 @@ export function CourseSettings({ cid }: { cid: CourseID }) {
           updateAssignments.mutate({ courseID: cid, assignments });
         }}
       />
-      <ExaminationsConfig
+      <ExamsConfig
         course={course}
-        onUpdate={async (examinations) => {
-          await updateExaminations.mutateAsync({ courseID: cid, examinations });
+        onUpdate={async (exams) => {
+          await updateExams.mutateAsync({ courseID: cid, exams });
         }}
       />
     </div>

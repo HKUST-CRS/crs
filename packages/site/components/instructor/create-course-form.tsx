@@ -95,7 +95,7 @@ export function CreateCourseForm({
       ...data,
       sections: imported?.course.sections ?? {},
       assignments: {},
-      examinations: {},
+      exams: {},
       effectiveRequestTypes: requestTypes,
     };
     await onSubmit(

@@ -2,22 +2,22 @@ import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { fromISO } from "../utils/datetime";
 
-export const Examination = z.object({
+export const Exam = z.object({
   questions: z
     .array(
       z.strictObject({
-        questionNumber: z.string().trim().min(1),
-        taId: z.email(),
+        question: z.string().trim().min(1),
+        grader: z.email(),
       }),
     )
     .refine(
       (questions) =>
-        new Set(questions.map((question) => question.questionNumber)).size ===
+        new Set(questions.map((question) => question.question)).size ===
         questions.length,
       "Question identifiers must be unique within an examination.",
     ),
 });
-export type Examination = z.infer<typeof Examination>;
+export type Exam = z.infer<typeof Exam>;
 
 export const Course = z
   .object({
@@ -66,7 +66,7 @@ export const Course = z
         }),
       }),
     ),
-    examinations: z.record(z.string().trim().min(1), Examination).default({}),
+    exams: z.record(z.string().trim().min(1), Exam).default({}),
     effectiveRequestTypes: z
       .strictObject({
         "Swap Section": z.boolean(),

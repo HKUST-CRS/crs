@@ -1,8 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import {
   CommentInit,
-  ExaminationAppealBatch,
   Request,
+  RequestBatch,
   RequestID,
   RequestInit,
   Role,
@@ -31,19 +31,14 @@ export const routerRequest = router({
     .query(({ input: role, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsAs(role);
     }),
-  getAssignedExaminationAppeals: procedure
-    .output(z.array(Request))
-    .query(({ ctx }) => {
-      return services.request
-        .auth(ctx.user.email)
-        .getAssignedExaminationAppeals();
-    }),
   getContext: procedure
     .input(RequestID)
     .output(
       z.object({
         courseTitle: z.string(),
-        assignedTA: z.object({ email: z.email(), name: z.string() }).nullable(),
+        assignedGrader: z
+          .object({ email: z.email(), name: z.string() })
+          .nullable(),
         authors: z.array(z.object({ email: z.email(), name: z.string() })),
         canComment: z.boolean(),
         canDecide: z.boolean(),
@@ -53,15 +48,15 @@ export const routerRequest = router({
     .query(({ input, ctx }) => {
       return services.request.auth(ctx.user.email).getContext(input);
     }),
-  createExaminationAppeals: procedure
-    .input(ExaminationAppealBatch)
+  createMany: procedure
+    .input(RequestBatch)
     .output(z.array(RequestID))
     .mutation(async ({ input, ctx }) => {
       let result: { ids: string[]; created: boolean };
       try {
         result = await services.request
           .auth(ctx.user.email)
-          .createExaminationAppeals(input);
+          .createRequests(input);
       } catch (error) {
         if (error instanceof RequestSubmissionConflictError) {
           throw new TRPCError({ code: "CONFLICT", message: error.message });
@@ -76,9 +71,9 @@ export const routerRequest = router({
               .getRequest(requestId);
             await services.notification.notifyRequestUpdate(request);
           } catch (error) {
-            // The appeals are committed. Notification failure must not turn a
+            // The requests are committed. Notification failure must not turn a
             // successful submission into an error that invites a duplicate retry.
-            console.error("Examination appeal notification failed", {
+            console.error("Request notification failed", {
               requestId,
               error,
             });

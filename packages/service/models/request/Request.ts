@@ -105,7 +105,7 @@ export namespace RequestSerialization {
     // Deadline Extension
     "Assignment",
     "New Deadline",
-    "Examination",
+    "Exam",
     "Question",
   ];
 
@@ -130,8 +130,8 @@ export namespace RequestSerialization {
         };
       case "Examination Appeal":
         return {
-          Examination: r.metadata.examCode,
-          Question: r.metadata.questionNumber,
+          Exam: r.metadata.examCode,
+          Question: r.metadata.question,
         };
     }
   }

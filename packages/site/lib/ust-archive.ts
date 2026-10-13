@@ -136,7 +136,7 @@ export function parseCourse(
       title: archiveCourse.title,
       sections,
       assignments: {},
-      examinations: {},
+      exams: {},
       effectiveRequestTypes: {
         "Swap Section": true,
         "Absent from Section": true,

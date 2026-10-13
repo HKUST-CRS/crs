@@ -3,6 +3,7 @@
  *
  * 1) create or reset a CRS test course (TEST 0000)
  * 2) create or reset a dev user with a fixed enrollment
+ * 3) enroll two graders for the test exam questions
  *
  * Usage examples (from the repo root):
  *
@@ -79,11 +80,11 @@ const TEST_COURSE: Course = {
       maxExtension: "PT5788800S",
     },
   },
-  examinations: {
-    Midterm: {
+  exams: {
+    midterm: {
       questions: [
-        { questionNumber: "Q1", taId: "dev-exam-ta@ust.hk" },
-        { questionNumber: "Q2", taId: "dev-exam-ta2@ust.hk" },
+        { question: "Q1", grader: "dev-grader-q1@ust.hk" },
+        { question: "Q2", grader: "dev-grader-q2@ust.hk" },
       ],
     },
   },
@@ -102,6 +103,25 @@ async function seedCourse(conn: DbConn): Promise<void> {
     { upsert: true },
   );
   console.log(`✓ Course ${TEST_COURSE.code} ${TEST_COURSE.term} ready`);
+}
+
+async function seedGraders(conn: DbConn): Promise<void> {
+  for (const [email, name] of [
+    ["dev-grader-q1@ust.hk", "Q1 Grader"],
+    ["dev-grader-q2@ust.hk", "Q2 Grader"],
+  ] as const) {
+    await conn.collections.users.updateOne(
+      { email },
+      {
+        $setOnInsert: { name, sudoer: false },
+        $addToSet: {
+          enrollment: { course: DEV_COURSE, section: "*", role: "grader" },
+        },
+      },
+      { upsert: true },
+    );
+  }
+  console.log("✓ Question graders enrolled for all test-course sections");
 }
 
 /** Create or reset a dev user with the fixed enrollment (idempotent). */
@@ -172,6 +192,7 @@ async function main(): Promise<void> {
     }
     await seedCourse(conn);
     await seedUser(conn, email, initialName, sudoer);
+    await seedGraders(conn);
   } finally {
     await conn.close();
   }

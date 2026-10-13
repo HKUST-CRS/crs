@@ -6,7 +6,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Examination } from "service/models";
+import { Exam } from "service/models";
 import z from "zod";
 import {
   Table,
@@ -17,14 +17,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const ExaminationRow = z.object({
+export const ExamRow = z.object({
   code: z.string().trim().min(1),
-  ...Examination.shape,
+  ...Exam.shape,
 });
 
-export type ExaminationRow = z.infer<typeof ExaminationRow>;
+export type ExamRow = z.infer<typeof ExamRow>;
 
-export const columns: ColumnDef<ExaminationRow>[] = [
+export const columns: ColumnDef<ExamRow>[] = [
   {
     accessorKey: "code",
     header: "Code",
@@ -40,17 +40,14 @@ export const columns: ColumnDef<ExaminationRow>[] = [
   },
 ];
 
-interface ExaminationTableProps {
-  examinations: ExaminationRow[];
-  onClickRow: (examination: ExaminationRow) => void;
+interface ExamTableProps {
+  exams: ExamRow[];
+  onClickRow: (exam: ExamRow) => void;
 }
 
-export function ExaminationTable({
-  examinations,
-  onClickRow,
-}: ExaminationTableProps) {
+export function ExamTable({ exams, onClickRow }: ExamTableProps) {
   const table = useReactTable({
-    data: examinations,
+    data: exams,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -90,7 +87,7 @@ export function ExaminationTable({
                     {cell.column.id === "code" ? (
                       <button
                         type="button"
-                        aria-label={`Edit examination ${row.original.code}`}
+                        aria-label={`Edit exam ${row.original.code}`}
                         className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
                         onClick={(event) => {
                           event.stopPropagation();
@@ -112,7 +109,7 @@ export function ExaminationTable({
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center">
-                No examinations found.
+                No exams found.
               </TableCell>
             </TableRow>
           )}

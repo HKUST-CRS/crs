@@ -6,17 +6,23 @@ import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { NotificationService } from "../services/ServiceNotification";
 
-test("exam thread notifications reach the exact assigned TA and carry question and reason", async () => {
+test("exam notifications include only an enrolled assigned grader and follow revocation", async () => {
   const student: User = {
     email: "student@connect.ust.hk",
     name: "Student",
     enrollment: [],
     sudoer: false,
   };
-  const ta: User = {
+  const grader: User = {
     email: "q1ta@ust.hk",
-    name: "Question One TA",
-    enrollment: [],
+    name: "Question One Grader",
+    enrollment: [
+      {
+        role: "grader",
+        course: { code: "COMP 1023", term: "2610" },
+        section: "L1",
+      },
+    ],
     sudoer: false,
   };
   const course: Course = {
@@ -25,11 +31,11 @@ test("exam thread notifications reach the exact assigned TA and carry question a
     title: "Programming",
     sections: { L1: { schedule: [] } },
     assignments: {},
-    examinations: {
+    exams: {
       Midterm: {
         questions: [
-          { questionNumber: "Q1", taId: ta.email },
-          { questionNumber: "Q2", taId: "q2ta@ust.hk" },
+          { question: "Q1", grader: grader.email },
+          { question: "Q2", grader: "q2ta@ust.hk" },
         ],
       },
     },
@@ -45,7 +51,7 @@ test("exam thread notifications reach the exact assigned TA and carry question a
     from: student.email,
     class: { course: { code: course.code, term: course.term }, section: "L1" },
     type: "Examination Appeal",
-    metadata: { examCode: "Midterm", questionNumber: "Q1" },
+    metadata: { examCode: "Midterm", question: "Q1" },
     timestamp: "2026-10-13T12:00:00+08:00",
     status: "open",
     thread: [
@@ -60,9 +66,11 @@ test("exam thread notifications reach the exact assigned TA and carry question a
   };
   const repos = {
     user: {
-      requireUser: async () => student,
+      requireUser: async (email: string) =>
+        email === grader.email ? grader : student,
       getUsersInClass: async () => [],
-      getUser: async () => ta,
+      getUser: async (email: string) =>
+        email === grader.email ? grader : null,
     },
     course: { requireCourse: async () => course },
   } as unknown as Repos;
@@ -87,11 +95,28 @@ test("exam thread notifications reach the exact assigned TA and carry question a
   try {
     await new NotificationService(repos).notifyRequestUpdate(request);
     expect(sent).toHaveLength(1);
-    expect(sent[0]?.to).toEqual([ta.email]);
+    expect(sent[0]?.to).toEqual([grader.email]);
     expect(sent[0]?.subject).toContain("Midterm Q1");
     expect(sent[0]?.html).toContain("question Q1");
     expect(sent[0]?.html).toContain("My correct answer received zero marks.");
     expect(JSON.stringify(sent[0])).not.toContain("q2ta@ust.hk");
+    const notification = new NotificationService(repos);
+    await notification.notifyRequestUpdate(request, [
+      {
+        id: "review",
+        from: grader.email,
+        kind: "comment",
+        text: "Reviewed",
+        timestamp: request.timestamp,
+      },
+    ]);
+    expect(sent[1]?.to).toEqual([student.email]);
+    expect(sent[1]?.cc).toEqual([grader.email]);
+    grader.enrollment = [];
+    await notification.notifyRequestUpdate(request);
+    expect(sent[2]?.to).toEqual([]);
+    expect(sent[2]?.cc).toEqual([student.email]);
+    expect(JSON.stringify(sent[2])).not.toContain(grader.email);
   } finally {
     transport.mockRestore();
     signature.mockRestore();

@@ -95,27 +95,27 @@ export default function RequestThread({ request }: RequestThreadProps) {
             <dd>{request.type}</dd>
           </div>
           <div>
-            <dt className="typo-muted text-sm">Examination & Question</dt>
+            <dt className="typo-muted text-sm">Exam & Question</dt>
             <dd>
-              {request.metadata.examCode} · {request.metadata.questionNumber}
+              {request.metadata.examCode} · {request.metadata.question}
             </dd>
           </div>
           <div>
-            <dt className="typo-muted text-sm">Assigned TA</dt>
+            <dt className="typo-muted text-sm">Assigned grader</dt>
             <dd>
-              {context?.assignedTA ? (
+              {context?.assignedGrader ? (
                 <>
-                  <span>{context.assignedTA.name}</span>
+                  <span>{context.assignedGrader.name}</span>
                   <br />
                   <a
-                    href={`mailto:${context.assignedTA.email}`}
+                    href={`mailto:${context.assignedGrader.email}`}
                     className="break-all underline"
                   >
-                    {context.assignedTA.email}
+                    {context.assignedGrader.email}
                   </a>
                 </>
               ) : context ? (
-                "No TA is currently assigned. Contact your instructor."
+                "No grader is currently assigned. Contact your instructor."
               ) : (
                 "Loading…"
               )}

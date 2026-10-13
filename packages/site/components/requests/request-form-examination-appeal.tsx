@@ -6,9 +6,9 @@ import { Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ExaminationAppealBatch } from "service/models";
+import { ExaminationAppealMeta, RequestBatch } from "service/models";
 import { toast } from "sonner";
-import type z from "zod";
+import z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -31,11 +31,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTRPC } from "@/lib/trpc-client";
 import type { BaseRequestFormSchema } from "./base-request-form";
 
-const FormSchema = ExaminationAppealBatch.pick({ appeals: true });
+const FormSchema = z.object({
+  appeals: z
+    .array(
+      z.object({
+        ...ExaminationAppealMeta.shape,
+        comment: RequestBatch.shape.requests.element.shape.comment,
+      }),
+    )
+    .min(1)
+    .max(50)
+    .superRefine((appeals, ctx) => {
+      const targets = new Set<string>();
+      appeals.forEach((appeal, index) => {
+        const target = JSON.stringify([appeal.examCode, appeal.question]);
+        if (targets.has(target))
+          ctx.addIssue({
+            code: "custom",
+            path: [index, "question"],
+            message: "Choose each exam question only once.",
+          });
+        targets.add(target);
+      });
+    }),
+});
 type FormValues = z.infer<typeof FormSchema>;
 const emptyAppeal = () => ({
   examCode: "",
-  questionNumber: "",
+  question: "",
   comment: { text: "" },
 });
 
@@ -50,9 +73,7 @@ export function ExaminationAppealRequestForm({
   const queryClient = useQueryClient();
   const router = useRouter();
   const courseQuery = useQuery(trpc.course.get.queryOptions(base.class.course));
-  const mutation = useMutation(
-    trpc.request.createExaminationAppeals.mutationOptions(),
-  );
+  const mutation = useMutation(trpc.request.createMany.mutationOptions());
   const retry = useRef<{ fingerprint: string; submissionId: string } | null>(
     null,
   );
@@ -69,7 +90,16 @@ export function ExaminationAppealRequestForm({
     if (submitting.current) return;
     submitting.current = true;
     onPendingChange(true);
-    const payload = { class: base.class, appeals: data.appeals };
+    const payload = {
+      requests: data.appeals.map(({ comment, ...metadata }) => ({
+        request: {
+          class: base.class,
+          type: "Examination Appeal" as const,
+          metadata,
+        },
+        comment,
+      })),
+    };
     const fingerprint = JSON.stringify(payload);
     if (retry.current?.fingerprint !== fingerprint) {
       retry.current = { fingerprint, submissionId: crypto.randomUUID() };
@@ -104,15 +134,13 @@ export function ExaminationAppealRequestForm({
   if (courseQuery.isPending) return <Spinner variant="ellipsis" />;
   if (courseQuery.error)
     return (
-      <p role="alert">
-        Could not load examinations: {courseQuery.error.message}
-      </p>
+      <p role="alert">Could not load exams: {courseQuery.error.message}</p>
     );
-  const examinations = courseQuery.data?.examinations ?? {};
-  if (!Object.keys(examinations).length)
+  const exams = courseQuery.data?.exams ?? {};
+  if (!Object.keys(exams).length)
     return (
       <p className="typo-muted">
-        No examinations are configured. Please contact your course instructor.
+        No exams are configured. Please contact your course instructor.
       </p>
     );
   const busy = form.formState.isSubmitting;
@@ -124,19 +152,17 @@ export function ExaminationAppealRequestForm({
         onSubmit={form.handleSubmit(onSubmit)}
       >
         <p className="typo-muted text-sm">
-          Each question creates its own request thread for the assigned TA. All
-          questions in this submission are saved together.
+          Each question creates its own request thread for the assigned grader.
+          All questions in this submission are saved together.
         </p>
         <div className="space-y-6">
           {fields.map((item, index) => {
             const selectedExamCode = form.watch(`appeals.${index}.examCode`);
-            const questions = examinations[selectedExamCode]?.questions ?? [];
-            const questionNumber = form.watch(
-              `appeals.${index}.questionNumber`,
-            );
-            const assignedTA = questions.find(
-              (question) => question.questionNumber === questionNumber,
-            )?.taId;
+            const questions = exams[selectedExamCode]?.questions ?? [];
+            const selectedQuestion = form.watch(`appeals.${index}.question`);
+            const assignedGrader = questions.find(
+              (question) => question.question === selectedQuestion,
+            )?.grader;
             return (
               <div
                 key={item.id}
@@ -163,22 +189,22 @@ export function ExaminationAppealRequestForm({
                   control={form.control}
                   render={({ field }) => (
                     <FormItem className="md:col-span-6">
-                      <FormLabel>Examination</FormLabel>
+                      <FormLabel>Exam</FormLabel>
                       <Select
                         value={field.value}
                         onValueChange={(value) => {
                           field.onChange(value);
-                          form.setValue(`appeals.${index}.questionNumber`, "");
+                          form.setValue(`appeals.${index}.question`, "");
                         }}
                         disabled={busy}
                       >
                         <FormControl>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Examination" />
+                            <SelectValue placeholder="Select Exam" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.keys(examinations)
+                          {Object.keys(exams)
                             .sort()
                             .map((code) => (
                               <SelectItem key={code} value={code}>
@@ -192,7 +218,7 @@ export function ExaminationAppealRequestForm({
                   )}
                 />
                 <FormField
-                  name={`appeals.${index}.questionNumber`}
+                  name={`appeals.${index}.question`}
                   control={form.control}
                   render={({ field }) => (
                     <FormItem className="md:col-span-6">
@@ -212,22 +238,22 @@ export function ExaminationAppealRequestForm({
                         <SelectContent>
                           {questions.map((question) => (
                             <SelectItem
-                              key={question.questionNumber}
-                              value={question.questionNumber}
+                              key={question.question}
+                              value={question.question}
                             >
-                              {question.questionNumber}
+                              {question.question}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        {assignedTA ? (
+                        {assignedGrader ? (
                           <>
-                            Assigned TA:{" "}
-                            <span className="break-all">{assignedTA}</span>
+                            Assigned grader:{" "}
+                            <span className="break-all">{assignedGrader}</span>
                           </>
                         ) : selectedExamCode && !questions.length ? (
-                          "No questions are configured for this examination. Contact your course instructor."
+                          "No questions are configured for this exam. Contact your course instructor."
                         ) : (
                           "Choose the question to review."
                         )}

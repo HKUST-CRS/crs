@@ -38,29 +38,34 @@ bun dev
 
 ### Examination appeals
 
-Instructors configure examination question identifiers and the email address of
-each question's assigned TA in course settings, then enable Examination Appeal.
-An assigned TA can read, comment on, and decide appeals for that exact question
-without an instructor enrollment. Existing class instructor and observer access
-still applies; observer enrollment alone grants read-only access. A requester
-cannot decide their own examination appeal. Responsibility follows the current
-course configuration.
+Instructors first enroll reviewers with the `grader` role using the existing
+Enrollment Manager, then assign those graders to questions in course exam
+settings and enable Examination Appeal. Use section `*` for a grader who handles
+all sections. Grader enrollment alone grants no request access: the request must
+also target the grader's assigned exam question in an enrolled section. Removing
+the role or question assignment revokes delegated access. Existing class
+instructor and observer access still applies; observer enrollment alone grants
+read-only access. A requester cannot decide their own examination appeal.
 
-Each question is stored as one immutable request with `{ examCode,
-questionNumber }` metadata. Its reason and supporting documents belong to the
-opening thread comment. Later comments, decisions, cancellation, and appeals use
+Each question is stored as one immutable request with `{ examCode, question }`
+metadata. Its reason and supporting documents belong to the opening thread
+comment. Later comments, decisions, cancellation, and appeals use
 the existing request thread and status lifecycle.
 
-`request.createExaminationAppeals` accepts `{ submissionId, class, appeals }`,
-where `submissionId` is a UUID and `appeals` contains 1–50 distinct question
-targets with opening comments. The server checks enrollment, section and
-examination/question membership, course enablement, and configured TA email
-addresses. The ordinary `request.create` endpoint rejects examination appeals.
+Appeals are ordinary requests with different metadata. `request.getAllAs` accepts
+the `grader` role and returns only targeted cases; student and instructor inboxes
+use the same API. Both `request.create` and the generic `request.createMany`
+accept examination appeals. `createMany` takes `{ submissionId, requests }`,
+where the UUID identifies 1–50 `{ request, comment }` entries. The server checks
+student eligibility, section and exam/question membership, course enablement,
+and the assigned grader's enrollment. Repeated exam/question targets in the
+same class are rejected.
 
-All question requests and a submission manifest commit in one MongoDB
-transaction. Retrying the same normalized payload with the same UUID returns
-the original IDs, even if enrollment or course configuration subsequently
-changes. Reusing a UUID with a different payload returns a conflict. The form
+All batched requests and a generic submission receipt commit in one MongoDB
+transaction. The receipt stores the payload fingerprint and resulting IDs; it
+contains no separate appeal data. Retrying the same normalized payload with the
+same UUID returns the original IDs, even if enrollment or course configuration
+subsequently changes. Reusing a UUID with a different payload returns a conflict. The form
 retains the UUID for an unchanged retry after an unconfirmed response; leaving
 or reloading the form starts a new submission.
 

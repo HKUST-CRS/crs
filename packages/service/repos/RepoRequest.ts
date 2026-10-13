@@ -8,14 +8,13 @@ import {
   type Class,
   type Comment,
   type CommentInit,
-  type CourseID,
-  ExaminationAppealBatch,
   MAX_PROOF_SIZE,
   makeComment,
   makeStatusChange,
   type ProofFile,
   type ProofFileInit,
   Request,
+  RequestBatch,
   type RequestDocument,
   type RequestID,
   type RequestInit,
@@ -84,34 +83,30 @@ export class RequestRepo {
     return id;
   }
 
-  private examinationSubmission(from: UserID, batch: ExaminationAppealBatch) {
+  private requestSubmission(from: UserID, batch: RequestBatch) {
     const submissionID = JSON.stringify([from, batch.submissionId]);
     const fingerprint = crypto
       .createHash("sha256")
       .update(
         JSON.stringify({
-          class: batch.class,
-          appeals: batch.appeals.map(
-            ({ examCode, questionNumber, comment }) => ({
-              examCode,
-              questionNumber,
-              text: comment.text,
-              proofs: (comment.proofs ?? []).map(({ name, content }) => ({
-                name,
-                hash: crypto
-                  .createHash("sha256")
-                  .update(Buffer.from(content, "base64"))
-                  .digest("hex"),
-              })),
-            }),
-          ),
+          requests: batch.requests.map(({ request, comment }) => ({
+            request,
+            text: comment.text,
+            proofs: (comment.proofs ?? []).map(({ name, content }) => ({
+              name,
+              hash: crypto
+                .createHash("sha256")
+                .update(Buffer.from(content, "base64"))
+                .digest("hex"),
+            })),
+          })),
         }),
       )
       .digest("hex");
     return { submissionID, fingerprint };
   }
 
-  private replayExaminationSubmission(
+  private replayRequestSubmission(
     submission: { fingerprint: string; ids: string[] },
     fingerprint: string,
   ): { ids: string[]; created: false } {
@@ -121,52 +116,43 @@ export class RequestRepo {
     return { ids: submission.ids, created: false };
   }
 
-  async getExaminationAppealSubmission(
+  async getRequestSubmission(
     from: UserID,
-    input: ExaminationAppealBatch,
+    input: RequestBatch,
   ): Promise<{ ids: string[]; created: false } | null> {
-    const batch = ExaminationAppealBatch.parse(input);
-    const { submissionID, fingerprint } = this.examinationSubmission(
-      from,
-      batch,
-    );
+    const batch = RequestBatch.parse(input);
+    const { submissionID, fingerprint } = this.requestSubmission(from, batch);
     const existing = await this.collections.requestSubmissions.findOne({
       _id: submissionID,
     });
     return existing
-      ? this.replayExaminationSubmission(existing, fingerprint)
+      ? this.replayRequestSubmission(existing, fingerprint)
       : null;
   }
 
-  async createExaminationAppeals(
+  async createRequests(
     from: UserID,
-    input: ExaminationAppealBatch,
+    input: RequestBatch,
   ): Promise<{ ids: string[]; created: boolean }> {
-    const batch = ExaminationAppealBatch.parse(input);
-    const { submissionID, fingerprint } = this.examinationSubmission(
-      from,
-      batch,
-    );
+    const batch = RequestBatch.parse(input);
+    const { submissionID, fingerprint } = this.requestSubmission(from, batch);
     const existing = await this.collections.requestSubmissions.findOne({
       _id: submissionID,
     });
-    if (existing)
-      return this.replayExaminationSubmission(existing, fingerprint);
+    if (existing) return this.replayRequestSubmission(existing, fingerprint);
 
     const documents: RequestDocument[] = [];
     const proofs: ProofFile[] = [];
     try {
       // GridFS does not support transactions. Upload before starting the session.
-      for (const { examCode, questionNumber, comment } of batch.appeals) {
+      for (const { request, comment } of batch.requests) {
         const openingComment = await this.createComment(from, comment);
         proofs.push(...(openingComment.proofs ?? []));
         documents.push({
+          ...request,
           id: new ObjectId().toHexString(),
-          type: "Examination Appeal",
           from,
-          class: batch.class,
           timestamp: toISO(DateTime.now()),
-          metadata: { examCode, questionNumber },
           thread: [openingComment],
         });
       }
@@ -178,7 +164,7 @@ export class RequestRepo {
     const ids = documents.map((document) => document.id);
     const discardUnusedProofs = async (storedIDs: string[]) => {
       // A lost commit acknowledgement can make a retry discover this attempt's
-      // own manifest. Those uploads are referenced by the committed tickets.
+      // own retry receipt. Those uploads are referenced by the committed requests.
       if (!storedIDs.some((id) => ids.includes(id))) {
         await this.deleteProofs(proofs);
       }
@@ -189,9 +175,9 @@ export class RequestRepo {
           { _id: submissionID },
           { session },
         );
-        if (prior) return this.replayExaminationSubmission(prior, fingerprint);
-        // The unique manifest key arbitrates concurrent retries; every ticket and
-        // its manifest commit together, so a replay can never observe a partial batch.
+        if (prior) return this.replayRequestSubmission(prior, fingerprint);
+        // The unique retry key arbitrates concurrent submissions. Request content
+        // and this receipt commit together, so replay cannot see a partial batch.
         await this.collections.requestSubmissions.insertOne(
           { _id: submissionID, fingerprint, ids },
           { session },
@@ -208,7 +194,7 @@ export class RequestRepo {
         });
         if (prior) {
           await discardUnusedProofs(prior.ids);
-          return this.replayExaminationSubmission(prior, fingerprint);
+          return this.replayRequestSubmission(prior, fingerprint);
         }
       }
       // ponytail: failed/uncertain transactions can leave unused GridFS uploads.
@@ -216,32 +202,6 @@ export class RequestRepo {
       // belongs to the attachment recovery work in issue #136.
       throw error;
     }
-  }
-
-  async getExaminationAppealsForTargets(
-    targets: Array<{
-      course: CourseID;
-      examCode: string;
-      questionNumber: string;
-    }>,
-  ): Promise<Request[]> {
-    if (targets.length === 0) return [];
-    const documents = await this.collections.requests
-      .find(
-        {
-          type: "Examination Appeal",
-          $or: targets.map(({ course, examCode, questionNumber }) => ({
-            "class.course.code": course.code,
-            "class.course.term": course.term,
-            "metadata.examCode": examCode,
-            "metadata.questionNumber": questionNumber,
-          })),
-        },
-        { projection: { _id: 0 } },
-      )
-      .sort({ timestamp: "descending" })
-      .toArray();
-    return documents.map((document) => this.parseRequest(document));
   }
 
   /** Gets requests created by the specified user. */

@@ -16,7 +16,7 @@ import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { formatRequest, formatUpdate } from "../templates/Formatter";
 import { compareString } from "../utils/comparison";
-import { resolveExaminationTA } from "./ServiceRequest";
+import { resolveExamGrader } from "./ServiceRequest";
 
 const STATUS_SUBJECT: Record<RequestStatus, string> = {
   open: "Reopened",
@@ -93,15 +93,13 @@ export class NotificationService {
       request.class,
       "instructor",
     );
-    const taEmail = await resolveExaminationTA(this.repos, request);
-    if (taEmail && !instructors.some((user) => user.email === taEmail)) {
-      const ta = await this.repos.user.getUser(taEmail);
-      instructors.push({
-        email: taEmail,
-        name: ta?.name || taEmail,
-        enrollment: ta?.enrollment ?? [],
-        sudoer: ta?.sudoer ?? false,
-      });
+    const graderEmail = await resolveExamGrader(this.repos, request);
+    if (
+      graderEmail &&
+      !instructors.some((user) => user.email === graderEmail)
+    ) {
+      const grader = await this.repos.user.requireUser(graderEmail);
+      instructors.push(grader);
     }
     const observers = await this.repos.user.getUsersInClass(
       request.class,
@@ -117,7 +115,7 @@ export class NotificationService {
         : "Comment";
     const question =
       request.type === "Examination Appeal"
-        ? ` (${request.metadata.examCode} ${request.metadata.questionNumber})`
+        ? ` (${request.metadata.examCode} ${request.metadata.question})`
         : "";
     const subject = `${subjectPrefix} - ${Classes.format(request.class)}${question}`;
 

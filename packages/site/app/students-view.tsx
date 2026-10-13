@@ -19,36 +19,23 @@ export default function StudentsView() {
   const trpc = useTRPC();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
-  const assignedQuery = useQuery(
-    trpc.request.getAssignedExaminationAppeals.queryOptions(),
-  );
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
-  const hasTeachingRole =
-    !!assignedQuery.data?.length ||
-    userQuery.data?.enrollment?.some(
-      (e) =>
-        e.role === "instructor" || e.role === "observer" || e.role === "admin",
-    );
+  const hasTeachingRole = userQuery.data?.enrollment?.some(
+    (e) =>
+      e.role === "instructor" ||
+      e.role === "observer" ||
+      e.role === "grader" ||
+      e.role === "admin",
+  );
   useEffect(() => {
-    if (
-      userQuery.data !== undefined &&
-      assignedQuery.isSuccess &&
-      !hasStudentRole &&
-      hasTeachingRole
-    ) {
+    if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {
       router.replace("/instructor");
     }
-  }, [
-    router,
-    userQuery.data,
-    assignedQuery.isSuccess,
-    hasStudentRole,
-    hasTeachingRole,
-  ]);
+  }, [router, userQuery.data, hasStudentRole, hasTeachingRole]);
 
   // Requests
   const requestsQuery = useQuery(
@@ -60,8 +47,7 @@ export default function StudentsView() {
     useCallback(() => {
       userQuery.refetch();
       requestsQuery.refetch();
-      assignedQuery.refetch();
-    }, [userQuery, requestsQuery, assignedQuery]),
+    }, [userQuery, requestsQuery]),
   );
 
   return (
@@ -79,7 +65,7 @@ export default function StudentsView() {
             max: 240,
           }}
         />
-        <div className="text-gray-500 text-xs">
+        <div className="text-muted-foreground text-xs">
           (Students' View)
           {hasTeachingRole && (
             <>

@@ -4,33 +4,42 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
-import { Examination } from "service/models";
+import { Exam, type User } from "service/models";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export const ExaminationFormSchema = z.object({
+export const ExamFormSchema = z.object({
   code: z.string().trim().min(1, "Code is required (e.g. Midterm)"),
-  ...Examination.shape,
+  ...Exam.shape,
 });
 
-export type ExaminationFormSchema = z.infer<typeof ExaminationFormSchema>;
+export type ExamFormSchema = z.infer<typeof ExamFormSchema>;
 
-export function ExaminationForm({
+export function ExamForm({
+  graders,
   defaultValues,
   onSubmit,
   onRemove,
 }: {
-  defaultValues?: ExaminationFormSchema;
-  onSubmit: (v: ExaminationFormSchema) => Promise<void>;
+  graders: Pick<User, "email" | "name">[];
+  defaultValues?: ExamFormSchema;
+  onSubmit: (v: ExamFormSchema) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
   const [removing, setRemoving] = useState(false);
-  const form = useForm<ExaminationFormSchema>({
-    resolver: zodResolver(ExaminationFormSchema),
+  const form = useForm<ExamFormSchema>({
+    resolver: zodResolver(ExamFormSchema),
     defaultValues: defaultValues ?? {
       code: "",
       questions: [],
@@ -45,22 +54,20 @@ export function ExaminationForm({
   return (
     <form
       onSubmit={form.handleSubmit(onSubmit)}
-      className="flex flex-col gap-4"
+      className="flex min-w-0 flex-col gap-4"
     >
       <fieldset
         disabled={form.formState.isSubmitting || removing}
-        className="contents"
+        className="flex min-w-0 flex-col gap-4"
       >
         <Controller
           name="code"
           control={form.control}
           render={({ field, fieldState }) => (
             <Field>
-              <FieldLabel htmlFor="examination-code">
-                Examination Code
-              </FieldLabel>
+              <FieldLabel htmlFor="exam-code">Exam Code</FieldLabel>
               <Input
-                id="examination-code"
+                id="exam-code"
                 placeholder="Midterm / Final / Quiz 1"
                 spellCheck={false}
                 {...field}
@@ -71,15 +78,13 @@ export function ExaminationForm({
         />
 
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label>Questions & TA Assignments</Label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Questions & Grader Assignments</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                questionsList.append({ questionNumber: "", taId: "" })
-              }
+              onClick={() => questionsList.append({ question: "", grader: "" })}
             >
               <Plus className="mr-2 h-4 w-4" /> Add Question
             </Button>
@@ -90,12 +95,12 @@ export function ExaminationForm({
               <div key={field.id} className="flex flex-col gap-3">
                 <div className="flex items-center gap-2">
                   <Controller
-                    name={`questions.${index}.questionNumber`}
+                    name={`questions.${index}.question`}
                     control={form.control}
                     render={({ field }) => (
                       <Field className="min-w-0 flex-1">
                         <Input
-                          aria-label={`Question ${index + 1} number`}
+                          aria-label={`Question ${index + 1} identifier`}
                           placeholder="e.g. Q1, Q2a"
                           spellCheck={false}
                           {...field}
@@ -105,18 +110,41 @@ export function ExaminationForm({
                   />
                   -
                   <Controller
-                    name={`questions.${index}.taId`}
+                    name={`questions.${index}.grader`}
                     control={form.control}
                     render={({ field }) => (
                       <Field className="min-w-0 flex-[2]">
-                        <Input
-                          aria-label={`Question ${index + 1} TA email`}
-                          type="email"
-                          autoComplete="email"
-                          spellCheck={false}
-                          placeholder="TA Email (e.g. ta@ust.hk)"
-                          {...field}
-                        />
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger
+                            className="w-full"
+                            aria-label={`Question ${index + 1} grader`}
+                          >
+                            <SelectValue placeholder="Select grader" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.value &&
+                              !graders.some(
+                                (grader) => grader.email === field.value,
+                              ) && (
+                                <SelectItem value={field.value} disabled>
+                                  {field.value} (no longer enrolled as a grader)
+                                </SelectItem>
+                              )}
+                            {graders.map((grader) => (
+                              <SelectItem
+                                key={grader.email}
+                                value={grader.email}
+                              >
+                                {grader.name
+                                  ? `${grader.name} (${grader.email})`
+                                  : grader.email}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </Field>
                     )}
                   />
@@ -133,17 +161,22 @@ export function ExaminationForm({
                 <div className="flex flex-col">
                   <FieldError
                     errors={[
-                      form.formState.errors.questions?.[index]?.questionNumber,
+                      form.formState.errors.questions?.[index]?.question,
                     ]}
                   />
                   <FieldError
-                    errors={[form.formState.errors.questions?.[index]?.taId]}
+                    errors={[form.formState.errors.questions?.[index]?.grader]}
                   />
                 </div>
               </div>
             );
           })}
         </div>
+        {!graders.length && (
+          <p className="typo-muted text-sm">
+            Enroll a grader in this course before assigning questions.
+          </p>
+        )}
 
         <FieldError
           errors={[
@@ -160,7 +193,7 @@ export function ExaminationForm({
               onClick={async () => {
                 if (
                   !window.confirm(
-                    `Remove examination ${defaultValues.code} and its question assignments?`,
+                    `Remove exam ${defaultValues.code} and its question assignments?`,
                   )
                 )
                   return;

@@ -1,11 +1,5 @@
 import type { Collections } from "../db";
-import {
-  Course,
-  type CourseID,
-  type Role,
-  type User,
-  type UserID,
-} from "../models";
+import { Course, type CourseID, type Role, type User } from "../models";
 import { sortRecord } from "../utils/comparison";
 import { CourseNotFoundError } from "./error";
 
@@ -60,25 +54,6 @@ export class CourseRepo {
     return courses.map((course) => Course.parse(course));
   }
 
-  async getCoursesWithExaminationTA(email: UserID): Promise<Course[]> {
-    // ponytail: exam codes are dynamic keys, so this scans course catalogs;
-    // add a derived indexed TA list only if catalog volume warrants it.
-    const courses = await this.collections.courses
-      .aggregate<Course>([
-        {
-          $addFields: {
-            examinationEntries: {
-              $objectToArray: { $ifNull: ["$examinations", {}] },
-            },
-          },
-        },
-        { $match: { "examinationEntries.v.questions.taId": email } },
-        { $project: { examinationEntries: 0 } },
-      ])
-      .toArray();
-    return courses.map((course) => Course.parse(course));
-  }
-
   async updateSections(
     courseID: CourseID,
     sections: Course["sections"],
@@ -120,13 +95,10 @@ export class CourseRepo {
     );
   }
 
-  async updateExaminations(
-    courseID: CourseID,
-    examinations: Course["examinations"],
-  ): Promise<void> {
+  async updateExams(courseID: CourseID, exams: Course["exams"]): Promise<void> {
     await this.collections.courses.updateOne(
       { code: courseID.code, term: courseID.term },
-      { $set: { examinations: sortRecord(examinations) } },
+      { $set: { exams: sortRecord(exams) } },
     );
   }
 }

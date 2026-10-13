@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRightFromLine, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Courses, RequestSerialization } from "service/models";
 import { toast } from "sonner";
 import {
@@ -37,55 +37,29 @@ export default function InstructorsView() {
   const queryClient = useQueryClient();
 
   const userQuery = useQuery(trpc.user.getCurrent.queryOptions());
-  const assignedQuery = useQuery(
-    trpc.request.getAssignedExaminationAppeals.queryOptions(),
-  );
 
   // Redirection
   const hasStudentRole = userQuery.data?.enrollment?.some(
     (e) => e.role === "student",
   );
-  const hasTeachingRole =
-    !!assignedQuery.data?.length ||
-    userQuery.data?.enrollment?.some(
-      (e) =>
-        e.role === "instructor" || e.role === "observer" || e.role === "admin",
-    );
+  const hasTeachingRole = userQuery.data?.enrollment?.some(
+    (e) =>
+      e.role === "instructor" ||
+      e.role === "observer" ||
+      e.role === "grader" ||
+      e.role === "admin",
+  );
   useEffect(() => {
-    if (
-      userQuery.data !== undefined &&
-      assignedQuery.isSuccess &&
-      hasStudentRole &&
-      !hasTeachingRole
-    ) {
+    if (userQuery.data !== undefined && hasStudentRole && !hasTeachingRole) {
       router.replace("/");
     }
-  }, [
-    router,
-    userQuery.data,
-    assignedQuery.isSuccess,
-    hasStudentRole,
-    hasTeachingRole,
-  ]);
+  }, [router, userQuery.data, hasStudentRole, hasTeachingRole]);
 
   // Requests
   const requestsQuery = useQuery(
-    trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
+    trpc.request.getAllAs.queryOptions(["instructor", "observer", "grader"]),
   );
-  const requests = useMemo(
-    () =>
-      requestsQuery.data && assignedQuery.data
-        ? [
-            ...new Map(
-              [...requestsQuery.data, ...assignedQuery.data].map((request) => [
-                request.id,
-                request,
-              ]),
-            ).values(),
-          ]
-        : undefined,
-    [requestsQuery.data, assignedQuery.data],
-  );
+  const requests = requestsQuery.data;
   const tableRef = useRef<RequestTableHandle>(null);
 
   // Courses
@@ -99,8 +73,7 @@ export default function InstructorsView() {
       userQuery.refetch();
       requestsQuery.refetch();
       coursesQuery.refetch();
-      assignedQuery.refetch();
-    }, [userQuery, requestsQuery, coursesQuery, assignedQuery]),
+    }, [userQuery, requestsQuery, coursesQuery]),
   );
 
   // Export Requests
@@ -181,7 +154,7 @@ export default function InstructorsView() {
             max: 240,
           }}
         />
-        <div className="text-gray-500 text-xs">
+        <div className="text-muted-foreground text-xs">
           (Staff View){" "}
           {hasStudentRole && (
             <>
@@ -207,7 +180,7 @@ export default function InstructorsView() {
           </Button>
         </div>
 
-        {requestsQuery.error || assignedQuery.error ? (
+        {requestsQuery.error ? (
           <p role="alert">
             Could not load received requests. Please reload to try again.
           </p>
