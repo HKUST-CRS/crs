@@ -15,12 +15,12 @@ export default async function ({
   const backHref = from === "instructor" ? "/instructor" : "/";
 
   return (
-    <article className="mx-auto flex min-h-screen max-w-4xl flex-col items-center justify-center gap-4">
-      <Link href={backHref} className="self-start">
-        <Button variant="ghost" size="icon">
+    <article className="mx-auto flex min-h-screen w-full max-w-4xl flex-col items-center justify-center gap-4 px-4 py-8">
+      <Button asChild variant="ghost" size="icon" className="self-start">
+        <Link href={backHref} aria-label="Back to requests">
           <ChevronLeft className="size-6" />
-        </Button>
-      </Link>
+        </Link>
+      </Button>
       <h3 className="typo-h3 text-center">Request</h3>
       <RequestDisplay requestID={requestID} />
     </article>

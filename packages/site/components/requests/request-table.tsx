@@ -330,7 +330,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       <div className="flex flex-col gap-4">
         <div className="flex items-center">
           <Input
-            placeholder="Search..."
+            aria-label="Search requests"
+            placeholder="Search…"
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(String(e.target.value))}
             className="max-w-full"
@@ -338,7 +339,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field className="col-span-1">
-            <FieldLabel>Status</FieldLabel>
+            <FieldLabel htmlFor="request-filter-status">Status</FieldLabel>
             <Select
               value={statusFilter ?? "__all"}
               onValueChange={(value) => {
@@ -348,7 +349,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-status" className="w-full">
                 <SelectValue placeholder="Choose a status" />
               </SelectTrigger>
               <SelectContent>
@@ -363,7 +364,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field className="col-span-1">
-            <FieldLabel>Term</FieldLabel>
+            <FieldLabel htmlFor="request-filter-term">Term</FieldLabel>
             <Select
               value={termFilter ?? "__all"}
               onValueChange={(value) => {
@@ -371,7 +372,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-term" className="w-full">
                 <SelectValue placeholder="Choose a term" />
               </SelectTrigger>
               <SelectContent>
@@ -385,8 +386,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-2">
-            <FieldLabel>Course</FieldLabel>
+          <Field className="col-span-1 md:col-span-2">
+            <FieldLabel htmlFor="request-filter-course">Course</FieldLabel>
             <Select
               value={courseFilter ? Courses.id2str(courseFilter) : "__all"}
               onValueChange={(value) => {
@@ -395,7 +396,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                 );
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-course" className="w-full">
                 <SelectValue placeholder="Choose a course" />
               </SelectTrigger>
               <SelectContent>
@@ -413,10 +414,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel>From</FieldLabel>
+            <FieldLabel htmlFor="request-filter-from">From</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button id="request-filter-from" variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {fromFilter ? (
                     formatDate(fromFilter)
@@ -443,10 +444,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel>To</FieldLabel>
+            <FieldLabel htmlFor="request-filter-to">To</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button id="request-filter-to" variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {toFilter ? formatDate(toFilter) : <span>Pick a date</span>}
                 </Button>

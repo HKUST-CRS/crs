@@ -48,7 +48,7 @@ export default function StudentsView() {
   );
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>
@@ -62,7 +62,7 @@ export default function StudentsView() {
             max: 240,
           }}
         />
-        <div className="text-gray-500 text-xs">
+        <div className="text-muted-foreground text-xs">
           (Students' View)
           {hasTeachingRole && (
             <>
