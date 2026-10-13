@@ -93,7 +93,7 @@ export function ExamSpecialArrangementRequestForm(props: {
             name="meta.examCode"
             control={form.control}
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="min-w-0">
                 <FormLabel>Exam</FormLabel>
                 <Select
                   value={field.value}
@@ -101,13 +101,24 @@ export function ExamSpecialArrangementRequestForm(props: {
                   disabled={viewonly || busy}
                 >
                   <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Exam" />
+                    <SelectTrigger
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      className="w-full min-w-0"
+                    >
+                      <SelectValue
+                        className="min-w-0 truncate"
+                        placeholder="Select Exam"
+                      />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent className="max-w-[calc(100vw-2rem)]">
                     {exams.map((exam) => (
-                      <SelectItem key={exam} value={exam}>
+                      <SelectItem
+                        key={exam}
+                        value={exam}
+                        className="whitespace-normal break-all"
+                      >
                         {exam}
                       </SelectItem>
                     ))}

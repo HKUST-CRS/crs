@@ -95,11 +95,11 @@ export default function RequestThread({ request }: RequestThreadProps) {
             <dt className="typo-muted text-sm">Request Type</dt>
             <dd>{request.type}</dd>
           </div>
-          <div>
+          <div className="min-w-0">
             <dt className="typo-muted text-sm">
               {request.type === "Exam Appeal" ? "Exam & Question" : "Exam"}
             </dt>
-            <dd>
+            <dd className="break-words">
               {request.metadata.examCode}
               {request.type === "Exam Appeal" && (
                 <> · {request.metadata.question}</>
