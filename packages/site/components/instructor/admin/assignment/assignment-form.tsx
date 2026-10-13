@@ -25,7 +25,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-export const AssignmentFormSchema = z.object({
+export const AssignmentFormSchema = z.strictObject({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
   due: z.string().min(1, "Due date is required"),

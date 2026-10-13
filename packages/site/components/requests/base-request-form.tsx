@@ -34,7 +34,7 @@ import {
 import { useTRPC } from "@/lib/trpc-client";
 import { Skeleton } from "../ui/skeleton";
 
-export const BaseRequestFormSchema = z.object({
+export const BaseRequestFormSchema = z.strictObject({
   type: RequestType,
   class: Class,
 });
@@ -62,7 +62,9 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
 
   const form = useForm<BaseRequestFormSchema>({
     resolver: zodResolver(BaseRequestFormSchema),
-    defaultValues: props.default,
+    defaultValues: props.default
+      ? { type: props.default.type, class: props.default.class }
+      : undefined,
   });
 
   const trpc = useTRPC();

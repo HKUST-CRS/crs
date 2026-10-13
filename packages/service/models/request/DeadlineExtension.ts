@@ -4,7 +4,7 @@ import { fromISO } from "../../utils/datetime";
 import type { Course } from "../course";
 import { createRequestType } from "./BaseRequest";
 
-export const DeadlineExtensionMeta = z.object({
+export const DeadlineExtensionMeta = z.strictObject({
   assignment: z.string().meta({
     description:
       "The assignment code of the assignment to extend the deadline for. ",

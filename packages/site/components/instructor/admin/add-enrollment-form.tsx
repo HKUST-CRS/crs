@@ -22,7 +22,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { RoasterParser } from "@/lib/roaster-parser";
 
-export const AddEnrollmentFormSchema = z.object({
+export const AddEnrollmentFormSchema = z.strictObject({
   roaster: z.string().min(1, "Roaster is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
@@ -30,7 +30,7 @@ export const AddEnrollmentFormSchema = z.object({
 
 export type AddEnrollmentFormSchema = z.infer<typeof AddEnrollmentFormSchema>;
 
-export const AddEnrollmentSubmissionSchema = z.object({
+export const AddEnrollmentSubmissionSchema = z.strictObject({
   roaster: RoasterParser.Roaster,
   section: z.string(),
   role: Role,

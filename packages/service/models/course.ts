@@ -4,7 +4,7 @@ import { fromISO } from "../utils/datetime";
 import { RequestType } from "./request/RequestType";
 
 export const Course = z
-  .object({
+  .strictObject({
     code: z.string().meta({
       description: "The course code.",
       examples: ["COMP 1023"],
@@ -23,9 +23,9 @@ export const Course = z
         description: "The section code.",
         examples: ["L1", "L01", "T1", "LA1"],
       }),
-      z.object({
+      z.strictObject({
         schedule: z.array(
-          z.object({
+          z.strictObject({
             day: z.number().min(1).max(7),
             from: z.iso.time(),
             to: z.iso.time(),
@@ -39,7 +39,7 @@ export const Course = z
           "The assignment code, acting as the ID for the assignment.",
         examples: ["Lab1", "PA1"],
       }),
-      z.object({
+      z.strictObject({
         name: z.string().meta({ description: "The name of the assignment." }),
         due: z.iso.datetime({ offset: true }).meta({
           description: "The due date of the assignment.",
@@ -191,7 +191,7 @@ export const SectionID = z.string().meta({
 });
 
 export const Class = z
-  .object({
+  .strictObject({
     course: CourseID,
     section: SectionID,
   })

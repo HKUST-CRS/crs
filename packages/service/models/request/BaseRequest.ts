@@ -12,7 +12,7 @@ export const RequestID = z.string().meta({
 });
 export type RequestID = z.infer<typeof RequestID>;
 
-export const BaseRequest = z.object({
+export const BaseRequest = z.strictObject({
   id: RequestID,
   from: UserID,
   class: Class,

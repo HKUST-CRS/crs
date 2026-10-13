@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type Course, Courses } from "../course";
 import { createRequestType } from "./BaseRequest";
 
-export const SwapSectionMeta = z.object({
+export const SwapSectionMeta = z.strictObject({
   fromSection: z
     .string()
     .meta({ description: "The section code to swap from." }),

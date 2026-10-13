@@ -10,12 +10,14 @@ export type TestFixtures = {
 export async function insertData(conn: DbConn, fixtures: TestFixtures) {
   const { users = [], courses = [], requests = [] } = fixtures;
   await Promise.all([
-    users.length > 0 ? conn.collections.users.insertMany(users) : undefined,
+    users.length > 0
+      ? conn.collections.users.insertMany(structuredClone(users))
+      : undefined,
     courses.length > 0
-      ? conn.collections.courses.insertMany(courses)
+      ? conn.collections.courses.insertMany(structuredClone(courses))
       : undefined,
     requests.length > 0
-      ? conn.collections.requests.insertMany(requests)
+      ? conn.collections.requests.insertMany(structuredClone(requests))
       : undefined,
   ]);
 }

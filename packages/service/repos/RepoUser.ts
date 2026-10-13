@@ -16,7 +16,10 @@ export class UserRepo {
   constructor(protected collections: Collections) {}
 
   async getUser(userID: UserID): Promise<User | null> {
-    const user = await this.collections.users.findOne({ email: userID });
+    const user = await this.collections.users.findOne(
+      { email: userID },
+      { projection: { _id: 0 } },
+    );
     return user;
   }
 
@@ -75,14 +78,17 @@ export class UserRepo {
    */
   async getUsersInCourse(courseID: CourseID): Promise<User[]> {
     const users = await this.collections.users
-      .find({
-        enrollment: {
-          $elemMatch: {
-            "course.code": courseID.code,
-            "course.term": courseID.term,
+      .find(
+        {
+          enrollment: {
+            $elemMatch: {
+              "course.code": courseID.code,
+              "course.term": courseID.term,
+            },
           },
         },
-      })
+        { projection: { _id: 0 } },
+      )
       .sort({ email: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
@@ -96,16 +102,19 @@ export class UserRepo {
    */
   async getUsersInClass(clazz: Class, role: Role): Promise<User[]> {
     const users = await this.collections.users
-      .find({
-        enrollment: {
-          $elemMatch: {
-            "course.code": clazz.course.code,
-            "course.term": clazz.course.term,
-            section: { $in: [clazz.section, "*"] },
-            role,
+      .find(
+        {
+          enrollment: {
+            $elemMatch: {
+              "course.code": clazz.course.code,
+              "course.term": clazz.course.term,
+              section: { $in: [clazz.section, "*"] },
+              role,
+            },
           },
         },
-      })
+        { projection: { _id: 0 } },
+      )
       .sort({ email: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();

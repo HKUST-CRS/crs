@@ -22,7 +22,7 @@ import {
 import { RoasterParser } from "@/lib/roaster-parser";
 import { showError, showErrorMessage } from "@/lib/showError";
 
-export const ImportEnrollmentFormSchema = z.object({
+export const ImportEnrollmentFormSchema = z.strictObject({
   roaster: z.file().min(1, "Roaster file is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
@@ -32,7 +32,7 @@ export type ImportEnrollmentFormSchema = z.infer<
   typeof ImportEnrollmentFormSchema
 >;
 
-export const ImportEnrollmentSubmissionSchema = z.object({
+export const ImportEnrollmentSubmissionSchema = z.strictObject({
   roaster: RoasterParser.Roaster,
   section: z.string(),
   role: Role,

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import type { ImportedCourse } from "@/lib/ust-archive";
 
-const CourseFormSchema = z.object({
+const CourseFormSchema = z.strictObject({
   code: z.string().regex(/^[A-Z]+ \d+[A-Z]*$/, "Invalid code."),
   term: z.string().regex(/^\d\d[1234]0$/, "Invalid term."),
   title: z.string().min(1, "Required title."),

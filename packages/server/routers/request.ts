@@ -30,7 +30,7 @@ export const routerRequest = router({
     }),
   create: procedure
     .input(
-      z.object({
+      z.strictObject({
         request: RequestInit,
         comment: CommentInit,
       }),
@@ -46,7 +46,7 @@ export const routerRequest = router({
     }),
   comment: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         ...CommentInit.shape,
       }),
@@ -63,7 +63,7 @@ export const routerRequest = router({
     }),
   approve: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -80,7 +80,7 @@ export const routerRequest = router({
     }),
   reject: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -97,7 +97,7 @@ export const routerRequest = router({
     }),
   cancel: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -114,7 +114,7 @@ export const routerRequest = router({
     }),
   appeal: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         ...CommentInit.shape,
       }),
@@ -130,8 +130,8 @@ export const routerRequest = router({
       await services.notification.notifyRequestUpdate(request, entries);
     }),
   getProof: procedure
-    .input(z.object({ attachmentId: z.string() }))
-    .output(z.object({ content: z.string() }))
+    .input(z.strictObject({ attachmentId: z.string() }))
+    .output(z.strictObject({ content: z.string() }))
     .query(({ input, ctx }) => {
       return services.request
         .auth(ctx.user.email)
