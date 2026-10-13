@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash } from "lucide-react";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
-import { Exam, type User } from "service/models";
+import type { Exam, User } from "service/models";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
@@ -19,9 +19,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const ExamFormSchema = z.object({
+export const ExamFormSchema = z.strictObject({
   code: z.string().trim().min(1, "Code is required (e.g. Midterm)"),
-  ...Exam.shape,
+  questions: z
+    .array(
+      z.strictObject({
+        question: z
+          .string()
+          .trim()
+          .min(1, "A question identifier is required."),
+        grader: z.email(),
+      }),
+    )
+    .refine(
+      (questions) =>
+        new Set(questions.map(({ question }) => question)).size ===
+        questions.length,
+      "Question identifiers must be unique within an exam.",
+    ),
 });
 
 export type ExamFormSchema = z.infer<typeof ExamFormSchema>;
@@ -33,17 +48,24 @@ export function ExamForm({
   onRemove,
 }: {
   graders: Pick<User, "email" | "name">[];
-  defaultValues?: ExamFormSchema;
+  defaultValues?: Exam & { code: string };
   onSubmit: (v: ExamFormSchema) => Promise<void>;
   onRemove: () => Promise<void>;
 }) {
   const [removing, setRemoving] = useState(false);
   const form = useForm<ExamFormSchema>({
     resolver: zodResolver(ExamFormSchema),
-    defaultValues: defaultValues ?? {
-      code: "",
-      questions: [],
-    },
+    defaultValues: defaultValues
+      ? {
+          code: defaultValues.code,
+          questions: Object.entries(defaultValues.questions).map(
+            ([question, { grader }]) => ({ question, grader }),
+          ),
+        }
+      : {
+          code: "",
+          questions: [],
+        },
   });
 
   const questionsList = useFieldArray({

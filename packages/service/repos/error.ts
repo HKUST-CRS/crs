@@ -21,15 +21,6 @@ export class RequestNotFoundError extends Error {
   }
 }
 
-export class RequestSubmissionConflictError extends Error {
-  constructor() {
-    super(
-      "This submission ID was already used for a different request payload.",
-    );
-    this.name = "RequestSubmissionConflictError";
-  }
-}
-
 export class StatusConflictError extends Error {
   constructor(
     requestID: RequestID,

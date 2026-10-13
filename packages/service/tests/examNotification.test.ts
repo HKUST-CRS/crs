@@ -33,10 +33,10 @@ test("exam notifications include only an enrolled assigned grader and follow rev
     assignments: {},
     exams: {
       Midterm: {
-        questions: [
-          { question: "Q1", grader: grader.email },
-          { question: "Q2", grader: "q2ta@ust.hk" },
-        ],
+        questions: {
+          Q1: { grader: grader.email },
+          Q2: { grader: "q2ta@ust.hk" },
+        },
       },
     },
     effectiveRequestTypes: {

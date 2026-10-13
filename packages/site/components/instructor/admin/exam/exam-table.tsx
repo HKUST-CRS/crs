@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const ExamRow = z.object({
+export const ExamRow = z.strictObject({
   code: z.string().trim().min(1),
   ...Exam.shape,
 });
@@ -33,9 +33,10 @@ export const columns: ColumnDef<ExamRow>[] = [
     id: "questionsCount",
     header: "Questions Assigned",
     cell: ({ row }) => {
-      const questions = row.original.questions;
-      if (!questions || questions.length === 0) return "No questions assigned";
-      return `${questions.length} ${questions.length === 1 ? "question" : "questions"}`;
+      const count = Object.keys(row.original.questions).length;
+      return count
+        ? `${count} ${count === 1 ? "question" : "questions"}`
+        : "No questions assigned";
     },
   },
 ];

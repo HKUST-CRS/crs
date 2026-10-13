@@ -6,10 +6,9 @@ import {
   expect,
   test,
 } from "bun:test";
-import { randomUUID } from "node:crypto";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { DbConn } from "../db";
-import { Course, type RequestBatch, type Role, type User } from "../models";
+import { Course, type RequestInit, type Role, type User } from "../models";
 import { createRepos } from "../repos";
 import { CourseService, RequestService, UserService } from "../services";
 import {
@@ -28,10 +27,10 @@ const course = Course.parse({
   assignments: {},
   exams: {
     Midterm: {
-      questions: [
-        { question: "1", grader: "bob@ust.hk" },
-        { question: "2", grader: "carol@ust.hk" },
-      ],
+      questions: {
+        "1": { grader: "bob@ust.hk" },
+        "2": { grader: "carol@ust.hk" },
+      },
     },
   },
   effectiveRequestTypes: {
@@ -66,20 +65,17 @@ const proof = {
   size: 2,
   content: Buffer.from("hi").toString("base64"),
 };
-function batch(questions = ["1", "2"]): RequestBatch {
+function appeal(question = "1") {
   return {
-    submissionId: randomUUID(),
-    requests: questions.map((question) => ({
-      request: {
-        type: "Exam Appeal",
-        class: { ...clazz, course: { ...clazz.course } },
-        metadata: { examCode: "Midterm", question },
-      },
-      comment: {
-        text: `Please review question ${question}.`,
-        proofs: [proof],
-      },
-    })),
+    request: {
+      type: "Exam Appeal" as const,
+      class: { ...clazz, course: { ...clazz.course } },
+      metadata: { examCode: "Midterm", question },
+    },
+    comment: {
+      text: `Please review question ${question}.`,
+      proofs: [proof],
+    },
   };
 }
 
@@ -98,6 +94,10 @@ describe("Exam appeals use exact-question thread permissions", () => {
   let requests: RequestService;
   let courses: CourseService;
   let users: UserService;
+  async function createAppeal(question = "1", from = student.email) {
+    const input = appeal(question);
+    return requests.auth(from).createRequest(input.request, input.comment);
+  }
   beforeAll(async () => {
     memoryServer = await MongoMemoryReplSet.create({
       replSet: { storageEngine: "wiredTiger" },
@@ -120,48 +120,40 @@ describe("Exam appeals use exact-question thread permissions", () => {
     });
   });
 
-  test("creates one question per thread and replay returns the same tickets", async () => {
-    const input = batch();
-    const created = await requests.auth(student.email).createRequests(input);
-    expect(created.created).toBe(true);
-    expect(created.ids).toHaveLength(2);
-    for (const [index, id] of created.ids.entries()) {
-      const ticket = await requests.auth(student.email).getRequest(id);
-      expect(ticket.metadata).toEqual({
-        examCode: "Midterm",
-        question: `${index + 1}`,
-      });
-      expect(ticket.status).toBe("open");
-      expect(ticket.thread).toHaveLength(1);
-      expect(ticket.thread[0]?.kind).toBe("comment");
-    }
-    expect(await requests.auth(student.email).createRequests(input)).toEqual({
-      ids: created.ids,
-      created: false,
+  test("creates one question per request with its opening reason and proof", async () => {
+    const input = appeal();
+    const id = await requests.auth(student.email).createRequest(input.request, {
+      ...input.comment,
+      text: `  ${input.comment.text}  `,
     });
-    expect(await conn.collections.requests.countDocuments()).toBe(2);
-    // A lost-response retry retrieves the committed result even if eligibility
-    // or the catalog changes after the original submission.
-    await conn.collections.courses.updateOne(clazz.course, {
-      $set: {
-        exams: {},
-        "effectiveRequestTypes.Exam Appeal": false,
-      },
+    const ticket = await requests.auth(student.email).getRequest(id);
+    expect(ticket.metadata).toEqual({ examCode: "Midterm", question: "1" });
+    expect(ticket.status).toBe("open");
+    expect(ticket.thread).toHaveLength(1);
+    expect(ticket.thread[0]).toMatchObject({
+      kind: "comment",
+      from: student.email,
+      text: appeal().comment.text,
+      proofs: [{ name: proof.name, size: proof.size }],
     });
-    await conn.collections.users.updateOne(
-      { email: student.email },
-      { $set: { enrollment: [] } },
-    );
-    expect(await requests.auth(student.email).createRequests(input)).toEqual({
-      ids: created.ids,
-      created: false,
-    });
+    expect(await conn.collections.requests.countDocuments()).toBe(1);
+  });
+
+  test("rejects empty and whitespace-only exam reasons before storing proofs", async () => {
+    const input = appeal();
+    for (const text of ["", "  "])
+      await expectFailure(
+        requests
+          .auth(student.email)
+          .createRequest(input.request, { ...input.comment, text }),
+      );
+    expect(await conn.collections.requests.countDocuments()).toBe(0);
+    expect(await conn.collections.proofs.find({}).toArray()).toEqual([]);
   });
 
   test("enrolled assigned grader can open, bulk-read, comment, decide and download only their question", async () => {
-    const { ids } = await requests.auth(student.email).createRequests(batch());
-    const q1 = ids[0] as string;
-    const q2 = ids[1] as string;
+    const q1 = await createAppeal();
+    const q2 = await createAppeal("2");
     const svc = requests.auth(bob.email);
     const ticket = await svc.getRequest(q1);
     const opening = ticket.thread[0];
@@ -205,10 +197,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("ordinary class roles retain access and admin-only does not gain it", async () => {
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1");
     expect((await requests.auth(observer.email).getRequest(id)).id).toBe(id);
     await expectFailure(
       requests.auth(observer.email).comment(id, { text: "Observer note" }),
@@ -242,8 +231,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
       { email: bob.email },
       { $push: { enrollment: { ...clazz, role: "instructor" } } },
     );
-    const { ids } = await requests.auth(bob.email).createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1", bob.email);
     await expectFailure(requests.auth(bob.email).approve(id), PermissionError);
     await expectFailure(requests.auth(bob.email).reject(id), PermissionError);
     expect((await requests.auth(bob.email).getContext(id)).canDecide).toBe(
@@ -252,10 +240,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("scoped context works for enrolled grader and includes only actual thread authors", async () => {
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["2"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("2");
     await requests
       .auth(carol.email)
       .comment(id, { text: "Checking the answer." });
@@ -278,12 +263,9 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("reassignment updates both inbox and all access paths", async () => {
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1");
     await courses.auth(instructor.email).updateExams(clazz.course, {
-      Midterm: { questions: [{ question: "1", grader: carol.email }] },
+      Midterm: { questions: { "1": { grader: carol.email } } },
     });
     expect(await requests.auth(bob.email).getRequestsAs(["grader"])).toEqual(
       [],
@@ -296,10 +278,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("ordinary thread lifecycle supports decision, review, redecision and cancellation", async () => {
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1");
     await requests.auth(bob.email).approve(id);
     expect((await requests.auth(student.email).getContext(id)).canAppeal).toBe(
       true,
@@ -318,10 +297,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("question assignment without grader enrollment grants no access and revocation is immediate", async () => {
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1");
     const opening = (await requests.auth(student.email).getRequest(id))
       .thread[0];
     if (opening?.kind !== "comment" || !opening.proofs?.[0])
@@ -344,10 +320,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
     expect(
       (await requests.auth(student.email).getContext(id)).assignedGrader,
     ).toBeNull();
-    await expectFailure(
-      requests.auth(student.email).createRequests(batch(["1"])),
-      InvalidRequestError,
-    );
+    await expectFailure(createAppeal(), InvalidRequestError);
     expect(await conn.collections.requests.countDocuments()).toBe(1);
   });
 
@@ -356,10 +329,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
     await users
       .auth(instructor.email)
       .createEnrollment(email, { ...clazz, role: "grader" });
-    const { ids } = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const id = ids[0] as string;
+    const id = await createAppeal("1");
     const opening = (await requests.auth(student.email).getRequest(id))
       .thread[0];
     if (opening?.kind !== "comment" || !opening.proofs?.[0])
@@ -379,64 +349,56 @@ describe("Exam appeals use exact-question thread permissions", () => {
   });
 
   test("grader enrollment respects sections and wildcard without granting unrelated questions", async () => {
-    const first = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
+    const first = await createAppeal();
     await conn.collections.users.updateOne(
       { email: student.email },
       { $push: { enrollment: { ...clazz, section: "L2", role: "student" } } },
     );
-    const secondInput = batch(["1"]);
-    const secondItem = secondInput
-      .requests[0] as RequestBatch["requests"][number];
-    secondItem.request.class.section = "L2";
-    await expectFailure(
-      requests.auth(student.email).createRequests(secondInput),
-      InvalidRequestError,
-    );
+    const secondInput = appeal();
+    secondInput.request.class.section = "L2";
+    const createSecond = () =>
+      requests
+        .auth(student.email)
+        .createRequest(secondInput.request, secondInput.comment);
+    await expectFailure(createSecond(), InvalidRequestError);
     await conn.collections.users.updateOne(
       { email: bob.email },
       { $set: { "enrollment.1.section": "*" } },
     );
-    const second = await requests
-      .auth(student.email)
-      .createRequests(secondInput);
+    const second = await createSecond();
     expect(
       (await requests.auth(bob.email).getRequestsAs(["grader"]))
         .map((r) => r.id)
         .sort(),
-    ).toEqual([...first.ids, ...second.ids].sort());
+    ).toEqual([first, second].sort());
     await conn.collections.users.updateOne(
       { email: bob.email },
       { $set: { "enrollment.1.section": "L1" } },
     );
     await expectFailure(
-      requests.auth(bob.email).getRequest(second.ids[0] as string),
+      requests.auth(bob.email).getRequest(second),
       ClassPermissionError,
     );
     expect(
       (await requests.auth(bob.email).getRequestsAs(["grader"])).map(
         (r) => r.id,
       ),
-    ).toEqual(first.ids);
+    ).toEqual([first]);
     expect(
-      (await requests.auth(student.email).getContext(second.ids[0] as string))
-        .assignedGrader,
+      (await requests.auth(student.email).getContext(second)).assignedGrader,
     ).toBeNull();
   });
 
   test("student/grader inboxes stay separate and combined roles deduplicate requests", async () => {
-    const received = await requests
-      .auth(student.email)
-      .createRequests(batch(["1"]));
-    const own = await requests.auth(bob.email).createRequests(batch(["2"]));
+    const received = await createAppeal();
+    const own = await createAppeal("2", bob.email);
     const grader = requests.auth(bob.email);
-    expect((await grader.getRequestsAs(["student"])).map((r) => r.id)).toEqual(
-      own.ids,
-    );
-    expect((await grader.getRequestsAs(["grader"])).map((r) => r.id)).toEqual(
-      received.ids,
-    );
+    expect((await grader.getRequestsAs(["student"])).map((r) => r.id)).toEqual([
+      own,
+    ]);
+    expect((await grader.getRequestsAs(["grader"])).map((r) => r.id)).toEqual([
+      received,
+    ]);
     await conn.collections.users.updateOne(
       { email: bob.email },
       { $push: { enrollment: { ...clazz, role: "instructor" } } },
@@ -448,37 +410,30 @@ describe("Exam appeals use exact-question thread permissions", () => {
     ]);
     expect(combined).toHaveLength(2);
     expect(new Set(combined.map((r) => r.id))).toEqual(
-      new Set([...received.ids, ...own.ids]),
+      new Set([received, own]),
     );
   });
 
-  test("generic batch accepts ordinary requests beside an appeal without granting graders ordinary-request access", async () => {
+  test("assigned graders do not gain access to ordinary requests", async () => {
     await conn.collections.courses.updateOne(clazz.course, {
       $set: {
         "sections.L1.schedule": [{ day: 1, from: "09:00:00", to: "10:00:00" }],
       },
     });
-    const input = batch(["1"]);
-    input.requests.push({
-      request: {
+    const examID = await createAppeal();
+    const ordinaryID = await requests.auth(student.email).createRequest(
+      {
         type: "Absent from Section",
         class: clazz,
         metadata: { fromSection: "L1", fromDate: "2026-10-12" },
       },
-      comment: { text: "Medical appointment", proofs: [proof] },
-    });
-    const created = await requests.auth(student.email).createRequests(input);
-    expect(created.ids).toHaveLength(2);
-    expect(await requests.auth(student.email).createRequests(input)).toEqual({
-      ids: created.ids,
-      created: false,
-    });
+      { text: "Medical appointment", proofs: [proof] },
+    );
     expect(
       (await requests.auth(bob.email).getRequestsAs(["grader"])).map(
         (r) => r.id,
       ),
-    ).toEqual([created.ids[0] as string]);
-    const ordinaryID = created.ids[1] as string;
+    ).toEqual([examID]);
     const opening = (await requests.auth(student.email).getRequest(ordinaryID))
       .thread[0];
     if (opening?.kind !== "comment" || !opening.proofs?.[0])
@@ -493,25 +448,6 @@ describe("Exam appeals use exact-question thread permissions", () => {
       () => grader.approve(ordinaryID),
     ])
       await expectFailure(operation(), ClassPermissionError);
-  });
-
-  test("a mixed batch validates ordinary requests before saving any appeal", async () => {
-    const input = batch(["1"]);
-    input.requests.push({
-      request: {
-        type: "Absent from Section",
-        class: clazz,
-        metadata: { fromSection: "L1", fromDate: "2026-10-12" },
-      },
-      comment: { text: "No class is scheduled on this date." },
-    });
-    await expectFailure(
-      requests.auth(student.email).createRequests(input),
-      InvalidRequestError,
-    );
-    expect(await conn.collections.requests.countDocuments()).toBe(0);
-    expect(await conn.collections.requestSubmissions.countDocuments()).toBe(0);
-    expect(await conn.collections.proofs.find({}).toArray()).toEqual([]);
   });
 
   test("normal enrollment APIs create graders before login and grader rosters stay protected", async () => {
@@ -538,166 +474,68 @@ describe("Exam appeals use exact-question thread permissions", () => {
       );
     }
     await courses.auth(instructor.email).updateExams(clazz.course, {
-      Midterm: { questions: [{ question: "1", grader: email }] },
+      Midterm: { questions: { "1": { grader: email } } },
     });
     expect(await requests.auth(email).getRequestsAs(["grader"])).toEqual([]);
   });
 
   test("rejects missing exam/question/section, disabled type and missing student enrollment before saving", async () => {
-    const valid = batch(["1"]);
-    const item = valid.requests[0] as RequestBatch["requests"][number];
-    const invalidInputs = [
+    const valid = appeal();
+    const invalidRequests: RequestInit[] = [
+      { ...valid.request, metadata: { examCode: "Final", question: "1" } },
+      appeal("999").request,
       {
-        ...valid,
-        requests: [
-          {
-            ...item,
-            request: {
-              ...item.request,
-              metadata: { examCode: "Final", question: "1" },
-            },
-          },
-        ],
+        ...valid.request,
+        metadata: { examCode: "constructor", question: "1" },
       },
-      batch(["999"]),
-      {
-        ...valid,
-        requests: [
-          {
-            ...item,
-            request: {
-              ...item.request,
-              metadata: { examCode: "constructor", question: "1" },
-            },
-          },
-        ],
-      },
-      {
-        ...valid,
-        requests: [
-          {
-            ...item,
-            request: { ...item.request, class: { ...clazz, section: "NOPE" } },
-          },
-        ],
-      },
-      batch(["1", "999"]),
-    ] as RequestBatch[];
+      { ...valid.request, class: { ...clazz, section: "NOPE" } },
+    ];
     await conn.collections.users.updateOne(
       { email: student.email },
       { $set: { "enrollment.0.section": "*" } },
     );
-    for (const input of invalidInputs)
+    for (const input of invalidRequests)
       await expectFailure(
-        requests.auth(student.email).createRequests(input),
+        requests.auth(student.email).createRequest(input, valid.comment),
         InvalidRequestError,
       );
     await conn.collections.courses.updateOne(clazz.course, {
       $set: { "effectiveRequestTypes.Exam Appeal": false },
     });
-    await expectFailure(
-      requests.auth(student.email).createRequests(batch(["1"])),
-      RequestTypeNotEffectiveError,
-    );
-    await expectFailure(
-      requests.auth(carol.email).createRequests(batch(["1"])),
-      ClassPermissionError,
-    );
+    await expectFailure(createAppeal(), RequestTypeNotEffectiveError);
+    await expectFailure(createAppeal("1", carol.email), ClassPermissionError);
     expect(await conn.collections.requests.countDocuments()).toBe(0);
-    expect(await conn.collections.requestSubmissions.countDocuments()).toBe(0);
+    expect(await conn.collections.proofs.find({}).toArray()).toEqual([]);
   });
 
-  test("rejects empty/duplicate/oversized/forged batches before saving", async () => {
-    const valid = batch(["1"]);
-    const item = valid.requests[0] as RequestBatch["requests"][number];
-    for (const malformed of [
-      { ...valid, requests: [] },
-      batch(["1", "1"]),
-      {
-        ...valid,
-        requests: Array.from({ length: 51 }, (_, index) => ({
-          ...item,
-          request: {
-            ...item.request,
-            metadata: { examCode: "Midterm", question: `${index}` },
-          },
-        })),
-      },
-      {
-        ...valid,
-        requests: [
-          {
-            ...item,
-            request: {
-              ...item.request,
-              metadata: {
-                examCode: "Midterm",
-                question: "1",
-                grader: bob.email,
-              },
-            },
-          },
-        ],
-      },
-      {
-        ...valid,
-        requests: [
-          {
-            ...item,
-            request: {
-              ...item.request,
-              metadata: { examCode: "Midterm", questions: ["1", "2"] },
-            },
-          },
-        ],
-      },
+  test("rejects forged grader and multiple-question metadata before saving", async () => {
+    const valid = appeal();
+    for (const metadata of [
+      { examCode: "Midterm", question: "1", grader: bob.email },
+      { examCode: "Midterm", questions: ["1", "2"] },
+      { examCode: "Midterm", question: ["1", "2"] },
+      { examCode: "Midterm", question: "1", reason: "Old ticket metadata" },
     ])
       await expectFailure(
-        requests.auth(student.email).createRequests(malformed as RequestBatch),
+        requests
+          .auth(student.email)
+          .createRequest(
+            { ...valid.request, metadata } as unknown as RequestInit,
+            valid.comment,
+          ),
       );
     expect(await conn.collections.requests.countDocuments()).toBe(0);
+    expect(await conn.collections.proofs.find({}).toArray()).toEqual([]);
   });
 
-  test("single create accepts an exam appeal using the shared validation", async () => {
-    const id = await requests.auth(student.email).createRequest(
-      {
-        type: "Exam Appeal",
-        class: clazz,
-        metadata: { examCode: "Midterm", question: "1" },
-      },
-      { text: "One question" },
-    );
-    expect(
-      (await requests.auth(bob.email).getRequest(id)).thread[0],
-    ).toMatchObject({ text: "One question" });
-    await expectFailure(
-      requests.auth(student.email).createRequest(
-        {
-          type: "Exam Appeal",
-          class: clazz,
-          metadata: { examCode: "Final", question: "1" },
-        },
-        { text: "Unknown exam" },
-      ),
-      InvalidRequestError,
-    );
-    expect(await conn.collections.requests.countDocuments()).toBe(1);
-  });
-
-  test("server validates grader addresses and duplicate catalog questions before updating", async () => {
-    for (const exams of [
-      { Midterm: { questions: [{ question: "1", grader: "invalid" }] } },
-      {
-        Midterm: {
-          questions: [
-            { question: "1", grader: bob.email },
-            { question: "1", grader: carol.email },
-          ],
-        },
-      },
-      { Midterm: { questions: [{ question: "1", grader: "unknown@ust.hk" }] } },
-      { Midterm: { questions: [{ question: "1", grader: student.email }] } },
-    ])
+  test("server validates grader addresses and question identifiers before updating", async () => {
+    const invalidExams: Course["exams"][] = [
+      { Midterm: { questions: { "1": { grader: "invalid" } } } },
+      { Midterm: { questions: { " ": { grader: bob.email } } } },
+      { Midterm: { questions: { "1": { grader: "unknown@ust.hk" } } } },
+      { Midterm: { questions: { "1": { grader: student.email } } } },
+    ];
+    for (const exams of invalidExams)
       await expectFailure(
         courses.auth(instructor.email).updateExams(clazz.course, exams),
       );
@@ -708,11 +546,9 @@ describe("Exam appeals use exact-question thread permissions", () => {
       (await courses.auth(instructor.email).getCourse(clazz.course)).exams,
     ).toEqual(course.exams);
     await conn.collections.courses.updateOne(clazz.course, {
-      $set: { "exams.Midterm.questions.0.grader": "invalid" },
+      $set: { "exams.Midterm.questions.1.grader": "invalid" },
     });
-    await expectFailure(
-      requests.auth(student.email).createRequests(batch(["1"])),
-    );
+    await expectFailure(createAppeal());
     expect(await conn.collections.requests.countDocuments()).toBe(0);
   });
 });

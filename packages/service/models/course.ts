@@ -2,20 +2,11 @@ import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { fromISO } from "../utils/datetime";
 
-export const Exam = z.object({
-  questions: z
-    .array(
-      z.strictObject({
-        question: z.string().trim().min(1),
-        grader: z.email(),
-      }),
-    )
-    .refine(
-      (questions) =>
-        new Set(questions.map((question) => question.question)).size ===
-        questions.length,
-      "Question identifiers must be unique within an exam.",
-    ),
+export const Exam = z.strictObject({
+  questions: z.record(
+    z.string().trim().min(1),
+    z.strictObject({ grader: z.email() }),
+  ),
 });
 export type Exam = z.infer<typeof Exam>;
 

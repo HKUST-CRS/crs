@@ -1,13 +1,10 @@
-import { TRPCError } from "@trpc/server";
 import {
   CommentInit,
   Request,
-  RequestBatch,
   RequestID,
   RequestInit,
   Role,
 } from "service/models";
-import { RequestSubmissionConflictError } from "service/repos/error";
 import z from "zod";
 import { services } from "../services";
 import { procedure, router } from "../trpc";
@@ -34,12 +31,14 @@ export const routerRequest = router({
   getContext: procedure
     .input(RequestID)
     .output(
-      z.object({
+      z.strictObject({
         courseTitle: z.string(),
         assignedGrader: z
-          .object({ email: z.email(), name: z.string() })
+          .strictObject({ email: z.email(), name: z.string() })
           .nullable(),
-        authors: z.array(z.object({ email: z.email(), name: z.string() })),
+        authors: z.array(
+          z.strictObject({ email: z.email(), name: z.string() }),
+        ),
         canComment: z.boolean(),
         canDecide: z.boolean(),
         canAppeal: z.boolean(),
@@ -47,40 +46,6 @@ export const routerRequest = router({
     )
     .query(({ input, ctx }) => {
       return services.request.auth(ctx.user.email).getContext(input);
-    }),
-  createMany: procedure
-    .input(RequestBatch)
-    .output(z.array(RequestID))
-    .mutation(async ({ input, ctx }) => {
-      let result: { ids: string[]; created: boolean };
-      try {
-        result = await services.request
-          .auth(ctx.user.email)
-          .createRequests(input);
-      } catch (error) {
-        if (error instanceof RequestSubmissionConflictError) {
-          throw new TRPCError({ code: "CONFLICT", message: error.message });
-        }
-        throw error;
-      }
-      if (result.created) {
-        for (const requestId of result.ids) {
-          try {
-            const request = await services.request
-              .auth(ctx.user.email)
-              .getRequest(requestId);
-            await services.notification.notifyRequestUpdate(request);
-          } catch (error) {
-            // The requests are committed. Notification failure must not turn a
-            // successful submission into an error that invites a duplicate retry.
-            console.error("Request notification failed", {
-              requestId,
-              error,
-            });
-          }
-        }
-      }
-      return result.ids;
     }),
   create: procedure
     .input(

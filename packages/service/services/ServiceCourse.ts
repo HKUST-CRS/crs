@@ -151,7 +151,7 @@ export class CourseService<TUser extends UserID | null = null> {
   ) {
     const emails = new Set(
       Object.values(exams).flatMap((exam) =>
-        exam.questions.map((q) => q.grader),
+        Object.values(exam.questions).map((q) => q.grader),
       ),
     );
     for (const email of emails) {

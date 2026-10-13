@@ -50,7 +50,7 @@ export const routerCourse = router({
     }),
   updateExams: procedure
     .input(
-      z.object({
+      z.strictObject({
         courseID: CourseID,
         exams: Course.shape.exams,
       }),

@@ -58,10 +58,14 @@ export function ExamsConfig({
       toast.error("Exam code already exists");
       return;
     }
-    const { code, ...rest } = newExam;
+    const { code, questions } = newExam;
     const newExams = {
       ...examsList,
-      [code]: rest,
+      [code]: {
+        questions: Object.fromEntries(
+          questions.map(({ question, grader }) => [question, { grader }]),
+        ),
+      },
     };
     try {
       await onUpdate(newExams);

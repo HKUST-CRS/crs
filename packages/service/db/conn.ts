@@ -7,13 +7,6 @@ import {
 } from "mongodb";
 import type { Course, RequestDocument, User } from "../models";
 
-/** Generic retry receipt; request content lives only in the requests collection. */
-export interface RequestSubmissionDocument {
-  _id: string;
-  fingerprint: string;
-  ids: string[];
-}
-
 export interface Collections {
   withTransaction: <T>(
     fn: (session: ClientSession) => Promise<T>,
@@ -21,9 +14,6 @@ export interface Collections {
   users: Collection<User>;
   courses: Collection<Course>;
   requests: Collection<RequestDocument>;
-  // A unique [requester, submissionId] receipt commits with its requests, so a
-  // lost response or concurrent retry returns the same IDs without duplicates.
-  requestSubmissions: Collection<RequestSubmissionDocument>;
   proofs: GridFSBucket;
 }
 
@@ -61,8 +51,6 @@ export class DbConn {
       users: db.collection<User>("users"),
       courses: db.collection<Course>("courses"),
       requests: db.collection<RequestDocument>("requests"),
-      requestSubmissions:
-        db.collection<RequestSubmissionDocument>("requestSubmissions"),
       proofs: new GridFSBucket(db, { bucketName: "proofs" }),
     };
     await createIndexes(this.collections);

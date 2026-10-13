@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { buffer } from "node:stream/consumers";
 import { finished } from "node:stream/promises";
 import { DateTime } from "luxon";
-import { MongoServerError, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import type { Collections } from "../db";
 import {
   type Class,
@@ -14,7 +14,6 @@ import {
   type ProofFile,
   type ProofFileInit,
   Request,
-  RequestBatch,
   type RequestDocument,
   type RequestID,
   type RequestInit,
@@ -25,11 +24,7 @@ import {
   type UserID,
 } from "../models";
 import { toISO } from "../utils/datetime";
-import {
-  RequestNotFoundError,
-  RequestSubmissionConflictError,
-  StatusConflictError,
-} from "./error";
+import { RequestNotFoundError, StatusConflictError } from "./error";
 
 export class RequestRepo {
   constructor(protected collections: Collections) {}
@@ -81,127 +76,6 @@ export class RequestRepo {
       throw error;
     }
     return id;
-  }
-
-  private requestSubmission(from: UserID, batch: RequestBatch) {
-    const submissionID = JSON.stringify([from, batch.submissionId]);
-    const fingerprint = crypto
-      .createHash("sha256")
-      .update(
-        JSON.stringify({
-          requests: batch.requests.map(({ request, comment }) => ({
-            request,
-            text: comment.text,
-            proofs: (comment.proofs ?? []).map(({ name, content }) => ({
-              name,
-              hash: crypto
-                .createHash("sha256")
-                .update(Buffer.from(content, "base64"))
-                .digest("hex"),
-            })),
-          })),
-        }),
-      )
-      .digest("hex");
-    return { submissionID, fingerprint };
-  }
-
-  private replayRequestSubmission(
-    submission: { fingerprint: string; ids: string[] },
-    fingerprint: string,
-  ): { ids: string[]; created: false } {
-    if (submission.fingerprint !== fingerprint) {
-      throw new RequestSubmissionConflictError();
-    }
-    return { ids: submission.ids, created: false };
-  }
-
-  async getRequestSubmission(
-    from: UserID,
-    input: RequestBatch,
-  ): Promise<{ ids: string[]; created: false } | null> {
-    const batch = RequestBatch.parse(input);
-    const { submissionID, fingerprint } = this.requestSubmission(from, batch);
-    const existing = await this.collections.requestSubmissions.findOne({
-      _id: submissionID,
-    });
-    return existing
-      ? this.replayRequestSubmission(existing, fingerprint)
-      : null;
-  }
-
-  async createRequests(
-    from: UserID,
-    input: RequestBatch,
-  ): Promise<{ ids: string[]; created: boolean }> {
-    const batch = RequestBatch.parse(input);
-    const { submissionID, fingerprint } = this.requestSubmission(from, batch);
-    const existing = await this.collections.requestSubmissions.findOne({
-      _id: submissionID,
-    });
-    if (existing) return this.replayRequestSubmission(existing, fingerprint);
-
-    const documents: RequestDocument[] = [];
-    const proofs: ProofFile[] = [];
-    try {
-      // GridFS does not support transactions. Upload before starting the session.
-      for (const { request, comment } of batch.requests) {
-        const openingComment = await this.createComment(from, comment);
-        proofs.push(...(openingComment.proofs ?? []));
-        documents.push({
-          ...request,
-          id: new ObjectId().toHexString(),
-          from,
-          timestamp: toISO(DateTime.now()),
-          thread: [openingComment],
-        });
-      }
-    } catch (error) {
-      await this.deleteProofs(proofs);
-      throw error;
-    }
-
-    const ids = documents.map((document) => document.id);
-    const discardUnusedProofs = async (storedIDs: string[]) => {
-      // A lost commit acknowledgement can make a retry discover this attempt's
-      // own retry receipt. Those uploads are referenced by the committed requests.
-      if (!storedIDs.some((id) => ids.includes(id))) {
-        await this.deleteProofs(proofs);
-      }
-    };
-    try {
-      const result = await this.collections.withTransaction(async (session) => {
-        const prior = await this.collections.requestSubmissions.findOne(
-          { _id: submissionID },
-          { session },
-        );
-        if (prior) return this.replayRequestSubmission(prior, fingerprint);
-        // The unique retry key arbitrates concurrent submissions. Request content
-        // and this receipt commit together, so replay cannot see a partial batch.
-        await this.collections.requestSubmissions.insertOne(
-          { _id: submissionID, fingerprint, ids },
-          { session },
-        );
-        await this.collections.requests.insertMany(documents, { session });
-        return { ids, created: true };
-      });
-      if (!result.created) await discardUnusedProofs(result.ids);
-      return result;
-    } catch (error) {
-      if (error instanceof MongoServerError && error.code === 11000) {
-        const prior = await this.collections.requestSubmissions.findOne({
-          _id: submissionID,
-        });
-        if (prior) {
-          await discardUnusedProofs(prior.ids);
-          return this.replayRequestSubmission(prior, fingerprint);
-        }
-      }
-      // ponytail: failed/uncertain transactions can leave unused GridFS uploads.
-      // Preserve them because the commit may have succeeded; reconciliation
-      // belongs to the attachment recovery work in issue #136.
-      throw error;
-    }
   }
 
   /** Gets requests created by the specified user. */

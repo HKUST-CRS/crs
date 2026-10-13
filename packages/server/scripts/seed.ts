@@ -82,10 +82,10 @@ const TEST_COURSE: Course = {
   },
   exams: {
     midterm: {
-      questions: [
-        { question: "Q1", grader: "dev-grader-q1@ust.hk" },
-        { question: "Q2", grader: "dev-grader-q2@ust.hk" },
-      ],
+      questions: {
+        Q1: { grader: "dev-grader-q1@ust.hk" },
+        Q2: { grader: "dev-grader-q2@ust.hk" },
+      },
     },
   },
 };

@@ -1,9 +1,8 @@
 import {
   type Comment,
-  type CommentInit,
+  CommentInit,
   Courses,
   type Request,
-  RequestBatch,
   type RequestID,
   RequestInit,
   type RequestStatus,
@@ -47,9 +46,11 @@ export async function resolveExamGrader(
   if (request.type !== "Exam Appeal") return null;
   const course = await repos.course.requireCourse(request.class.course);
   if (!Object.hasOwn(course.exams, request.metadata.examCode)) return null;
-  const email = course.exams[request.metadata.examCode]?.questions.find(
-    (question) => question.question === request.metadata.question,
-  )?.grader;
+  const questions = course.exams[request.metadata.examCode]?.questions;
+  if (!questions || !Object.hasOwn(questions, request.metadata.question)) {
+    return null;
+  }
+  const email = questions[request.metadata.question]?.grader;
   if (!email) return null;
   const grader = await repos.user.getUser(email);
   return grader && hasClassRole(grader, request.class, ["grader"])
@@ -158,14 +159,17 @@ export class RequestService<TUser extends UserID | null = null> {
         ...candidates.filter((request) => {
           if (request.type !== "Exam Appeal") return false;
           const course = catalogs.get(Courses.id2str(request.class.course));
+          if (
+            !course ||
+            !Object.hasOwn(course.exams, request.metadata.examCode)
+          ) {
+            return false;
+          }
+          const questions = course.exams[request.metadata.examCode]?.questions;
           return (
-            course &&
-            Object.hasOwn(course.exams, request.metadata.examCode) &&
-            course.exams[request.metadata.examCode]?.questions.some(
-              (question) =>
-                question.question === request.metadata.question &&
-                question.grader === user.email,
-            )
+            questions &&
+            Object.hasOwn(questions, request.metadata.question) &&
+            questions[request.metadata.question]?.grader === user.email
           );
         }),
       );
@@ -256,14 +260,6 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<string> {
     const user = await this.repos.user.requireUser(this.user);
     request = RequestInit.parse(request);
-    await this.validateNewRequest(user, request);
-    return this.repos.request.createRequest(this.user, request, comment);
-  }
-
-  private async validateNewRequest(
-    user: User,
-    request: RequestInit,
-  ): Promise<void> {
     assertClassRole(user, request.class, ["student"], "creating request");
     const course = await this.repos.course.requireCourse(request.class.course);
     if (!course.effectiveRequestTypes[request.type]) {
@@ -295,29 +291,13 @@ export class RequestService<TUser extends UserID | null = null> {
         }
         break;
       case "Exam Appeal":
+        comment = CommentInit.parse({ ...comment, text: comment.text.trim() });
         if (!(await resolveExamGrader(this.repos, request))) {
           throw new InvalidRequestError(request.class.course, request.type);
         }
         break;
     }
-  }
-
-  /** Validate every request before the repository atomically saves the batch and its retry receipt. */
-  async createRequests(
-    this: RequestService<UserID>,
-    input: RequestBatch,
-  ): Promise<{ ids: string[]; created: boolean }> {
-    const batch = RequestBatch.parse(input);
-    const user = await this.repos.user.requireUser(this.user);
-    const existing = await this.repos.request.getRequestSubmission(
-      this.user,
-      batch,
-    );
-    if (existing) return existing;
-    for (const { request } of batch.requests) {
-      await this.validateNewRequest(user, request);
-    }
-    return this.repos.request.createRequests(this.user, batch);
+    return this.repos.request.createRequest(this.user, request, comment);
   }
 
   /**
