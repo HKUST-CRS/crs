@@ -117,6 +117,7 @@ export namespace RequestSerialization {
     "New Deadline",
     // Exam requests
     "Exam",
+    // Exam Appeal
     "Question",
   ];
 

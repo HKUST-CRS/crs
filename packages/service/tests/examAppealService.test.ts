@@ -14,7 +14,6 @@ import { CourseService, RequestService, UserService } from "../services";
 import {
   ClassPermissionError,
   InvalidRequestError,
-  PermissionError,
   RequestTypeNotEffectiveError,
 } from "../services/error";
 import { clearData, insertData } from "./tests";
@@ -199,6 +198,17 @@ describe("Exam appeals use exact-question thread permissions", () => {
 
   test("ordinary class roles retain access and admin-only does not gain it", async () => {
     const id = await createAppeal("1");
+    expect((await requests.auth(student.email).getContext(id)).canDecide).toBe(
+      false,
+    );
+    await expectFailure(
+      requests.auth(student.email).approve(id),
+      ClassPermissionError,
+    );
+    await expectFailure(
+      requests.auth(student.email).reject(id),
+      ClassPermissionError,
+    );
     expect((await requests.auth(observer.email).getRequest(id)).id).toBe(id);
     await expectFailure(
       requests.auth(observer.email).comment(id, { text: "Observer note" }),
@@ -227,16 +237,28 @@ describe("Exam appeals use exact-question thread permissions", () => {
     ).toHaveLength(1);
   });
 
-  test("requester cannot decide their own appeal even with grader and instructor authority", async () => {
+  test("requesters can decide their own appeal when authorized as its grader or class instructor", async () => {
+    const id = await createAppeal("1", bob.email);
+    expect((await requests.auth(bob.email).getContext(id)).canDecide).toBe(
+      true,
+    );
+    await requests.auth(bob.email).approve(id);
+    expect((await requests.auth(bob.email).getRequest(id)).status).toBe(
+      "approved",
+    );
     await conn.collections.users.updateOne(
       { email: bob.email },
       { $push: { enrollment: { ...clazz, role: "instructor" } } },
     );
-    const id = await createAppeal("1", bob.email);
-    await expectFailure(requests.auth(bob.email).approve(id), PermissionError);
-    await expectFailure(requests.auth(bob.email).reject(id), PermissionError);
+    await users
+      .auth(instructor.email)
+      .deleteEnrollment(bob.email, { ...clazz, role: "grader" });
     expect((await requests.auth(bob.email).getContext(id)).canDecide).toBe(
-      false,
+      true,
+    );
+    await requests.auth(bob.email).reject(id);
+    expect((await requests.auth(bob.email).getRequest(id)).status).toBe(
+      "rejected",
     );
   });
 

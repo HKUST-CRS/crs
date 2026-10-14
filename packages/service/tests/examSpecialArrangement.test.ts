@@ -28,7 +28,6 @@ import { NotificationService, RequestService } from "../services";
 import {
   ClassPermissionError,
   InvalidRequestError,
-  PermissionError,
   RequestTypeNotEffectiveError,
 } from "../services/error";
 import { clearData, insertData } from "./tests";
@@ -40,8 +39,8 @@ const course = Course.parse({
   sections: { L1: { schedule: [] }, L2: { schedule: [] } },
   assignments: {},
   exams: {
-    midterm: { questions: {} },
-    final: { questions: { Q1: { grader: "grader@ust.hk" } } },
+    Midterm: { questions: {} },
+    Final: { questions: { Q1: { grader: "grader@ust.hk" } } },
   },
   effectiveRequestTypes: {
     "Swap Section": true,
@@ -72,7 +71,7 @@ const otherInstructor = user("other-instructor@ust.hk", "instructor", "L2");
 const input: RequestInit = {
   type: "Exam Special Arrangement",
   class: clazz,
-  metadata: { examCode: "midterm" },
+  metadata: { examCode: "Midterm" },
 };
 const proof = {
   name: "appointment.txt",
@@ -127,12 +126,12 @@ describe("Exam special arrangements use the normal request thread", () => {
     const id = await requests
       .auth(student.email)
       .createRequest(
-        { ...input, metadata: { examCode: " midterm " } },
+        { ...input, metadata: { examCode: " Midterm " } },
         { ...comment, text: `  ${comment.text}  ` },
       );
     const saved = await requests.auth(student.email).getRequest(id);
     expect(Request.safeParse(saved).success).toBe(true);
-    expect(saved.metadata).toEqual({ examCode: "midterm" });
+    expect(saved.metadata).toEqual({ examCode: "Midterm" });
     expect(saved.thread).toHaveLength(1);
     expect(saved.thread[0]).toMatchObject({
       kind: "comment",
@@ -146,14 +145,14 @@ describe("Exam special arrangements use the normal request thread", () => {
       await requests.auth(observer.email).fetchProof(opening.proofs[0].id),
     ).toEqual({ content: proof.content });
     expect((await conn.collections.requests.findOne({ id }))?.metadata).toEqual(
-      { examCode: "midterm" },
+      { examCode: "Midterm" },
     );
     const row = Papa.parse<{ Exam: string; Question: string; Type: string }>(
       RequestSerialization.toCSV([saved], "https://crs.test"),
       { header: true },
     ).data[0];
     expect(row).toMatchObject({
-      Exam: "midterm",
+      Exam: "Midterm",
       Question: "",
       Type: "Exam Special Arrangement",
     });
@@ -170,10 +169,10 @@ describe("Exam special arrangements use the normal request thread", () => {
     for (const metadata of [
       {},
       { examCode: " " },
-      { examCode: "midterm", question: "Q1" },
-      { examCode: "midterm", reason: "Medical appointment" },
-      { examCode: "midterm", proofs: [] },
-      { examCode: "midterm", arrangement: "Makeup" },
+      { examCode: "Midterm", question: "Q1" },
+      { examCode: "Midterm", reason: "Medical appointment" },
+      { examCode: "Midterm", proofs: [] },
+      { examCode: "Midterm", arrangement: "Makeup" },
     ])
       await expectFailure(
         requests
@@ -231,17 +230,25 @@ describe("Exam special arrangements use the normal request thread", () => {
       );
     const id = await requests
       .auth(student.email)
-      .createRequest({ ...input, metadata: { examCode: "final" } }, comment);
+      .createRequest({ ...input, metadata: { examCode: "Final" } }, comment);
     expect((await requests.auth(observer.email).getRequest(id)).id).toBe(id);
     expect(await requests.auth(observer.email).getContext(id)).toMatchObject({
       canComment: false,
       canDecide: false,
       assignedGrader: null,
     });
+    expect((await requests.auth(student.email).getContext(id)).canDecide).toBe(
+      false,
+    );
     for (const actor of [student, observer]) {
-      const denial = actor === student ? PermissionError : ClassPermissionError;
-      await expectFailure(requests.auth(actor.email).approve(id), denial);
-      await expectFailure(requests.auth(actor.email).reject(id), denial);
+      await expectFailure(
+        requests.auth(actor.email).approve(id),
+        ClassPermissionError,
+      );
+      await expectFailure(
+        requests.auth(actor.email).reject(id),
+        ClassPermissionError,
+      );
     }
     await expectFailure(
       requests.auth(observer.email).comment(id, { text: "Observer comment" }),
@@ -295,29 +302,29 @@ describe("Exam special arrangements use the normal request thread", () => {
     ).toBe(false);
   });
 
-  test("a requester cannot decide their own arrangement even when enrolled as an instructor", async () => {
+  test("a requester enrolled as an instructor follows normal decision permissions", async () => {
     await conn.collections.users.updateOne(
       { email: student.email },
       { $push: { enrollment: { ...clazz, role: "instructor" } } },
     );
     const id = await requests.auth(student.email).createRequest(input, comment);
-    await expectFailure(
-      requests.auth(student.email).approve(id),
-      PermissionError,
-    );
-    await expectFailure(
-      requests.auth(student.email).reject(id),
-      PermissionError,
-    );
     expect((await requests.auth(student.email).getContext(id)).canDecide).toBe(
-      false,
+      true,
+    );
+    await requests.auth(student.email).approve(id);
+    expect((await requests.auth(student.email).getRequest(id)).status).toBe(
+      "approved",
+    );
+    await requests.auth(student.email).reject(id);
+    expect((await requests.auth(student.email).getRequest(id)).status).toBe(
+      "rejected",
     );
   });
 
   test("notifications contain the exam and thread reason, go to class staff, and exclude question graders", async () => {
     const id = await requests
       .auth(student.email)
-      .createRequest({ ...input, metadata: { examCode: "final" } }, comment);
+      .createRequest({ ...input, metadata: { examCode: "Final" } }, comment);
     const saved = await requests.auth(student.email).getRequest(id);
     const sent: Mail.Options[] = [];
     const transport = spyOn(nodemailer, "createTransport").mockReturnValue({
@@ -342,8 +349,8 @@ describe("Exam special arrangements use the normal request thread", () => {
       await notifications.notifyRequestUpdate(saved);
       expect(sent[0]?.to).toEqual([instructor.email]);
       expect(sent[0]?.cc).toEqual([student.email, observer.email]);
-      expect(sent[0]?.subject).toContain("final");
-      expect(sent[0]?.html).toContain("special arrangement for exam final");
+      expect(sent[0]?.subject).toContain("Final");
+      expect(sent[0]?.html).toContain("special arrangement for exam Final");
       expect(sent[0]?.html).toContain(comment.text);
       expect(sent[0]?.attachments?.[0]).toMatchObject({ filename: proof.name });
       const entries = await requests

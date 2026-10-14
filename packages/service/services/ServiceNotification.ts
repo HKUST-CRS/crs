@@ -15,6 +15,7 @@ import {
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { formatRequest, formatUpdate } from "../templates/Formatter";
+import { requestPresentation } from "../templates/RequestPresentation";
 import { compareString } from "../utils/comparison";
 import { resolveExamGrader } from "./ServiceRequest";
 
@@ -106,20 +107,15 @@ export class NotificationService {
       "observer",
     );
 
-    const actor = entries[0]?.from ?? request.from;
     const statusEntry = entries.find((e) => e.kind === "status");
-    const subjectPrefix = statusEntry
-      ? STATUS_SUBJECT[statusEntry.status]
-      : entries.length === 0
-        ? "Request"
-        : "Comment";
-    const exam =
-      request.type === "Exam Appeal"
-        ? ` (${request.metadata.examCode} ${request.metadata.question})`
-        : request.type === "Exam Special Arrangement"
-          ? ` (${request.metadata.examCode})`
-          : "";
-    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${exam}`;
+    const isDecision =
+      statusEntry?.status === "approved" || statusEntry?.status === "rejected";
+    const isStudentAction =
+      (entries[0]?.from ?? request.from) === request.from && !isDecision;
+    let subjectPrefix = "Request";
+    if (statusEntry) subjectPrefix = STATUS_SUBJECT[statusEntry.status];
+    else if (entries.length > 0) subjectPrefix = "Comment";
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${requestPresentation(request).subjectSuffix}`;
 
     const content = await this.renderUpdate(
       request,
@@ -127,6 +123,7 @@ export class NotificationService {
       student,
       instructors,
       observers,
+      isStudentAction,
     );
 
     const notificationEntries = entries.length > 0 ? entries : request.thread;
@@ -134,7 +131,7 @@ export class NotificationService {
       e.kind === "comment" ? (e.proofs ?? []) : [],
     );
 
-    if (actor === request.from) {
+    if (isStudentAction) {
       await this.sendEmail(
         instructors.map((i) => i.email),
         [student.email, ...observers.map((i) => i.email)],
@@ -159,10 +156,8 @@ export class NotificationService {
     student: User,
     instructors: User[],
     observers: User[],
+    isStudentAction: boolean,
   ): Promise<string> {
-    const actor = entries[0]?.from ?? request.from;
-    const isStudentAction = actor === request.from;
-
     const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
       if (is.length === 0) {
@@ -215,6 +210,7 @@ export class NotificationService {
     content: string,
     attachments: ProofFile[],
   ): Promise<void> {
+    cc = cc.filter((email) => !to.includes(email));
     if (!this.transporter) {
       console.warn(
         "Email sending is suppressed due to incomplete SMTP configuration.",

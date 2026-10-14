@@ -6,7 +6,6 @@ import {
   type RequestID,
   RequestInit,
   type RequestStatus,
-  type RequestType,
   type Role,
   type ThreadEntry,
   type User,
@@ -38,10 +37,6 @@ const DECISION_FROM: RequestStatus[] = [
   "rejected",
 ];
 const APPEAL_FROM: RequestStatus[] = ["approved", "rejected"];
-const NO_SELF_DECISION_TYPES: RequestType[] = [
-  "Exam Appeal",
-  "Exam Special Arrangement",
-];
 
 /** A question assignment is effective only while its grader is enrolled in the request's class. */
 export async function resolveExamGrader(
@@ -207,11 +202,7 @@ export class RequestService<TUser extends UserID | null = null> {
         : null,
       authors: authors.map((email) => ({ email, name: displayName(email) })),
       canComment: this.user === request.from || staff,
-      canDecide:
-        staff &&
-        (!NO_SELF_DECISION_TYPES.includes(request.type) ||
-          this.user !== request.from) &&
-        DECISION_FROM.includes(request.status),
+      canDecide: staff && DECISION_FROM.includes(request.status),
       canAppeal:
         this.user === request.from && APPEAL_FROM.includes(request.status),
     };
@@ -375,16 +366,6 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    if (
-      this.user === request.from &&
-      NO_SELF_DECISION_TYPES.includes(request.type)
-    ) {
-      throw new PermissionError(
-        this.user,
-        [],
-        `deciding own ${request.type.toLowerCase()} ${requestID}`,
-      );
-    }
     await this.assertRequestAccess(
       user,
       request,
