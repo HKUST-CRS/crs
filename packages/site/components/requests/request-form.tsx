@@ -23,6 +23,10 @@ import {
 } from "./request-form-deadline-extension";
 import { ExamAppealRequestForm } from "./request-form-exam-appeal";
 import {
+  ExamSpecialArrangementFormSchema,
+  ExamSpecialArrangementRequestForm,
+} from "./request-form-exam-special-arrangement";
+import {
   SwapSectionFormSchema,
   SwapSectionRequestForm,
 } from "./request-form-swap-section";
@@ -38,6 +42,7 @@ const MetaFormSchema = z.discriminatedUnion("type", [
   SwapSectionFormSchema,
   AbsentFromSectionFormSchema,
   DeadlineExtensionFormSchema,
+  ExamSpecialArrangementFormSchema,
 ]);
 type MetaFormSchema = z.infer<typeof MetaFormSchema>;
 
@@ -87,6 +92,12 @@ export default function RequestForm(props: RequestFormProps) {
               type: meta.type,
               metadata: meta.meta,
             };
+          case "Exam Special Arrangement":
+            return {
+              class: base.class,
+              type: meta.type,
+              metadata: meta.meta,
+            };
         }
       })();
       return createRequest.mutateAsync({ request, comment: meta.comment });
@@ -111,6 +122,27 @@ export default function RequestForm(props: RequestFormProps) {
   const renderMetaForm = () => {
     if (base) {
       switch (base.type) {
+        case "Exam Special Arrangement": {
+          const defMeta =
+            meta?.type === "Exam Special Arrangement" ? meta : undefined;
+          const defProps =
+            props.default?.type === "Exam Special Arrangement"
+              ? { type: base.type, meta: props.default.metadata }
+              : undefined;
+          return (
+            <ExamSpecialArrangementRequestForm
+              key={Classes.id2str(base.class)}
+              base={base}
+              default={defMeta ?? defProps}
+              viewonly={viewonly}
+              pending={createRequest.isPending}
+              onSubmit={(data) => {
+                setMeta(data);
+                onSubmit(data);
+              }}
+            />
+          );
+        }
         case "Exam Appeal":
           return viewonly ? null : (
             <ExamAppealRequestForm
@@ -194,7 +226,10 @@ export default function RequestForm(props: RequestFormProps) {
       className={clsx("flex flex-col justify-stretch gap-4", props.className)}
     >
       <BaseRequestForm
-        disabled={examPending}
+        disabled={
+          examPending ||
+          (base?.type === "Exam Special Arrangement" && createRequest.isPending)
+        }
         onSubmit={(data) => {
           // The condition is to avoid an infinite loop of update. The
           // BaseRequestForm calls onSubmit as soon as the user fills the form.

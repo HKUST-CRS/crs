@@ -137,7 +137,9 @@ const columns: ColumnDef<Request>[] = [
     accessorFn: (row) =>
       row.type === "Exam Appeal"
         ? `${row.type} ${row.metadata.examCode} ${row.metadata.question}`
-        : row.type,
+        : row.type === "Exam Special Arrangement"
+          ? `${row.type} ${row.metadata.examCode}`
+          : row.type,
     sortingFn: (rowA, rowB) =>
       rowA.original.type.localeCompare(rowB.original.type),
     header: ({ column }) => {
@@ -160,6 +162,11 @@ const columns: ColumnDef<Request>[] = [
             <div className="text-muted-foreground text-xs">
               {row.original.metadata.examCode} ·{" "}
               {row.original.metadata.question}
+            </div>
+          )}
+          {row.original.type === "Exam Special Arrangement" && (
+            <div className="text-muted-foreground text-xs">
+              {row.original.metadata.examCode}
             </div>
           )}
         </div>

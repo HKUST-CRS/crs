@@ -13,6 +13,8 @@ import {
 } from "../models";
 import { validateAbsentFromSection } from "../models/request/AbsentFromSection";
 import { validateDeadlineExtension } from "../models/request/DeadlineExtension";
+import { validateExamAppeal } from "../models/request/ExamAppeal";
+import { validateExamSpecialArrangement } from "../models/request/ExamSpecialArrangement";
 import { validateSwapSection } from "../models/request/SwapSection";
 import type { Repos } from "../repos";
 import { ProofNotFoundError } from "../repos/error";
@@ -45,12 +47,11 @@ export async function resolveExamGrader(
 ): Promise<UserID | null> {
   if (request.type !== "Exam Appeal") return null;
   const course = await repos.course.requireCourse(request.class.course);
-  if (!Object.hasOwn(course.exams, request.metadata.examCode)) return null;
-  const questions = course.exams[request.metadata.examCode]?.questions;
-  if (!questions || !Object.hasOwn(questions, request.metadata.question)) {
-    return null;
-  }
-  const email = questions[request.metadata.question]?.grader;
+  if (!validateExamAppeal(course, request.metadata)) return null;
+  const email =
+    course.exams[request.metadata.examCode]?.questions[
+      request.metadata.question
+    ]?.grader;
   if (!email) return null;
   const grader = await repos.user.getUser(email);
   return grader && hasClassRole(grader, request.class, ["grader"])
@@ -159,17 +160,13 @@ export class RequestService<TUser extends UserID | null = null> {
         ...candidates.filter((request) => {
           if (request.type !== "Exam Appeal") return false;
           const course = catalogs.get(Courses.id2str(request.class.course));
-          if (
-            !course ||
-            !Object.hasOwn(course.exams, request.metadata.examCode)
-          ) {
+          if (!course || !validateExamAppeal(course, request.metadata)) {
             return false;
           }
-          const questions = course.exams[request.metadata.examCode]?.questions;
           return (
-            questions &&
-            Object.hasOwn(questions, request.metadata.question) &&
-            questions[request.metadata.question]?.grader === user.email
+            course.exams[request.metadata.examCode]?.questions[
+              request.metadata.question
+            ]?.grader === user.email
           );
         }),
       );
@@ -202,10 +199,7 @@ export class RequestService<TUser extends UserID | null = null> {
         : null,
       authors: authors.map((email) => ({ email, name: displayName(email) })),
       canComment: this.user === request.from || staff,
-      canDecide:
-        staff &&
-        (request.type !== "Exam Appeal" || this.user !== request.from) &&
-        DECISION_FROM.includes(request.status),
+      canDecide: staff && DECISION_FROM.includes(request.status),
       canAppeal:
         this.user === request.from && APPEAL_FROM.includes(request.status),
     };
@@ -292,7 +286,16 @@ export class RequestService<TUser extends UserID | null = null> {
         break;
       case "Exam Appeal":
         comment = CommentInit.parse({ ...comment, text: comment.text.trim() });
-        if (!(await resolveExamGrader(this.repos, request))) {
+        if (
+          !validateExamAppeal(course, request.metadata) ||
+          !(await resolveExamGrader(this.repos, request))
+        ) {
+          throw new InvalidRequestError(request.class.course, request.type);
+        }
+        break;
+      case "Exam Special Arrangement":
+        comment = CommentInit.parse({ ...comment, text: comment.text.trim() });
+        if (!validateExamSpecialArrangement(course, request.metadata)) {
           throw new InvalidRequestError(request.class.course, request.type);
         }
         break;
@@ -363,13 +366,6 @@ export class RequestService<TUser extends UserID | null = null> {
   ): Promise<ThreadEntry[]> {
     const user = await this.repos.user.requireUser(this.user);
     const request = await this.repos.request.requireRequest(requestID);
-    if (request.type === "Exam Appeal" && this.user === request.from) {
-      throw new PermissionError(
-        this.user,
-        [],
-        `deciding own exam appeal ${requestID}`,
-      );
-    }
     await this.assertRequestAccess(
       user,
       request,

@@ -6,7 +6,8 @@ import {
   type ThreadEntry,
   type User,
 } from "../models";
-import { formatDate, formatDateTime } from "../utils/datetime";
+import { formatDateTime } from "../utils/datetime";
+import { requestPresentation } from "./RequestPresentation";
 
 type Metadata = {
   student: User;
@@ -41,66 +42,11 @@ const formatRequestOverview = (
       <p>
         {name} (<a href={`mailto:${email}`}>{email}</a>) has submitted a{" "}
         <b>{type}</b> request at {timestamp} for class {clazz}.{" "}
-        {formatRequestMetadata(request)}
+        {requestPresentation(request).details}
       </p>
       {formatOpeningComment(request)}
     </>
   );
-};
-
-/**
- * Formats the request-specific metadata.
- *
- * @example
- * Input: `{ type: "Swap Section", metadata: { fromSection: "L1",
- * fromDate: "2025-11-25", toSection: "L2", toDate: "2025-11-26" } }`.
- * Output: JSX rendering `The student is requesting to swap from section L1
- * on Nov 25, 2025 to section L2 on Nov 26, 2025.`
- */
-const formatRequestMetadata = (request: Request) => {
-  switch (request.type) {
-    case "Exam Appeal":
-      return (
-        <>
-          The student is requesting a grade review of exam{" "}
-          {request.metadata.examCode}, question {request.metadata.question}.
-        </>
-      );
-    case "Swap Section": {
-      const fromDate = formatDate(request.metadata.fromDate);
-      const toDate = formatDate(request.metadata.toDate);
-      const fromSection = request.metadata.fromSection;
-      const toSection = request.metadata.toSection;
-      return (
-        <>
-          The student is requesting to swap from section {fromSection} on{" "}
-          {fromDate} to section {toSection} on {toDate}.
-        </>
-      );
-    }
-    case "Absent from Section": {
-      const fromDate = formatDate(request.metadata.fromDate);
-      const fromSection = request.metadata.fromSection;
-      return (
-        <>
-          The student is requesting to be absent from section {fromSection} on{" "}
-          {fromDate}.
-        </>
-      );
-    }
-    case "Deadline Extension": {
-      const assignment = request.metadata.assignment;
-      const deadline = formatDateTime(request.metadata.deadline);
-      return (
-        <>
-          The student is requesting a deadline extension for assignment{" "}
-          {assignment} to {deadline}.
-        </>
-      );
-    }
-  }
-  request satisfies never;
-  throw new Error("Unsupported request type");
 };
 
 // The opening comment holds the request's initial reason (+ proofs); it is the

@@ -190,6 +190,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const courseB: Course = {
@@ -204,6 +205,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const sudoer: User = {
@@ -386,6 +388,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {
@@ -452,6 +455,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const observer: User = {
@@ -502,6 +506,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -564,6 +569,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -614,6 +620,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const user: User = {
@@ -658,6 +665,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -707,6 +715,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {
@@ -794,6 +803,7 @@ describe("UserService", () => {
           "Absent from Section": true,
           "Deadline Extension": true,
           "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {

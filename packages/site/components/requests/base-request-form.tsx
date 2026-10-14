@@ -125,7 +125,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           name="class"
           control={form.control}
           render={({ field }) => (
-            <FormItem className="col-span-6">
+            <FormItem className="col-span-6 min-w-0">
               <FormLabel>Class (Course & Section)</FormLabel>
               {enrollments && courses ? (
                 <FormControl>
@@ -140,8 +140,11 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                     }}
                     disabled={viewonly || props.disabled}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose a class" />
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue
+                        className="min-w-0 truncate"
+                        placeholder="Choose a class"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {(() => {
@@ -154,9 +157,9 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                                 key={Classes.id2str(e)}
                                 value={Classes.id2str(e)}
                               >
-                                <span>
-                                  <b>{c.code}</b> - {c.title} (
-                                  <b>{e.section}</b>)
+                                <span className="truncate">
+                                  <b>{c.code}</b> (<b>{e.section}</b>) -{" "}
+                                  {c.title}
                                 </span>
                               </SelectItem>
                             );

@@ -47,6 +47,31 @@ describe("exam appeal schemas", () => {
     });
     expect(course.exams).toEqual({});
     expect(course.effectiveRequestTypes["Exam Appeal"]).toBe(false);
+    expect(course.effectiveRequestTypes["Exam Special Arrangement"]).toBe(
+      false,
+    );
+  });
+
+  test("omitted request flags default to false while explicit true values are preserved", () => {
+    const flags = Course.shape.effectiveRequestTypes;
+    const disabled = {
+      "Swap Section": false,
+      "Absent from Section": false,
+      "Deadline Extension": false,
+      "Exam Appeal": false,
+      "Exam Special Arrangement": false,
+    };
+    expect(flags.parse({})).toEqual(disabled);
+    const partial = { "Swap Section": true, "Exam Special Arrangement": true };
+    expect(flags.parse(partial)).toEqual({ ...disabled, ...partial });
+    const enabled = {
+      "Swap Section": true,
+      "Absent from Section": true,
+      "Deadline Extension": true,
+      "Exam Appeal": true,
+      "Exam Special Arrangement": true,
+    };
+    expect(flags.parse(enabled)).toEqual(enabled);
   });
 
   test("question keys are nonempty and each value contains one grader email", () => {

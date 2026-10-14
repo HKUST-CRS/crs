@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { createElement, Fragment } from "react";
 import * as runtime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
+import { match, P } from "ts-pattern";
 import {
   Classes,
   type ProofFile,
@@ -15,6 +16,7 @@ import {
 import { Signature } from "../models/request/Signature";
 import type { Repos } from "../repos";
 import { formatRequest, formatUpdate } from "../templates/Formatter";
+import { requestPresentation } from "../templates/RequestPresentation";
 import { compareString } from "../utils/comparison";
 import { resolveExamGrader } from "./ServiceRequest";
 
@@ -25,6 +27,32 @@ const STATUS_SUBJECT: Record<RequestStatus, string> = {
   appealed: "Appealed",
   cancelled: "Cancelled",
 };
+
+function describeUpdate(request: Request, entries: ThreadEntry[]) {
+  const update =
+    entries.find((entry) => entry.kind === "status") ?? entries.at(0);
+  return match(update)
+    .with(undefined, () => ({
+      subjectPrefix: "Request",
+      notifyStaff: true,
+    }))
+    .with({ kind: "comment" }, ({ from }) => ({
+      subjectPrefix: "Comment",
+      notifyStaff: from === request.from,
+    }))
+    .with(
+      { kind: "status", status: P.union("approved", "rejected") },
+      ({ status }) => ({
+        subjectPrefix: STATUS_SUBJECT[status],
+        notifyStaff: false,
+      }),
+    )
+    .with({ kind: "status" }, ({ status, from }) => ({
+      subjectPrefix: STATUS_SUBJECT[status],
+      notifyStaff: from === request.from,
+    }))
+    .exhaustive();
+}
 
 export class NotificationService {
   private templateDir: string;
@@ -106,18 +134,8 @@ export class NotificationService {
       "observer",
     );
 
-    const actor = entries[0]?.from ?? request.from;
-    const statusEntry = entries.find((e) => e.kind === "status");
-    const subjectPrefix = statusEntry
-      ? STATUS_SUBJECT[statusEntry.status]
-      : entries.length === 0
-        ? "Request"
-        : "Comment";
-    const question =
-      request.type === "Exam Appeal"
-        ? ` (${request.metadata.examCode} ${request.metadata.question})`
-        : "";
-    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${question}`;
+    const { subjectPrefix, notifyStaff } = describeUpdate(request, entries);
+    const subject = `${subjectPrefix} - ${Classes.format(request.class)}${requestPresentation(request).subjectSuffix}`;
 
     const content = await this.renderUpdate(
       request,
@@ -125,6 +143,7 @@ export class NotificationService {
       student,
       instructors,
       observers,
+      notifyStaff,
     );
 
     const notificationEntries = entries.length > 0 ? entries : request.thread;
@@ -132,7 +151,7 @@ export class NotificationService {
       e.kind === "comment" ? (e.proofs ?? []) : [],
     );
 
-    if (actor === request.from) {
+    if (notifyStaff) {
       await this.sendEmail(
         instructors.map((i) => i.email),
         [student.email, ...observers.map((i) => i.email)],
@@ -157,10 +176,8 @@ export class NotificationService {
     student: User,
     instructors: User[],
     observers: User[],
+    notifyStaff: boolean,
   ): Promise<string> {
-    const actor = entries[0]?.from ?? request.from;
-    const isStudentAction = actor === request.from;
-
     const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
       if (is.length === 0) {
@@ -171,8 +188,8 @@ export class NotificationService {
     })();
     const studentLine = student.name || "Student";
 
-    const Recipient = isStudentAction ? instructorLine : studentLine;
-    const Sender = isStudentAction ? studentLine : instructorLine;
+    const Recipient = notifyStaff ? instructorLine : studentLine;
+    const Sender = notifyStaff ? studentLine : instructorLine;
     const Link = this.urlToRequest(request.id);
     const isNewRequest = entries.length === 0;
     const Update = isNewRequest
@@ -213,6 +230,7 @@ export class NotificationService {
     content: string,
     attachments: ProofFile[],
   ): Promise<void> {
+    cc = cc.filter((email) => !to.includes(email));
     if (!this.transporter) {
       console.warn(
         "Email sending is suppressed due to incomplete SMTP configuration.",

@@ -81,7 +81,8 @@ export default function RequestThread({ request }: RequestThreadProps) {
       <StatusBanner status={status} />
 
       {/* Immutable request header */}
-      {request.type === "Exam Appeal" ? (
+      {request.type === "Exam Appeal" ||
+      request.type === "Exam Special Arrangement" ? (
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="typo-muted text-sm">Class</dt>
@@ -94,33 +95,40 @@ export default function RequestThread({ request }: RequestThreadProps) {
             <dt className="typo-muted text-sm">Request Type</dt>
             <dd>{request.type}</dd>
           </div>
-          <div>
-            <dt className="typo-muted text-sm">Exam & Question</dt>
-            <dd>
-              {request.metadata.examCode} · {request.metadata.question}
-            </dd>
-          </div>
-          <div>
-            <dt className="typo-muted text-sm">Assigned grader</dt>
-            <dd>
-              {context?.assignedGrader ? (
-                <>
-                  <span>{context.assignedGrader.name}</span>
-                  <br />
-                  <a
-                    href={`mailto:${context.assignedGrader.email}`}
-                    className="break-all underline"
-                  >
-                    {context.assignedGrader.email}
-                  </a>
-                </>
-              ) : context ? (
-                "No grader is currently assigned. Contact your instructor."
-              ) : (
-                "Loading…"
+          <div className="min-w-0">
+            <dt className="typo-muted text-sm">
+              {request.type === "Exam Appeal" ? "Exam & Question" : "Exam"}
+            </dt>
+            <dd className="break-words">
+              {request.metadata.examCode}
+              {request.type === "Exam Appeal" && (
+                <> · {request.metadata.question}</>
               )}
             </dd>
           </div>
+          {request.type === "Exam Appeal" && (
+            <div>
+              <dt className="typo-muted text-sm">Assigned grader</dt>
+              <dd>
+                {context?.assignedGrader ? (
+                  <>
+                    <span>{context.assignedGrader.name}</span>
+                    <br />
+                    <a
+                      href={`mailto:${context.assignedGrader.email}`}
+                      className="break-all underline"
+                    >
+                      {context.assignedGrader.email}
+                    </a>
+                  </>
+                ) : context ? (
+                  "No grader is currently assigned. Contact your instructor."
+                ) : (
+                  "Loading…"
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
       ) : (
         <RequestForm default={request} viewonly />
