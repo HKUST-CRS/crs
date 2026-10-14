@@ -115,7 +115,7 @@ export namespace RequestSerialization {
     // Deadline Extension
     "Assignment",
     "New Deadline",
-    // Exam requests
+    // Exam Requests
     "Exam",
     // Exam Appeal
     "Question",

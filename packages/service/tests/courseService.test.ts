@@ -58,8 +58,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -96,8 +96,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const admin: User = {
@@ -146,8 +146,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -213,8 +213,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -267,8 +267,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -303,8 +303,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -341,8 +341,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const instructor: User = {
@@ -384,8 +384,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -426,8 +426,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const admin: User = {
@@ -469,8 +469,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const instructor: User = {
@@ -492,8 +492,8 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
-        "Exam Appeal": false,
-        "Exam Special Arrangement": false,
+        "Exam Appeal": true,
+        "Exam Special Arrangement": true,
       };
       await courseService
         .auth(instructor.email)
@@ -516,8 +516,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -538,8 +538,8 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
-        "Exam Appeal": false,
-        "Exam Special Arrangement": false,
+        "Exam Appeal": true,
+        "Exam Special Arrangement": true,
       };
       try {
         await courseService
@@ -563,8 +563,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const admin: User = {
@@ -586,8 +586,8 @@ describe("CourseService", () => {
         "Swap Section": false,
         "Absent from Section": true,
         "Deadline Extension": true,
-        "Exam Appeal": false,
-        "Exam Special Arrangement": false,
+        "Exam Appeal": true,
+        "Exam Special Arrangement": true,
       };
       await courseService
         .auth(admin.email)
@@ -612,8 +612,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const admin: User = {
@@ -660,8 +660,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       const student: User = {
@@ -717,8 +717,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       await insertData(conn, { users: [sudoer] });
@@ -750,8 +750,8 @@ describe("CourseService", () => {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
-          "Exam Appeal": false,
-          "Exam Special Arrangement": false,
+          "Exam Appeal": true,
+          "Exam Special Arrangement": true,
         },
       };
       await insertData(conn, { users: [admin] });

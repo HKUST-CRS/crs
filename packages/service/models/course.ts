@@ -60,9 +60,9 @@ export const Course = z
     exams: z.record(z.string().trim().min(1), Exam).default({}),
     effectiveRequestTypes: z
       .strictObject({
-        "Swap Section": z.boolean(),
-        "Absent from Section": z.boolean(),
-        "Deadline Extension": z.boolean(),
+        "Swap Section": z.boolean().default(false),
+        "Absent from Section": z.boolean().default(false),
+        "Deadline Extension": z.boolean().default(false),
         "Exam Appeal": z.boolean().default(false),
         "Exam Special Arrangement": z.boolean().default(false),
       })

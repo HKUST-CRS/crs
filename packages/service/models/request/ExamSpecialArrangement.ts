@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Course } from "../course";
 import { createRequestType } from "./BaseRequest";
 
 export const ExamSpecialArrangementMeta = z.strictObject({
@@ -19,3 +20,10 @@ export const ExamSpecialArrangementRequest = createRequestType(
 export type ExamSpecialArrangementRequest = z.infer<
   typeof ExamSpecialArrangementRequest
 >;
+
+export function validateExamSpecialArrangement(
+  course: Course,
+  metadata: ExamSpecialArrangementMeta,
+): boolean {
+  return Object.hasOwn(course.exams, metadata.examCode);
+}
