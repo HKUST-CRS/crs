@@ -4,6 +4,7 @@ import nodemailer from "nodemailer";
 import { createElement, Fragment } from "react";
 import * as runtime from "react/jsx-runtime";
 import { renderToStaticMarkup } from "react-dom/server";
+import { match, P } from "ts-pattern";
 import {
   Classes,
   type ProofFile,
@@ -26,6 +27,32 @@ const STATUS_SUBJECT: Record<RequestStatus, string> = {
   appealed: "Appealed",
   cancelled: "Cancelled",
 };
+
+function describeUpdate(request: Request, entries: ThreadEntry[]) {
+  const update =
+    entries.find((entry) => entry.kind === "status") ?? entries.at(0);
+  return match(update)
+    .with(undefined, () => ({
+      subjectPrefix: "Request",
+      notifyStaff: true,
+    }))
+    .with({ kind: "comment" }, ({ from }) => ({
+      subjectPrefix: "Comment",
+      notifyStaff: from === request.from,
+    }))
+    .with(
+      { kind: "status", status: P.union("approved", "rejected") },
+      ({ status }) => ({
+        subjectPrefix: STATUS_SUBJECT[status],
+        notifyStaff: false,
+      }),
+    )
+    .with({ kind: "status" }, ({ status, from }) => ({
+      subjectPrefix: STATUS_SUBJECT[status],
+      notifyStaff: from === request.from,
+    }))
+    .exhaustive();
+}
 
 export class NotificationService {
   private templateDir: string;
@@ -107,14 +134,7 @@ export class NotificationService {
       "observer",
     );
 
-    const statusEntry = entries.find((e) => e.kind === "status");
-    const isDecision =
-      statusEntry?.status === "approved" || statusEntry?.status === "rejected";
-    const isStudentAction =
-      (entries[0]?.from ?? request.from) === request.from && !isDecision;
-    let subjectPrefix = "Request";
-    if (statusEntry) subjectPrefix = STATUS_SUBJECT[statusEntry.status];
-    else if (entries.length > 0) subjectPrefix = "Comment";
+    const { subjectPrefix, notifyStaff } = describeUpdate(request, entries);
     const subject = `${subjectPrefix} - ${Classes.format(request.class)}${requestPresentation(request).subjectSuffix}`;
 
     const content = await this.renderUpdate(
@@ -123,7 +143,7 @@ export class NotificationService {
       student,
       instructors,
       observers,
-      isStudentAction,
+      notifyStaff,
     );
 
     const notificationEntries = entries.length > 0 ? entries : request.thread;
@@ -131,7 +151,7 @@ export class NotificationService {
       e.kind === "comment" ? (e.proofs ?? []) : [],
     );
 
-    if (isStudentAction) {
+    if (notifyStaff) {
       await this.sendEmail(
         instructors.map((i) => i.email),
         [student.email, ...observers.map((i) => i.email)],
@@ -156,7 +176,7 @@ export class NotificationService {
     student: User,
     instructors: User[],
     observers: User[],
-    isStudentAction: boolean,
+    notifyStaff: boolean,
   ): Promise<string> {
     const instructorLine = (() => {
       const is = instructors.map((i) => i.name).filter((name) => name !== "");
@@ -168,8 +188,8 @@ export class NotificationService {
     })();
     const studentLine = student.name || "Student";
 
-    const Recipient = isStudentAction ? instructorLine : studentLine;
-    const Sender = isStudentAction ? studentLine : instructorLine;
+    const Recipient = notifyStaff ? instructorLine : studentLine;
+    const Sender = notifyStaff ? studentLine : instructorLine;
     const Link = this.urlToRequest(request.id);
     const isNewRequest = entries.length === 0;
     const Update = isNewRequest

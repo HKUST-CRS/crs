@@ -233,6 +233,30 @@ const ownInstructor: User = {
   enrollment: [...student.enrollment, { ...clazz, role: "instructor" }],
 };
 const ownRequest = cases[4]?.request as Request;
+
+test("a standalone instructor comment notifies the requester with the comment label and body", async () => {
+  await captureNotifications([instructor], async (notifications, sent) => {
+    const entry: ThreadEntry = {
+      id: "instructor-comment",
+      from: instructor.email,
+      timestamp,
+      kind: "comment",
+      text: "Please clarify the arrangement you need.",
+    };
+    await notifications.notifyRequestUpdate(
+      { ...ownRequest, thread: [...ownRequest.thread, entry] },
+      [entry],
+    );
+    expect(sent[0]).toMatchObject({
+      to: [student.email],
+      cc: [instructor.email, observer.email],
+      subject: `Comment - ${Classes.format(clazz)} (Final)`,
+    });
+    expect(sent[0]?.html).toContain("Dear Student,");
+    expect(sent[0]?.html).toContain(entry.text);
+  });
+});
+
 for (const status of ["approved", "rejected"] as const) {
   test(`a requester/instructor's own ${status} decision notifies them as the requester without duplicate CC`, async () => {
     await captureNotifications(
@@ -264,6 +288,23 @@ for (const status of ["approved", "rejected"] as const) {
           `${status === "approved" ? "Approved" : "Rejected"} - ${Classes.format(clazz)} (Final)`,
         );
         expect(sent[0]?.html).toContain("Dear Student,");
+        const decision: ThreadEntry = {
+          id: "standalone-decision",
+          from: student.email,
+          timestamp,
+          kind: "status",
+          status,
+        };
+        await notifications.notifyRequestUpdate(
+          { ...ownRequest, status, thread: [...ownRequest.thread, decision] },
+          [decision],
+        );
+        expect(sent[1]).toMatchObject({
+          to: [student.email],
+          cc: [instructor.email, observer.email],
+          subject: sent[0]?.subject,
+        });
+        expect(sent[1]?.html).toContain("Dear Student,");
       },
     );
   });
