@@ -192,6 +192,7 @@ export namespace Courses {
     section: string,
     date: string,
   ): boolean {
+    if (!Object.hasOwn(course.sections, section)) return false;
     const sectionData = course.sections[section];
     const dateTime = fromISO(date);
     return (
