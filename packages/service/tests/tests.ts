@@ -1,10 +1,10 @@
 import type { DbConn } from "../db";
-import type { Course, Request, User } from "../models";
+import type { Course, RequestDocument, User } from "../models";
 
 export type TestFixtures = {
   users?: User[];
   courses?: Course[];
-  requests?: Request[];
+  requests?: RequestDocument[];
 };
 
 export async function insertData(conn: DbConn, fixtures: TestFixtures) {

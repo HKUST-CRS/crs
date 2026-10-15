@@ -1,3 +1,4 @@
+import type { ClientSession } from "mongodb";
 import type { Collections } from "../db";
 import {
   type Class,
@@ -7,7 +8,7 @@ import {
   type Enrollment,
   Enrollments,
   type Role,
-  type User,
+  User,
   type UserID,
 } from "../models";
 import { UserNotFoundError } from "./error";
@@ -15,16 +16,16 @@ import { UserNotFoundError } from "./error";
 export class UserRepo {
   constructor(protected collections: Collections) {}
 
-  async getUser(userID: UserID): Promise<User | null> {
+  async getUser(userID: UserID, session?: ClientSession): Promise<User | null> {
     const user = await this.collections.users.findOne(
       { email: userID },
-      { projection: { _id: 0 } },
+      { session, projection: { _id: 0 } },
     );
-    return user;
+    return user ? User.parse(user) : null;
   }
 
-  async requireUser(userID: UserID): Promise<User> {
-    const user = await this.getUser(userID);
+  async requireUser(userID: UserID, session?: ClientSession): Promise<User> {
+    const user = await this.getUser(userID, session);
     if (!user) throw new UserNotFoundError(userID);
     return user;
   }
@@ -92,7 +93,7 @@ export class UserRepo {
       .sort({ email: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
-    return users;
+    return users.map((user) => User.parse(user));
   }
 
   /**
@@ -118,7 +119,7 @@ export class UserRepo {
       .sort({ email: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
       .toArray();
-    return users;
+    return users.map((user) => User.parse(user));
   }
 
   /**
@@ -128,28 +129,33 @@ export class UserRepo {
    */
   async getClasses(cid: CourseID): Promise<Class[]> {
     const users = await this.collections.users
-      .find({
-        enrollment: {
-          $elemMatch: {
-            "course.code": cid.code,
-            "course.term": cid.term,
+      .find(
+        {
+          enrollment: {
+            $elemMatch: {
+              "course.code": cid.code,
+              "course.term": cid.term,
+            },
           },
         },
-      })
+        { projection: { _id: 0 } },
+      )
       .toArray();
     const classes = Object.fromEntries(
-      users.flatMap((user) =>
-        user.enrollment
-          .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
-          .filter((e) => e.section !== "*" && !e.section.match(/^\(.*\)$/))
-          .map((e) => [
-            Classes.id2str(e),
-            {
-              course: cid,
-              section: e.section,
-            } satisfies Class,
-          ]),
-      ),
+      users
+        .map((user) => User.parse(user))
+        .flatMap((user) =>
+          user.enrollment
+            .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
+            .filter((e) => e.section !== "*" && !e.section.match(/^\(.*\)$/))
+            .map((e) => [
+              Classes.id2str(e),
+              {
+                course: cid,
+                section: e.section,
+              } satisfies Class,
+            ]),
+        ),
     );
     return Object.values(classes).sort(Classes.compare);
   }
@@ -159,16 +165,13 @@ export class UserRepo {
    */
   async createEnrollment(uid: UserID, enrollment: Enrollment): Promise<void> {
     await this.collections.withTransaction(async (session) => {
+      await this.requireUser(uid, session);
       await this.collections.users.updateOne(
         { email: uid },
         { $addToSet: { enrollment } },
         { session },
       );
-      const user = await this.collections.users.findOne(
-        { email: uid },
-        { session },
-      );
-      if (!user) throw new UserNotFoundError(uid);
+      const user = await this.requireUser(uid, session);
       user.enrollment.sort(Enrollments.compare);
       await this.collections.users.updateOne(
         { email: uid },
@@ -183,16 +186,13 @@ export class UserRepo {
    */
   async deleteEnrollment(uid: UserID, enrollment: Enrollment): Promise<void> {
     await this.collections.withTransaction(async (session) => {
+      await this.requireUser(uid, session);
       await this.collections.users.updateOne(
         { email: uid },
         { $pull: { enrollment } },
         { session },
       );
-      const user = await this.collections.users.findOne(
-        { email: uid },
-        { session },
-      );
-      if (!user) throw new UserNotFoundError(uid);
+      const user = await this.requireUser(uid, session);
       user.enrollment.sort(Enrollments.compare);
       await this.collections.users.updateOne(
         { email: uid },

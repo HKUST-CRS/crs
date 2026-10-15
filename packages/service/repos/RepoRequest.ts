@@ -13,8 +13,8 @@ import {
   makeStatusChange,
   type ProofFile,
   type ProofFileInit,
-  Request,
-  type RequestDocument,
+  type Request,
+  RequestDocument,
   type RequestID,
   type RequestInit,
   type RequestStatus,
@@ -30,10 +30,8 @@ export class RequestRepo {
   constructor(protected collections: Collections) {}
 
   private parseRequest(document: RequestDocument): Request {
-    return Request.parse({
-      ...document,
-      status: statusFromThread(document.thread),
-    });
+    const request = RequestDocument.parse(document);
+    return { ...request, status: statusFromThread(request.thread) };
   }
 
   async requireRequest(requestID: RequestID): Promise<Request> {
