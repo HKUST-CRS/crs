@@ -13,6 +13,8 @@ import {
 import { sortBy, uniqBy } from "es-toolkit";
 import { ArrowUpDown, CalendarIcon } from "lucide-react";
 import { DateTime } from "luxon";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   forwardRef,
   useEffect,
@@ -58,7 +60,7 @@ import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
   data: Request[];
-  onClick?: (row: Request) => void;
+  getRequestHref: (request: Request) => string;
 }
 
 export interface RequestTableHandle {
@@ -116,7 +118,9 @@ const requestFilter =
     return true;
   };
 
-const columns: ColumnDef<Request>[] = [
+const createColumns = (
+  getRequestHref: RequestTableProps["getRequestHref"],
+): ColumnDef<Request>[] => [
   {
     accessorKey: "from",
     header: ({ column }) => {
@@ -156,7 +160,10 @@ const columns: ColumnDef<Request>[] = [
     },
     cell: ({ row }) => {
       return (
-        <div>
+        <Link
+          href={getRequestHref(row.original)}
+          className="block rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
           <div className="font-medium">{row.original.type}</div>
           {row.original.type === "Exam Appeal" && (
             <div className="text-muted-foreground text-xs">
@@ -169,7 +176,7 @@ const columns: ColumnDef<Request>[] = [
               {row.original.metadata.examCode}
             </div>
           )}
-        </div>
+        </Link>
       );
     },
   },
@@ -266,7 +273,15 @@ const columns: ColumnDef<Request>[] = [
 ];
 
 export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
-  function RequestTable({ data: rawData, onClick }: RequestTableProps, ref) {
+  function RequestTable(
+    { data: rawData, getRequestHref }: RequestTableProps,
+    ref,
+  ) {
+    const router = useRouter();
+    const columns = useMemo(
+      () => createColumns(getRequestHref),
+      [getRequestHref],
+    );
     const [sorting, setSorting] = useState<SortingState>([
       {
         id: "time",
@@ -519,7 +534,17 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    onClick={() => onClick?.(row.original)}
+                    onClick={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        event.target.closest(
+                          "a, button, input, select, textarea",
+                        )
+                      ) {
+                        return;
+                      }
+                      router.push(getRequestHref(row.original));
+                    }}
                     className="cursor-pointer"
                   >
                     {row.getVisibleCells().map((cell) => (

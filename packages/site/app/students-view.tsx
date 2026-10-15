@@ -5,6 +5,7 @@ import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
+import { QueryError } from "@/components/query-error";
 import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
@@ -79,20 +80,24 @@ export default function StudentsView() {
         </div>
       </header>
       <section className="mx-auto">
-        <Link href="/request">
-          <Button className="cursor-pointer">
+        <Button asChild className="cursor-pointer">
+          <Link href="/request">
             <FilePlus /> New Request
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </section>
       <section>
         <p className="pb-4 font-medium text-sm leading-none">My Requests</p>
-        {requests ? (
+        {requestsQuery.error ? (
+          <QueryError
+            message="Could not load your requests."
+            onRetry={() => void requestsQuery.refetch()}
+            isRetrying={requestsQuery.isFetching}
+          />
+        ) : requests ? (
           <RequestTable
             data={requests}
-            onClick={(request) => {
-              router.push(`/request/${request.id}`);
-            }}
+            getRequestHref={(request) => `/request/${request.id}`}
           />
         ) : (
           <Spinner variant="ellipsis" />

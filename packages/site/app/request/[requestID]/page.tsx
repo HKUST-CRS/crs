@@ -21,7 +21,7 @@ export default async function ({
           <ChevronLeft className="size-6" />
         </Link>
       </Button>
-      <h3 className="typo-h3 text-center">Request</h3>
+      <h1 className="typo-h3 text-center">Request</h1>
       <RequestDisplay requestID={requestID} />
     </article>
   );

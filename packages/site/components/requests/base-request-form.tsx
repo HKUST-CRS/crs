@@ -15,6 +15,7 @@ import {
   Roles,
 } from "service/models";
 import z from "zod";
+import { QueryError } from "@/components/query-error";
 import {
   Form,
   FormControl,
@@ -73,14 +74,16 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
   // If viewonly, the user is potentially viewing a request from other users (as
   // course instructor/observer). So for the Course & Section field to show the
   // correct option, it has to load all courses that the user is in.
-  const enrollments = useQuery(
+  const enrollmentsQuery = useQuery(
     trpc.user.getEnrollments.queryOptions(viewonly ? Roles : ["student"]),
-  ).data;
-  const courses = useQuery(
+  );
+  const coursesQuery = useQuery(
     trpc.course.getAllFromEnrollment.queryOptions(
       viewonly ? Roles : ["student"],
     ),
-  ).data;
+  );
+  const enrollments = enrollmentsQuery.data;
+  const courses = coursesQuery.data;
   const coursesMap = useMemo(
     () => keyBy(courses ?? [], (c) => Courses.id2str(c)),
     [courses],
@@ -98,13 +101,14 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
         return course?.effectiveRequestTypes[requestType] === true;
       });
 
-  const instructors = useQuery(
+  const instructorsQuery = useQuery(
     trpc.user.getAllFromClass.queryOptions(
       // biome-ignore lint/style/noNonNullAssertion: enabled by clazz
       { class: clazz!, role: "instructor" },
       { enabled: !!clazz },
     ),
-  ).data;
+  );
+  const instructors = instructorsQuery.data;
 
   useEffect(() => {
     if (clazz && type) {
@@ -129,55 +133,65 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           render={({ field }) => (
             <FormItem className="col-span-6 min-w-0">
               <FormLabel>Class (Course & Section)</FormLabel>
-              {enrollments && courses ? (
-                <FormControl>
-                  <Select
-                    value={field.value && Classes.id2str(field.value)}
-                    onValueChange={(idStr) => {
-                      if (idStr.length) {
-                        field.onChange(Classes.str2id(idStr));
-                        form.resetField("type");
-                        props.onClassChange?.();
-                      }
-                    }}
-                    disabled={viewonly || props.disabled}
-                  >
+              {enrollmentsQuery.error || coursesQuery.error ? (
+                <QueryError
+                  message="Could not load your classes."
+                  onRetry={() => {
+                    void enrollmentsQuery.refetch();
+                    void coursesQuery.refetch();
+                  }}
+                  isRetrying={
+                    enrollmentsQuery.isFetching || coursesQuery.isFetching
+                  }
+                />
+              ) : enrollments && courses ? (
+                <Select
+                  value={field.value && Classes.id2str(field.value)}
+                  onValueChange={(idStr) => {
+                    if (idStr.length) {
+                      field.onChange(Classes.str2id(idStr));
+                      form.resetField("type");
+                      props.onClassChange?.();
+                    }
+                  }}
+                  disabled={viewonly || props.disabled}
+                >
+                  <FormControl>
                     <SelectTrigger className="w-full min-w-0">
                       <SelectValue
                         className="min-w-0 truncate"
                         placeholder="Choose a class"
                       />
                     </SelectTrigger>
-                    <SelectContent>
-                      {(() => {
-                        const classes = uniqBy(enrollments, Classes.id2str);
-                        if (classes.length) {
-                          return classes.map((e) => {
-                            const c = coursesMap[Courses.id2str(e.course)];
-                            return (
-                              <SelectItem
-                                key={Classes.id2str(e)}
-                                value={Classes.id2str(e)}
-                              >
-                                <span className="truncate">
-                                  <b>{c.code}</b> (<b>{e.section}</b>) -{" "}
-                                  {c.title}
-                                </span>
-                              </SelectItem>
-                            );
-                          });
-                        } else {
+                  </FormControl>
+                  <SelectContent>
+                    {(() => {
+                      const classes = uniqBy(enrollments, Classes.id2str);
+                      if (classes.length) {
+                        return classes.map((e) => {
+                          const c = coursesMap[Courses.id2str(e.course)];
                           return (
-                            <SelectItem value="placeholder" disabled>
-                              You are not enrolled in any class. Please contact
-                              your class instructor for assistance.
+                            <SelectItem
+                              key={Classes.id2str(e)}
+                              value={Classes.id2str(e)}
+                            >
+                              <span className="truncate">
+                                <b>{c.code}</b> (<b>{e.section}</b>) - {c.title}
+                              </span>
                             </SelectItem>
                           );
-                        }
-                      })()}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
+                        });
+                      } else {
+                        return (
+                          <SelectItem value="placeholder" disabled>
+                            You are not enrolled in any class. Please contact
+                            your class instructor for assistance.
+                          </SelectItem>
+                        );
+                      }
+                    })()}
+                  </SelectContent>
+                </Select>
               ) : (
                 <Skeleton className="h-10" />
               )}
@@ -193,7 +207,13 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
         <FormItem className="col-span-6 md:row-span-3">
           <FormLabel>Instructor</FormLabel>
           <FormControl>
-            {instructors ? (
+            {instructorsQuery.error ? (
+              <QueryError
+                message="Could not load the instructors."
+                onRetry={() => void instructorsQuery.refetch()}
+                isRetrying={instructorsQuery.isFetching}
+              />
+            ) : instructors ? (
               <div>
                 {instructors?.map((instructor) => (
                   <div key={instructor.email}>
@@ -224,33 +244,33 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           render={({ field }) => (
             <FormItem className="col-span-6">
               <FormLabel>Request Type</FormLabel>
-              <FormControl>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  disabled={viewonly || props.disabled || !course}
-                >
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                disabled={viewonly || props.disabled || !course}
+              >
+                <FormControl>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Request Type" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {requestTypes.length > 0 ? (
-                      requestTypes.map((schema) => (
-                        <SelectItem
-                          value={schema.shape.type.value}
-                          key={schema.shape.type.value}
-                        >
-                          {schema.meta()?.title}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="none" disabled>
-                        No request types are currently available.
+                </FormControl>
+                <SelectContent>
+                  {requestTypes.length > 0 ? (
+                    requestTypes.map((schema) => (
+                      <SelectItem
+                        value={schema.shape.type.value}
+                        key={schema.shape.type.value}
+                      >
+                        {schema.meta()?.title}
                       </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </FormControl>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No request types are currently available.
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
               <FormDescription>What type is the request?</FormDescription>
               <FormMessage />
             </FormItem>

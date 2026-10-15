@@ -11,6 +11,7 @@ import {
   type CourseCreationSubmission,
   CreateCourseForm,
 } from "@/components/instructor/create-course-form";
+import { QueryError } from "@/components/query-error";
 import {
   RequestTable,
   type RequestTableHandle,
@@ -68,7 +69,12 @@ export default function InstructorsView() {
   );
   const courses = coursesQuery.data;
   const showCourseManagement = Boolean(
-    courses?.length || userQuery.data?.sudoer,
+    courses?.length ||
+      userQuery.data?.sudoer ||
+      userQuery.data?.enrollment.some(
+        (enrollment) =>
+          enrollment.role === "instructor" || enrollment.role === "admin",
+      ),
   );
 
   useWindowFocus(
@@ -82,7 +88,8 @@ export default function InstructorsView() {
   // Export Requests
   const [isExporting, setExporting] = useState(false);
   const handleExportRequests = async () => {
-    const requestIDs = tableRef.current?.getExportIDs() ?? [];
+    if (isExporting || requestsQuery.error || !tableRef.current) return;
+    const requestIDs = tableRef.current.getExportIDs();
     setExporting(true);
     try {
       const rs = await queryClient.fetchQuery(
@@ -91,6 +98,8 @@ export default function InstructorsView() {
       const csv = RequestSerialization.toCSV(rs, window.location.origin);
 
       download("requests.csv", new Blob([csv], { type: "text/csv" }));
+    } catch {
+      // QueryCache reports the fetch failure; keep it from becoming an unhandled event promise.
     } finally {
       setExporting(false);
     }
@@ -176,31 +185,33 @@ export default function InstructorsView() {
           <Button
             onClick={() => void handleExportRequests()}
             size="sm"
-            disabled={isExporting || !requests}
+            disabled={isExporting || !requests || !!requestsQuery.error}
           >
             <ArrowRightFromLine className="h-4 w-4" />
-            {isExporting ? "Exporting..." : "Export Requests"}
+            {isExporting ? "Exporting…" : "Export Requests"}
           </Button>
         </div>
 
         {requestsQuery.error ? (
-          <p role="alert">
-            Could not load received requests. Please reload to try again.
-          </p>
+          <QueryError
+            message="Could not load received requests."
+            onRetry={() => void requestsQuery.refetch()}
+            isRetrying={requestsQuery.isFetching}
+          />
         ) : requests ? (
           <RequestTable
             ref={tableRef}
             data={requests}
-            onClick={(request) => {
-              router.push(`/request/${request.id}?from=instructor`);
-            }}
+            getRequestHref={(request) =>
+              `/request/${request.id}?from=instructor`
+            }
           />
         ) : (
           <Spinner variant="ellipsis" />
         )}
       </section>
       <section hidden={!showCourseManagement}>
-        <div className="flex flex-row items-end justify-between pb-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 pb-4">
           <p className="font-medium text-sm leading-none">Course Management</p>
           {userQuery.data?.sudoer && (
             <Button onClick={() => setCreateCourseOpen(true)} size="sm">
@@ -210,7 +221,15 @@ export default function InstructorsView() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {courses ? (
+          {coursesQuery.error ? (
+            <div className="md:col-span-3">
+              <QueryError
+                message="Could not load your courses."
+                onRetry={() => void coursesQuery.refetch()}
+                isRetrying={coursesQuery.isFetching}
+              />
+            </div>
+          ) : courses ? (
             courses.map((course) => {
               return (
                 <Link

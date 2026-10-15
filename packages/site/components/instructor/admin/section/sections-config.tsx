@@ -76,7 +76,7 @@ export function SectionsConfig({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-row items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <CardTitle>
           Sections (for request types Swap Section & Absent from Section)
         </CardTitle>

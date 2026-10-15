@@ -23,7 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RoasterParser } from "@/lib/roaster-parser";
 
 export const AddEnrollmentFormSchema = z.strictObject({
-  roaster: z.string().min(1, "Roaster is required."),
+  roaster: z.string().min(1, "Roster is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
 });
@@ -55,8 +55,10 @@ function toErrorMessage(error: z.ZodError) {
 
 export function AddEnrollmentForm({
   onSubmit,
+  disabled = false,
 }: {
-  onSubmit: (v: AddEnrollmentSubmissionSchema) => void;
+  onSubmit: (v: AddEnrollmentSubmissionSchema) => Promise<void>;
+  disabled?: boolean;
 }) {
   const form = useForm<AddEnrollmentFormSchema>({
     resolver: zodResolver(AddEnrollmentFormSchema),
@@ -85,9 +87,9 @@ export function AddEnrollmentForm({
     }
   }, [roaster, error]);
 
-  const handleSubmit = (data: AddEnrollmentFormSchema) => {
-    if (roaster) {
-      onSubmit({
+  const handleSubmit = async (data: AddEnrollmentFormSchema) => {
+    if (!disabled && roaster?.length) {
+      await onSubmit({
         roaster,
         section: data.section,
         role: data.role,
@@ -105,7 +107,7 @@ export function AddEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel htmlFor="add-enrollment-roster">Roaster</FieldLabel>
+            <FieldLabel htmlFor="add-enrollment-roster">Roster</FieldLabel>
             <Textarea
               id="add-enrollment-roster"
               placeholder={
@@ -120,9 +122,10 @@ export function AddEnrollmentForm({
               spellCheck="false"
               className="max-h-32 font-mono"
               {...field}
+              disabled={disabled || form.formState.isSubmitting}
             />
             <FieldDescription>
-              The roaster of the users to be enrolled. One email per line.
+              The roster of the users to be enrolled. One email per line.
               Optionally, the name of the user can be included after the email,
               separated by a comma.
             </FieldDescription>
@@ -142,7 +145,12 @@ export function AddEnrollmentForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="add-enrollment-section">Section</FieldLabel>
-            <Input id="add-enrollment-section" placeholder="L1" {...field} />
+            <Input
+              id="add-enrollment-section"
+              placeholder="L1"
+              {...field}
+              disabled={disabled || form.formState.isSubmitting}
+            />
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
@@ -161,7 +169,11 @@ export function AddEnrollmentForm({
         render={({ field, fieldState }) => (
           <Field>
             <FieldLabel htmlFor="add-enrollment-role">Role</FieldLabel>
-            <Select value={field.value ?? ""} onValueChange={field.onChange}>
+            <Select
+              value={field.value ?? ""}
+              onValueChange={field.onChange}
+              disabled={disabled || form.formState.isSubmitting}
+            >
               <SelectTrigger id="add-enrollment-role" className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
@@ -187,7 +199,12 @@ export function AddEnrollmentForm({
       />
 
       <DialogFooter className="col-span-full gap-2">
-        <Button type="submit">Add</Button>
+        <Button
+          type="submit"
+          disabled={disabled || form.formState.isSubmitting || !roaster?.length}
+        >
+          {form.formState.isSubmitting ? "Adding…" : "Add"}
+        </Button>
       </DialogFooter>
     </form>
   );
