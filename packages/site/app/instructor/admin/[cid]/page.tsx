@@ -16,11 +16,10 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
 
   const { cid: cidRaw } = use(params);
   const cid = decodeURIComponent(cidRaw);
+  const courseID = Courses.str2id(cid);
 
   const trpc = useTRPC();
-  const { data: course } = useQuery(
-    trpc.course.get.queryOptions(Courses.str2id(cid)),
-  );
+  const { data: course } = useQuery(trpc.course.get.queryOptions(courseID));
 
   return (
     <article className="mx-auto my-32 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-64">
@@ -52,7 +51,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
           Course Configuration
         </p>
         {course ? (
-          <CourseSettings cid={course} />
+          <CourseSettings cid={courseID} />
         ) : (
           <Spinner variant="ellipsis" />
         )}
@@ -60,7 +59,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
       <section>
         <p className="pb-4 font-medium text-sm leading-none">Enrollments</p>
         {course ? (
-          <EnrollmentManager cid={course} />
+          <EnrollmentManager cid={courseID} />
         ) : (
           <Spinner variant="ellipsis" />
         )}

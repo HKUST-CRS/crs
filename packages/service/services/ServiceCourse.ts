@@ -1,5 +1,5 @@
 import {
-  type Course,
+  Course,
   type CourseID,
   Courses,
   type Role,
@@ -41,6 +41,7 @@ export class CourseService<TUser extends UserID | null = null> {
   ): Promise<CourseID> {
     const user = await this.repos.user.requireUser(this.user);
     assertSudoer(user, `creating a new course ${Courses.formatCourse(course)}`);
+    await this.validateExamGraders(course, course.exams);
     await this.repos.course.createCourse(course);
     return Courses.toID(course);
   }
@@ -124,6 +125,59 @@ export class CourseService<TUser extends UserID | null = null> {
       `updating assignments of course ${Courses.formatID(courseID)}`,
     );
     await this.repos.course.updateAssignments(courseID, assignments);
+  }
+
+  /**
+   * Updates the exams of a course.
+   *
+   * The current user must be an instructor or admin in the course.
+   * Assigned graders must already be enrolled as graders in the course.
+   *
+   * @param courseID The ID of the course to update.
+   * @param exams The new exams of the course.
+   */
+  async updateExams(
+    this: CourseService<UserID>,
+    courseID: CourseID,
+    exams: Course["exams"],
+  ): Promise<void> {
+    const user = await this.repos.user.requireUser(this.user);
+    assertCourseRole(
+      user,
+      courseID,
+      ["instructor", "admin"],
+      `updating exams of course ${Courses.formatID(courseID)}`,
+    );
+    await this.repos.course.requireCourse(courseID);
+    const validated = Course.shape.exams.parse(exams);
+    await this.validateExamGraders(courseID, validated);
+    await this.repos.course.updateExams(courseID, validated);
+  }
+
+  /** Checks that each assigned grader exists and has a grader enrollment in the course. */
+  private async validateExamGraders(
+    courseID: CourseID,
+    exams: Course["exams"],
+  ) {
+    const emails = new Set(
+      Object.values(exams).flatMap((exam) =>
+        Object.values(exam.questions).map((q) => q.grader),
+      ),
+    );
+    for (const email of emails) {
+      const grader = await this.repos.user.getUser(email);
+      if (!grader) {
+        throw new Error(
+          `Enroll ${email} as a grader before assigning exam questions.`,
+        );
+      }
+      assertCourseRole(
+        grader,
+        courseID,
+        ["grader"],
+        "being assigned exam questions",
+      );
+    }
   }
 
   /**

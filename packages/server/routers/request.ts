@@ -28,9 +28,28 @@ export const routerRequest = router({
     .query(({ input: role, ctx }) => {
       return services.request.auth(ctx.user.email).getRequestsAs(role);
     }),
+  getContext: procedure
+    .input(RequestID)
+    .output(
+      z.strictObject({
+        courseTitle: z.string(),
+        assignedGrader: z
+          .strictObject({ email: z.email(), name: z.string() })
+          .nullable(),
+        authors: z.array(
+          z.strictObject({ email: z.email(), name: z.string() }),
+        ),
+        canComment: z.boolean(),
+        canDecide: z.boolean(),
+        canAppeal: z.boolean(),
+      }),
+    )
+    .query(({ input, ctx }) => {
+      return services.request.auth(ctx.user.email).getContext(input);
+    }),
   create: procedure
     .input(
-      z.object({
+      z.strictObject({
         request: RequestInit,
         comment: CommentInit,
       }),
@@ -46,7 +65,7 @@ export const routerRequest = router({
     }),
   comment: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         ...CommentInit.shape,
       }),
@@ -63,7 +82,7 @@ export const routerRequest = router({
     }),
   approve: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -80,7 +99,7 @@ export const routerRequest = router({
     }),
   reject: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -97,7 +116,7 @@ export const routerRequest = router({
     }),
   cancel: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         comment: CommentInit.optional(),
       }),
@@ -114,7 +133,7 @@ export const routerRequest = router({
     }),
   appeal: procedure
     .input(
-      z.object({
+      z.strictObject({
         id: RequestID,
         ...CommentInit.shape,
       }),
@@ -130,8 +149,8 @@ export const routerRequest = router({
       await services.notification.notifyRequestUpdate(request, entries);
     }),
   getProof: procedure
-    .input(z.object({ attachmentId: z.string() }))
-    .output(z.object({ content: z.string() }))
+    .input(z.strictObject({ attachmentId: z.string() }))
+    .output(z.strictObject({ content: z.string() }))
     .query(({ input, ctx }) => {
       return services.request
         .auth(ctx.user.email)

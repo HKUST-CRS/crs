@@ -73,8 +73,8 @@ export function RequestFormComment<
         render={({ field }) => (
           <FormItem className="col-span-full">
             <FormLabel>Proof Documentation(s)</FormLabel>
-            <FormControl>
-              <div>
+            <div>
+              <FormControl>
                 <Input
                   key={proofKey}
                   onChange={async (e) => {
@@ -108,8 +108,8 @@ export function RequestFormComment<
                   multiple
                   disabled={readingProof}
                 />
-              </div>
-            </FormControl>
+              </FormControl>
+            </div>
             <FormDescription>
               Please provide up to {MAX_PROOF_FILES} supporting documents for
               your request. The maximum file size is {maxProofSizeMiB} MiB each.

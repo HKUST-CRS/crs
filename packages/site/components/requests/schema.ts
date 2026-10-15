@@ -5,7 +5,7 @@ export const FormSchema = <T extends RequestType, S extends z.ZodRawShape>(
   type: T,
   meta: z.ZodObject<S>,
 ) => {
-  return z.object({
+  return z.strictObject({
     type: z.literal(type),
     comment: CommentInit,
     meta: meta,

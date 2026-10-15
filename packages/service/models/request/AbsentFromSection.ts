@@ -2,7 +2,7 @@ import { z } from "zod";
 import { type Course, Courses } from "../course";
 import { createRequestType } from "./BaseRequest";
 
-export const AbsentFromSectionMeta = z.object({
+export const AbsentFromSectionMeta = z.strictObject({
   fromSection: z
     .string()
     .meta({ description: "The section code to be absent from." }),

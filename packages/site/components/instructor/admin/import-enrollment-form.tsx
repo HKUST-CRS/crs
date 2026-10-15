@@ -22,7 +22,7 @@ import {
 import { RoasterParser } from "@/lib/roaster-parser";
 import { showError, showErrorMessage } from "@/lib/showError";
 
-export const ImportEnrollmentFormSchema = z.object({
+export const ImportEnrollmentFormSchema = z.strictObject({
   roaster: z.file().min(1, "Roaster file is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
@@ -32,7 +32,7 @@ export type ImportEnrollmentFormSchema = z.infer<
   typeof ImportEnrollmentFormSchema
 >;
 
-export const ImportEnrollmentSubmissionSchema = z.object({
+export const ImportEnrollmentSubmissionSchema = z.strictObject({
   roaster: RoasterParser.Roaster,
   section: z.string(),
   role: Role,
@@ -177,8 +177,9 @@ export function ImportEnrollmentForm({
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
-              section can only be responded by an instructor in the section.
-              Specifically, an asterisk (*) denotes all/any sections.
+              section can be handled by an instructor in the section, or by its
+              assigned grader for an exam question. An asterisk (*) covers all
+              sections; use it for a grader responsible for the whole course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
@@ -207,7 +208,9 @@ export function ImportEnrollmentForm({
               A student can create requests. An instructor can view the
               requests, manage the course (such as setting up sections and
               assignments), and approve/reject the requests. An observer can
-              only view the requests. An admin can only manage the course.
+              only view the requests. A grader can view, comment on, and decide
+              appeals for their assigned exam questions, within their enrolled
+              sections. An admin can only manage the course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>

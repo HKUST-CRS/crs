@@ -18,10 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-export const SectionFormSchema = z.object({
+export const SectionFormSchema = z.strictObject({
   code: z.string().min(1, "Code is required"),
   schedule: z.array(
-    z.object({
+    z.strictObject({
       day: z.number(),
       from: z.string().min(1, "From is required"),
       to: z.string().min(1, "To is required"),

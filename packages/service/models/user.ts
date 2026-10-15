@@ -2,17 +2,23 @@ import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { Class, Courses } from "./course";
 
-export const Role = z.enum(["student", "instructor", "observer", "admin"]);
+export const Role = z.enum([
+  "student",
+  "instructor",
+  "grader",
+  "observer",
+  "admin",
+]);
 export type Role = z.infer<typeof Role>;
 export const Roles = Role.options;
 
-export const Enrollment = z.object({
+export const Enrollment = z.strictObject({
   ...Class.shape,
   role: Role,
 });
 export type Enrollment = z.infer<typeof Enrollment>;
 
-export const User = z.object({
+export const User = z.strictObject({
   email: z.email().meta({
     description: "The user's email address, used as the unique identifier.",
   }),

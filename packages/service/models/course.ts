@@ -1,10 +1,17 @@
 import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { fromISO } from "../utils/datetime";
-import { RequestType } from "./request/RequestType";
+
+export const Exam = z.strictObject({
+  questions: z.record(
+    z.string().trim().min(1),
+    z.strictObject({ grader: z.email() }),
+  ),
+});
+export type Exam = z.infer<typeof Exam>;
 
 export const Course = z
-  .object({
+  .strictObject({
     code: z.string().meta({
       description: "The course code.",
       examples: ["COMP 1023"],
@@ -23,9 +30,9 @@ export const Course = z
         description: "The section code.",
         examples: ["L1", "L01", "T1", "LA1"],
       }),
-      z.object({
+      z.strictObject({
         schedule: z.array(
-          z.object({
+          z.strictObject({
             day: z.number().min(1).max(7),
             from: z.iso.time(),
             to: z.iso.time(),
@@ -39,7 +46,7 @@ export const Course = z
           "The assignment code, acting as the ID for the assignment.",
         examples: ["Lab1", "PA1"],
       }),
-      z.object({
+      z.strictObject({
         name: z.string().meta({ description: "The name of the assignment." }),
         due: z.iso.datetime({ offset: true }).meta({
           description: "The due date of the assignment.",
@@ -50,10 +57,19 @@ export const Course = z
         }),
       }),
     ),
-    effectiveRequestTypes: z.record(RequestType, z.boolean()).meta({
-      description:
-        "A mapping of request types that are effective for this course.",
-    }),
+    exams: z.record(z.string().trim().min(1), Exam).default({}),
+    effectiveRequestTypes: z
+      .strictObject({
+        "Swap Section": z.boolean().default(false),
+        "Absent from Section": z.boolean().default(false),
+        "Deadline Extension": z.boolean().default(false),
+        "Exam Appeal": z.boolean().default(false),
+        "Exam Special Arrangement": z.boolean().default(false),
+      })
+      .meta({
+        description:
+          "A mapping of request types that are effective for this course.",
+      }),
   })
   .meta({
     description: "An *offering* of a course in a specific term.",
@@ -176,6 +192,7 @@ export namespace Courses {
     section: string,
     date: string,
   ): boolean {
+    if (!Object.hasOwn(course.sections, section)) return false;
     const sectionData = course.sections[section];
     const dateTime = fromISO(date);
     return (
@@ -191,7 +208,7 @@ export const SectionID = z.string().meta({
 });
 
 export const Class = z
-  .object({
+  .strictObject({
     course: CourseID,
     section: SectionID,
   })

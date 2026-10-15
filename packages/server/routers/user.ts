@@ -31,7 +31,7 @@ export const routerUser = router({
     }),
   getAllFromClass: procedure
     .input(
-      z.object({
+      z.strictObject({
         class: Class,
         role: Role,
       }),
@@ -42,7 +42,7 @@ export const routerUser = router({
     }),
   suggestName: procedure
     .input(
-      z.object({
+      z.strictObject({
         uid: UserID,
         name: z.string(),
       }),
@@ -61,7 +61,7 @@ export const routerUser = router({
     }),
   createEnrollment: procedure
     .input(
-      z.object({
+      z.strictObject({
         uid: UserID,
         enrollment: Enrollment,
       }),
@@ -73,7 +73,7 @@ export const routerUser = router({
     }),
   deleteEnrollment: procedure
     .input(
-      z.object({
+      z.strictObject({
         uid: UserID,
         enrollment: Enrollment,
       }),

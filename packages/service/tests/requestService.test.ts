@@ -40,10 +40,13 @@ const baseCourse: Course = {
     L2: { schedule: [{ day: 3, from: "09:00:00", to: "10:00:00" }] },
   },
   assignments: {},
+  exams: {},
   effectiveRequestTypes: {
     "Swap Section": true,
     "Absent from Section": true,
     "Deadline Extension": true,
+    "Exam Appeal": false,
+    "Exam Special Arrangement": false,
   },
 };
 
@@ -287,10 +290,10 @@ describe("RequestService", () => {
         makeDeadlineExtensionInit(),
       ];
 
-      for (const request of requests) {
+      for (const [index, request] of requests.entries()) {
         await clearData(testConn);
         const student = makeUser(
-          `student-ineffective-${request.type}@connect.ust.hk`,
+          `student-ineffective-${index}@connect.ust.hk`,
           "student",
         );
         await insertData(testConn, { users: [student], courses: [baseCourse] });
