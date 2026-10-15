@@ -48,7 +48,7 @@ export default function StudentsView() {
     useCallback(() => {
       userQuery.refetch();
       requestsQuery.refetch();
-    }, [userQuery, requestsQuery]),
+    }, [userQuery.refetch, requestsQuery.refetch]),
   );
 
   return (

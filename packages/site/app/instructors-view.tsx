@@ -82,7 +82,7 @@ export default function InstructorsView() {
       userQuery.refetch();
       requestsQuery.refetch();
       coursesQuery.refetch();
-    }, [userQuery, requestsQuery, coursesQuery]),
+    }, [userQuery.refetch, requestsQuery.refetch, coursesQuery.refetch]),
   );
 
   // Export Requests
@@ -254,7 +254,7 @@ export default function InstructorsView() {
           open={showCourseManagement && isCreateCourseOpen}
           onOpenChange={setCreateCourseOpen}
         >
-          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Course</DialogTitle>
             </DialogHeader>

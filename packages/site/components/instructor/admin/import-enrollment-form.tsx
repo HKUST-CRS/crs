@@ -80,15 +80,23 @@ export function ImportEnrollmentForm({
         try {
           const data = await roasterFile.arrayBuffer();
           const rows = RoasterParser.parseSheet(data);
-          if (!cancelled) setParseResult([roasterFile, rows, null]);
+          if (!cancelled) {
+            setParseResult([
+              roasterFile,
+              rows,
+              rows.length
+                ? null
+                : 'No enrollment rows found. Check the "Email Address" column in your roster.',
+            ]);
+          }
         } catch (e) {
           if (!cancelled) {
             const message =
               e instanceof z.ZodError
                 ? z.prettifyError(e)
-                : e instanceof Error
+                : e instanceof RoasterParser.RoasterParserError
                   ? e.message
-                  : "Could not read this roster. Please choose another file.";
+                  : "Could not read this roster. Please choose a valid CSV or Excel file.";
             setParseResult([roasterFile, null, message]);
           }
         }

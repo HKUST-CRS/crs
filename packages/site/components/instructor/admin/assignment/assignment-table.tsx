@@ -102,7 +102,24 @@ export function AssignmentTable({
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {cell.column.id === "code" ? (
+                      <button
+                        type="button"
+                        aria-label={`Edit assignment ${row.original.code}`}
+                        className="rounded-sm text-left underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onClickRow(row.original);
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </button>
+                    ) : (
+                      flexRender(cell.column.columnDef.cell, cell.getContext())
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

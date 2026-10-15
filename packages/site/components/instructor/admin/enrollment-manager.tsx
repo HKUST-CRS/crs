@@ -185,10 +185,7 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
       </FieldDescription>
 
       <Dialog open={isAddEnrollmentsOpen} onOpenChange={setAddEnrollmentsOpen}>
-        <DialogContent
-          aria-describedby={undefined}
-          className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
-        >
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Add Enrollments</DialogTitle>
           </DialogHeader>
@@ -203,10 +200,7 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
         open={isImportEnrollmentsOpen}
         onOpenChange={setImportEnrollmentsOpen}
       >
-        <DialogContent
-          aria-describedby={undefined}
-          className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
-        >
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Import Enrollments</DialogTitle>
           </DialogHeader>
