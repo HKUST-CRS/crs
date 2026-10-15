@@ -124,7 +124,7 @@ export default function RequestThread({ request }: RequestThreadProps) {
                 ) : context ? (
                   "No grader is currently assigned. Contact your instructor."
                 ) : (
-                  "Loading…"
+                  "Loading..."
                 )}
               </dd>
             </div>

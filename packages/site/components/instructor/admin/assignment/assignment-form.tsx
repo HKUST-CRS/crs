@@ -89,7 +89,7 @@ export function AssignmentForm({
               id="assignment-code"
               autoComplete="off"
               spellCheck={false}
-              placeholder="Lab1/PA1/Assignment1…"
+              placeholder="Lab1/PA1/Assignment1..."
               {...field}
             />
             <FieldError errors={[fieldState.error]} />
@@ -106,7 +106,7 @@ export function AssignmentForm({
             <Input
               id="assignment-name"
               autoComplete="off"
-              placeholder="Math Expression Evaluator…"
+              placeholder="Math Expression Evaluator..."
               {...field}
             />
             <FieldError errors={[fieldState.error]} />

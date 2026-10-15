@@ -132,7 +132,7 @@ export function CreateCourseForm({
               id="course-code"
               autoComplete="off"
               spellCheck={false}
-              placeholder="COMP 1023…"
+              placeholder="COMP 1023..."
               aria-invalid={fieldState.invalid || undefined}
               disabled={importCourse.isPending}
               onChange={(event) => {
@@ -185,7 +185,7 @@ export function CreateCourseForm({
               {...field}
               id="course-title"
               autoComplete="off"
-              placeholder="Introduction to Computer Science…"
+              placeholder="Introduction to Computer Science..."
               aria-invalid={fieldState.invalid || undefined}
             />
             <FieldError errors={[fieldState.error]} />
@@ -245,7 +245,7 @@ export function CreateCourseForm({
                     type="email"
                     required
                     autoComplete="email"
-                    placeholder="name@example.com…"
+                    placeholder="name@example.com..."
                     value={emails[index]}
                     onChange={(event) =>
                       setEmails((current) =>
@@ -267,10 +267,10 @@ export function CreateCourseForm({
           onClick={handleImport}
           disabled={importCourse.isPending || form.formState.isSubmitting}
         >
-          {importCourse.isPending ? "Importing…" : "Import Schedule"}
+          {importCourse.isPending ? "Importing..." : "Import Schedule"}
         </Button>
         <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Creating…" : "Create"}
+          {form.formState.isSubmitting ? "Creating..." : "Create"}
         </Button>
       </DialogFooter>
     </form>

@@ -168,7 +168,7 @@ export function ImportEnrollmentForm({
             </FieldDescription>
             <div className="max-h-32 overflow-y-auto">
               <FieldDescription className="whitespace-pre-wrap font-mono">
-                {isParsing ? "Reading roster…" : message}
+                {isParsing ? "Reading roster..." : message}
               </FieldDescription>
             </div>
             {error && <FieldError>{error}</FieldError>}
@@ -246,7 +246,7 @@ export function ImportEnrollmentForm({
             !roaster?.length
           }
         >
-          {form.formState.isSubmitting ? "Adding…" : "Add"}
+          {form.formState.isSubmitting ? "Adding..." : "Add"}
         </Button>
       </DialogFooter>
     </form>

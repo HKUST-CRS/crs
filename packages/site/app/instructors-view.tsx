@@ -188,7 +188,7 @@ export default function InstructorsView() {
             disabled={isExporting || !requests || !!requestsQuery.error}
           >
             <ArrowRightFromLine className="h-4 w-4" />
-            {isExporting ? "Exporting…" : "Export Requests"}
+            {isExporting ? "Exporting..." : "Export Requests"}
           </Button>
         </div>
 

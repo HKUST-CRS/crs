@@ -369,7 +369,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         <div className="flex items-center">
           <Input
             aria-label="Search requests"
-            placeholder="Search…"
+            placeholder="Search..."
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(String(e.target.value))}
             className="max-w-full"

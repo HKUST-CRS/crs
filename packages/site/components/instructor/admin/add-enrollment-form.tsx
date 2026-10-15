@@ -203,7 +203,7 @@ export function AddEnrollmentForm({
           type="submit"
           disabled={disabled || form.formState.isSubmitting || !roaster?.length}
         >
-          {form.formState.isSubmitting ? "Adding…" : "Add"}
+          {form.formState.isSubmitting ? "Adding..." : "Add"}
         </Button>
       </DialogFooter>
     </form>

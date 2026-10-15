@@ -22,7 +22,7 @@ export function QueryError({
         onClick={onRetry}
         disabled={isRetrying}
       >
-        {isRetrying ? "Retrying…" : "Try Again"}
+        {isRetrying ? "Retrying..." : "Try Again"}
       </Button>
     </div>
   );
