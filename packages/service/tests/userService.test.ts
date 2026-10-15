@@ -184,10 +184,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const courseB: Course = {
@@ -196,10 +199,13 @@ describe("UserService", () => {
         title: "Programming",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const sudoer: User = {
@@ -376,10 +382,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {
@@ -440,10 +449,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const observer: User = {
@@ -488,10 +500,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -548,10 +563,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -596,10 +614,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const user: User = {
@@ -638,10 +659,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const student: User = {
@@ -685,10 +709,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {
@@ -770,10 +797,13 @@ describe("UserService", () => {
         title: "Python",
         sections: { L1: { schedule: [] }, L2: { schedule: [] } },
         assignments: {},
+        exams: {},
         effectiveRequestTypes: {
           "Swap Section": true,
           "Absent from Section": true,
           "Deadline Extension": true,
+          "Exam Appeal": false,
+          "Exam Special Arrangement": false,
         },
       };
       const instructor: User = {

@@ -140,7 +140,7 @@ export class UserService<TUser extends UserID | null = null> {
   /**
    * Gets all users such that they have an enrollment in the given class with the specified role.
    *
-   * If the target role is "student", the current user must have the "instructor" or "admin" role
+   * If the target role is "student" or "grader", the current user must have the "instructor" or "admin" role
    * in the class. If the target role is "instructor", "observer" or "admin", the current user must
    * have any role in the class.
    *
@@ -157,13 +157,14 @@ export class UserService<TUser extends UserID | null = null> {
   ): Promise<User[]> {
     const user = await this.repos.user.requireUser(this.user);
     switch (role) {
-      case "student": {
-        // only instructors and admins in the class can view the students
+      case "student":
+      case "grader": {
+        // Student and grader rosters are visible only to instructors and admins.
         assertClassRole(
           user,
           clazz,
           ["instructor", "admin"],
-          `viewing students in class ${clazz.course.code} (${clazz.course.term})`,
+          `viewing ${role}s in class ${clazz.course.code} (${clazz.course.term})`,
         );
         return this.repos.user.getUsersInClass(clazz, role);
       }

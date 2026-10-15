@@ -44,17 +44,20 @@ export default function InstructorsView() {
   );
   const hasTeachingRole = userQuery.data?.enrollment?.some(
     (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin",
+      e.role === "instructor" ||
+      e.role === "observer" ||
+      e.role === "grader" ||
+      e.role === "admin",
   );
   useEffect(() => {
     if (userQuery.data !== undefined && hasStudentRole && !hasTeachingRole) {
       router.replace("/");
     }
-  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+  }, [router, userQuery.data, hasStudentRole, hasTeachingRole]);
 
   // Requests
   const requestsQuery = useQuery(
-    trpc.request.getAllAs.queryOptions(["instructor", "observer"]),
+    trpc.request.getAllAs.queryOptions(["instructor", "observer", "grader"]),
   );
   const requests = requestsQuery.data;
   const tableRef = useRef<RequestTableHandle>(null);
@@ -64,6 +67,9 @@ export default function InstructorsView() {
     trpc.course.getAllFromEnrollment.queryOptions(["instructor", "admin"]),
   );
   const courses = coursesQuery.data;
+  const showCourseManagement = Boolean(
+    courses?.length || userQuery.data?.sudoer,
+  );
 
   useWindowFocus(
     useCallback(() => {
@@ -152,7 +158,7 @@ export default function InstructorsView() {
           }}
         />
         <div className="text-gray-500 text-xs">
-          (Instructors' View){" "}
+          (Staff View){" "}
           {hasStudentRole && (
             <>
               <br />
@@ -189,7 +195,7 @@ export default function InstructorsView() {
           <Spinner variant="ellipsis" />
         )}
       </section>
-      <section>
+      <section hidden={!showCourseManagement}>
         <div className="flex flex-row items-end justify-between pb-4">
           <p className="font-medium text-sm leading-none">Course Management</p>
           {userQuery.data?.sudoer && (
@@ -221,7 +227,10 @@ export default function InstructorsView() {
           )}
         </div>
 
-        <Dialog open={isCreateCourseOpen} onOpenChange={setCreateCourseOpen}>
+        <Dialog
+          open={showCourseManagement && isCreateCourseOpen}
+          onOpenChange={setCreateCourseOpen}
+        >
           <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <DialogHeader>
               <DialogTitle>Create Course</DialogTitle>

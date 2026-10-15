@@ -28,6 +28,7 @@ export function validateDeadlineExtension(
   course: Course,
   metadata: DeadlineExtensionMeta,
 ): boolean {
+  if (!Object.hasOwn(course.assignments, metadata.assignment)) return false;
   const assignment = course.assignments[metadata.assignment];
   if (!assignment) return false;
 

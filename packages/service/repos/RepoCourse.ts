@@ -98,4 +98,11 @@ export class CourseRepo {
       },
     );
   }
+
+  async updateExams(courseID: CourseID, exams: Course["exams"]): Promise<void> {
+    await this.collections.courses.updateOne(
+      { code: courseID.code, term: courseID.term },
+      { $set: { exams: sortRecord(exams) } },
+    );
+  }
 }

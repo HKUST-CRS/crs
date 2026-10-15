@@ -48,6 +48,18 @@ export const routerCourse = router({
         .auth(ctx.user.email)
         .updateAssignments(input.courseID, input.assignments);
     }),
+  updateExams: procedure
+    .input(
+      z.strictObject({
+        courseID: CourseID,
+        exams: Course.shape.exams,
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      return services.course
+        .auth(ctx.user.email)
+        .updateExams(input.courseID, input.exams);
+    }),
   updateEffectiveRequestTypes: procedure
     .input(
       z.strictObject({

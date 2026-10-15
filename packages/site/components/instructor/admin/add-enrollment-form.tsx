@@ -145,8 +145,9 @@ export function AddEnrollmentForm({
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
-              section can only be responded by an instructor in the section.
-              Specifically, an asterisk (*) denotes all/any sections.
+              section can be handled by an instructor in the section, or by its
+              assigned grader for an exam question. An asterisk (*) covers all
+              sections; use it for a grader responsible for the whole course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>
@@ -175,7 +176,9 @@ export function AddEnrollmentForm({
               A student can create requests. An instructor can view the
               requests, manage the course (such as setting up sections and
               assignments), and approve/reject the requests. An observer can
-              only view the requests. An admin can only manage the course.
+              only view the requests. A grader can view, comment on, and decide
+              appeals for their assigned exam questions, within their enrolled
+              sections. An admin can only manage the course.
             </FieldDescription>
             <FieldError errors={[fieldState.error]} />
           </Field>

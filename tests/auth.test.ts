@@ -5,7 +5,7 @@ Bun.env.UST_HK_TENANT_ID ??= "test-tenant";
 Bun.env.CONNECT_UST_HK_TENANT_ID ??= "test-tenant";
 Bun.env.DEBUG_TENANT_ID ??= "test-tenant";
 
-const { createContext } = await import("./auth");
+const { createContext } = await import("../packages/server/auth");
 const options = { req: { headers: {} } } as unknown as Parameters<
   typeof createContext
 >[0];

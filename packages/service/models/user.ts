@@ -2,7 +2,13 @@ import { z } from "zod";
 import { compareString } from "../utils/comparison";
 import { Class, Courses } from "./course";
 
-export const Role = z.enum(["student", "instructor", "observer", "admin"]);
+export const Role = z.enum([
+  "student",
+  "instructor",
+  "grader",
+  "observer",
+  "admin",
+]);
 export type Role = z.infer<typeof Role>;
 export const Roles = Role.options;
 

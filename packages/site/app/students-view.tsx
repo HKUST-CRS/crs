@@ -26,13 +26,16 @@ export default function StudentsView() {
   );
   const hasTeachingRole = userQuery.data?.enrollment?.some(
     (e) =>
-      e.role === "instructor" || e.role === "observer" || e.role === "admin",
+      e.role === "instructor" ||
+      e.role === "observer" ||
+      e.role === "grader" ||
+      e.role === "admin",
   );
   useEffect(() => {
     if (userQuery.data !== undefined && !hasStudentRole && hasTeachingRole) {
       router.replace("/instructor");
     }
-  }, [router, userQuery, hasStudentRole, hasTeachingRole]);
+  }, [router, userQuery.data, hasStudentRole, hasTeachingRole]);
 
   // Requests
   const requestsQuery = useQuery(
@@ -69,7 +72,7 @@ export default function StudentsView() {
               <br />
               Alternatively, click for{" "}
               <u>
-                <Link href="/instructor">Instructor's View</Link>
+                <Link href="/instructor">Staff View</Link>
               </u>
             </>
           )}

@@ -45,6 +45,7 @@ export type BaseRequestFormProps = {
   default?: BaseRequestFormSchema;
 
   className?: string;
+  disabled?: boolean;
   onClassChange?: () => void;
 } & (
   | {
@@ -126,7 +127,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
           name="class"
           control={form.control}
           render={({ field }) => (
-            <FormItem className="col-span-6">
+            <FormItem className="col-span-6 min-w-0">
               <FormLabel>Class (Course & Section)</FormLabel>
               {enrollments && courses ? (
                 <FormControl>
@@ -139,10 +140,13 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                         props.onClassChange?.();
                       }
                     }}
-                    disabled={viewonly}
+                    disabled={viewonly || props.disabled}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose a class" />
+                    <SelectTrigger className="w-full min-w-0">
+                      <SelectValue
+                        className="min-w-0 truncate"
+                        placeholder="Choose a class"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {(() => {
@@ -155,9 +159,9 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                                 key={Classes.id2str(e)}
                                 value={Classes.id2str(e)}
                               >
-                                <span>
-                                  <b>{c.code}</b> - {c.title} (
-                                  <b>{e.section}</b>)
+                                <span className="truncate">
+                                  <b>{c.code}</b> (<b>{e.section}</b>) -{" "}
+                                  {c.title}
                                 </span>
                               </SelectItem>
                             );
@@ -206,8 +210,9 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
             )}
           </FormControl>
           <FormDescription>
-            The course instructor(s) of your course section, who will also be
-            responsible for handling your request.
+            {type === "Exam Appeal"
+              ? "The course instructors. Each exam question’s assigned grader will handle its appeal."
+              : "The course instructor(s) of your course section, who will also be responsible for handling your request."}
           </FormDescription>
           <FormMessage />
         </FormItem>
@@ -223,7 +228,7 @@ export const BaseRequestForm: FC<BaseRequestFormProps> = (props) => {
                 <Select
                   onValueChange={field.onChange}
                   value={field.value}
-                  disabled={viewonly || !course}
+                  disabled={viewonly || props.disabled || !course}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Request Type" />
