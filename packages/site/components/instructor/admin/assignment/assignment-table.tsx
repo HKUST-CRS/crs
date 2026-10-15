@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const AssignmentRow = z.object({
+export const AssignmentRow = z.strictObject({
   code: Course.shape.assignments.keyType,
   ...Course.shape.assignments.valueType.shape,
 });

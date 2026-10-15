@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const EnrollmentRow = z.object({
+export const EnrollmentRow = z.strictObject({
   user: User,
   enrollment: Enrollment,
 });

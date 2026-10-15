@@ -39,9 +39,9 @@ export class UserService<TUser extends UserID | null = null> {
    */
   async sync(this: UserService<UserID>, name: string): Promise<void> {
     await this.repos.user.createUser(this.user);
+    const user = await this.getCurrentUser();
     await this.repos.user.updateUserName(this.user, name);
 
-    const user = await this.getCurrentUser();
     if (user.sudoer) {
       for (const course of await this.repos.course.getCourses()) {
         const oldEnrollment = user.enrollment.find(

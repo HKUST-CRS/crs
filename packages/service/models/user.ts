@@ -12,13 +12,13 @@ export const Role = z.enum([
 export type Role = z.infer<typeof Role>;
 export const Roles = Role.options;
 
-export const Enrollment = z.object({
+export const Enrollment = z.strictObject({
   ...Class.shape,
   role: Role,
 });
 export type Enrollment = z.infer<typeof Enrollment>;
 
-export const User = z.object({
+export const User = z.strictObject({
   email: z.email().meta({
     description: "The user's email address, used as the unique identifier.",
   }),

@@ -12,7 +12,7 @@ import { RequestStatus } from "./RequestStatus";
 export const ThreadEntryID = z.string();
 export type ThreadEntryID = z.infer<typeof ThreadEntryID>;
 
-export const ThreadEntryBase = z.object({
+export const ThreadEntryBase = z.strictObject({
   id: ThreadEntryID,
   from: UserID,
   timestamp: z.iso.datetime({ offset: true }),
@@ -20,7 +20,7 @@ export const ThreadEntryBase = z.object({
 export type ThreadEntryBase = z.infer<typeof ThreadEntryBase>;
 
 /** A comment supplied before the server assigns thread fields. */
-export const CommentInit = z.object({
+export const CommentInit = z.strictObject({
   text: z.string().nonempty("A comment cannot be empty."),
   proofs: ProofListInit,
 });
@@ -53,7 +53,7 @@ export function makeComment(
 }
 
 /** A status change supplied before the server assigns thread fields. */
-export const StatusChangeInit = z.object({
+export const StatusChangeInit = z.strictObject({
   status: RequestStatus,
 });
 export type StatusChangeInit = z.infer<typeof StatusChangeInit>;

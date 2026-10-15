@@ -15,7 +15,7 @@ export const ProofUploadAccept = ["image/*", "application/pdf", "text/plain"];
  * signature commits to the file content. Clients fetch the content on
  * demand via the download endpoint.
  */
-export const ProofFile = z.object({
+export const ProofFile = z.strictObject({
   name: z.string().meta({ description: "The name of the file." }),
   size: z
     .number()
@@ -48,7 +48,7 @@ export type ProofList = z.infer<typeof ProofList>;
  * content is uploaded to GridFS by the server, which then stores a
  * {@link ProofFile} (carrying the `id`) on the thread entry.
  */
-export const ProofFileInit = z.object({
+export const ProofFileInit = z.strictObject({
   name: z.string().meta({ description: "The name of the file." }),
   size: z
     .number()

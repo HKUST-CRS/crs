@@ -26,7 +26,7 @@ export const routerCourse = router({
     }),
   updateSections: procedure
     .input(
-      z.object({
+      z.strictObject({
         courseID: CourseID,
         sections: Course.shape.sections,
       }),
@@ -38,7 +38,7 @@ export const routerCourse = router({
     }),
   updateAssignments: procedure
     .input(
-      z.object({
+      z.strictObject({
         courseID: CourseID,
         assignments: Course.shape.assignments,
       }),
@@ -62,7 +62,7 @@ export const routerCourse = router({
     }),
   updateEffectiveRequestTypes: procedure
     .input(
-      z.object({
+      z.strictObject({
         courseID: CourseID,
         effectiveRequestTypes: Course.shape.effectiveRequestTypes,
       }),

@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const SectionRow = z.object({
+export const SectionRow = z.strictObject({
   code: Course.shape.sections.keyType,
   ...Course.shape.sections.valueType.shape,
 });

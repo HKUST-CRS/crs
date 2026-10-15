@@ -11,7 +11,7 @@ export namespace RoasterParser {
     }
   }
 
-  export const RoasterRow = z.object({
+  export const RoasterRow = z.strictObject({
     email: z
       .email()
       .meta({

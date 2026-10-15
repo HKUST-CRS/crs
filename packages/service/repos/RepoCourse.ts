@@ -16,7 +16,9 @@ export class CourseRepo {
   }
 
   async requireCourse(courseID: CourseID): Promise<Course> {
-    const course = await this.collections.courses.findOne(courseID);
+    const course = await this.collections.courses.findOne(courseID, {
+      projection: { _id: 0 },
+    });
     if (!course) throw new CourseNotFoundError(courseID);
     return Course.parse(course);
   }
@@ -26,6 +28,7 @@ export class CourseRepo {
       .find()
       .sort({ code: "ascending", term: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
+      .project<Course>({ _id: 0 })
       .toArray();
     return courses.map((course) => Course.parse(course));
   }
@@ -50,6 +53,7 @@ export class CourseRepo {
       })
       .sort({ code: "ascending", term: "ascending" })
       .collation({ locale: "en", numericOrdering: true })
+      .project<Course>({ _id: 0 })
       .toArray();
     return courses.map((course) => Course.parse(course));
   }
