@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { DbConn } from "../db";
 import { CommentInit, Course, RequestInit, User } from "../models";
 import { createRepos } from "../repos";
+import { UserService } from "../services";
 
 const course = Course.parse({
   code: "TEST 1000",
@@ -180,6 +181,29 @@ test("valid enrollment transactions read strict users without MongoDB metadata",
   await repos.user.deleteEnrollment(user.email, enrollment);
   expect(await repos.user.requireUser(user.email)).toEqual(user);
 });
+
+for (const [field, value] of [
+  ["unexpected", true],
+  ["name", 42],
+] as const) {
+  test(`authentication sync preserves invalid stored user field ${field}`, async () => {
+    await conn.collections.users.updateOne(
+      { email: user.email },
+      { $set: { [field]: value } },
+    );
+    const before = await conn.collections.users.findOne({ email: user.email });
+    const service = new UserService(createRepos(conn.collections));
+    expect(
+      await service
+        .auth(user.email)
+        .sync("Updated provider name")
+        .catch((error: unknown) => error),
+    ).toBeInstanceOf(ZodError);
+    expect(await conn.collections.users.findOne({ email: user.email })).toEqual(
+      before,
+    );
+  });
+}
 
 test("createEnrollment rolls back an invalid newly added enrollment", async () => {
   const repos = createRepos(conn.collections);
