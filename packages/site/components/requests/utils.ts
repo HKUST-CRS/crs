@@ -23,7 +23,9 @@ export async function readFileAsBase64(file: File): Promise<string> {
   });
 }
 
-export function readProofs(files: FileList): Promise<ProofFileInit[]> {
+export function readProofs(
+  files: FileList | readonly File[],
+): Promise<ProofFileInit[]> {
   return Promise.all(
     [...files].map(async (file) => ({
       name: file.name,

@@ -1,9 +1,12 @@
 import { TRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 
-const ghIssue = (error: Error) => {
+const ghIssue = (error: Error, issueTitlePrefix?: string) => {
   const isTRPCError = error instanceof TRPCClientError;
-  const title = `[Uncaught Server ${isTRPCError ? "TRPCError" : "Error"}] ${error.message}`;
+  const prefix =
+    issueTitlePrefix ??
+    `Uncaught Server ${isTRPCError ? "TRPCError" : "Error"}`;
+  const title = `[${prefix}] ${error.message}`;
   const body = `##### Meta
 \`\`\`
 ${isTRPCError ? JSON.stringify(error.meta, null, 2) : error}
@@ -16,7 +19,7 @@ ${isTRPCError ? JSON.stringify(error.meta, null, 2) : error}
   return `https://github.com/HKUST-CRS/crs/issues/new?${params.toString()}`;
 };
 
-export const showError = (error: Error) => {
+export const showError = (error: Error, issueTitlePrefix?: string) => {
   toast.error(
     <>
       <p>{error.message}</p>
@@ -24,7 +27,7 @@ export const showError = (error: Error) => {
         Oops... Something went wrong. Please{" "}
         <a
           className="underline"
-          href={ghIssue(error)}
+          href={ghIssue(error, issueTitlePrefix)}
           target="_blank"
           rel="noopener noreferrer"
         >
