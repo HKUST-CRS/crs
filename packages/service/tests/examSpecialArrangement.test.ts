@@ -188,10 +188,6 @@ describe("Exam special arrangements use the normal request thread", () => {
         requests.auth(student.email).createRequest(input, { ...comment, text }),
         ZodError,
       );
-    await conn.collections.users.updateOne(
-      { email: student.email },
-      { $set: { "enrollment.0.section": "*" } },
-    );
     await expectFailure(
       requests
         .auth(student.email)
@@ -199,7 +195,7 @@ describe("Exam special arrangements use the normal request thread", () => {
           { ...input, class: { ...clazz, section: "UNKNOWN" } },
           comment,
         ),
-      InvalidRequestError,
+      ClassPermissionError,
     );
     await conn.collections.courses.updateOne(clazz.course, {
       $set: { exams: {} },
