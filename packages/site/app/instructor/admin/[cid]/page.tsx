@@ -6,6 +6,7 @@ import { use } from "react";
 import { Courses } from "service/models";
 import { CourseSettings } from "@/components/instructor/admin/course-settings";
 import { EnrollmentManager } from "@/components/instructor/admin/enrollment-manager";
+import { QueryError } from "@/components/query-error";
 import TextType from "@/components/TextType";
 import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
@@ -19,10 +20,11 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
   const courseID = Courses.str2id(cid);
 
   const trpc = useTRPC();
-  const { data: course } = useQuery(trpc.course.get.queryOptions(courseID));
+  const courseQuery = useQuery(trpc.course.get.queryOptions(courseID));
+  const course = courseQuery.data;
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <header className="text-center">
         <h1>CRS</h1>
         <TextType
@@ -36,7 +38,7 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
           }}
         />
         {course && (
-          <div className="text-gray-500 text-xs">
+          <div className="text-muted-foreground text-xs">
             (Admin View for {Courses.formatCourse(course)})
             <br />
             Alternatively, click for{" "}
@@ -50,13 +52,19 @@ export default function Page({ params }: { params: Promise<{ cid: string }> }) {
         <p className="pb-4 font-medium text-sm leading-none">
           Course Configuration
         </p>
-        {course ? (
+        {courseQuery.error ? (
+          <QueryError
+            message="Could not load this course."
+            onRetry={() => void courseQuery.refetch()}
+            isRetrying={courseQuery.isFetching}
+          />
+        ) : course ? (
           <CourseSettings cid={courseID} />
         ) : (
           <Spinner variant="ellipsis" />
         )}
       </section>
-      <section>
+      <section hidden={!!courseQuery.error}>
         <p className="pb-4 font-medium text-sm leading-none">Enrollments</p>
         {course ? (
           <EnrollmentManager cid={courseID} />

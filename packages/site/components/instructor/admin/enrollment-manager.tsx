@@ -10,6 +10,7 @@ import {
 } from "service/models";
 import { compareString } from "service/utils/comparison";
 import { toast } from "sonner";
+import { QueryError } from "@/components/query-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
 import { useTRPC } from "@/lib/trpc-client";
 import {
   AddEnrollmentForm,
@@ -35,10 +37,8 @@ import {
 export function EnrollmentManager({ cid }: { cid: CourseID }) {
   const trpc = useTRPC();
 
-  const { data: users, refetch } = useQuery(
-    trpc.user.getAllFromCourse.queryOptions(cid),
-  );
-  const enrollments = (users ?? [])
+  const usersQuery = useQuery(trpc.user.getAllFromCourse.queryOptions(cid));
+  const enrollments = (usersQuery.data ?? [])
     .flatMap((u) =>
       u.enrollment
         .filter((e) => Courses.id2str(e.course) === Courses.id2str(cid))
@@ -67,14 +67,16 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
   const createEnrollments = async (
     data: { uid: string; name: string; enrollment: Enrollment }[],
   ) => {
-    await Promise.all(
+    const results = await Promise.allSettled(
       data.map(async ({ uid, name, enrollment }) => {
         await createEnrollmentMutation.mutateAsync({ uid, enrollment });
         await suggestUserNameMutation.mutateAsync({ uid, name });
       }),
     );
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
     toast.success(`Successfully created ${data.length} enrollment(s).`);
-    refetch();
+    void usersQuery.refetch();
   };
 
   const deleteEnrollments = async (
@@ -83,15 +85,18 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
     const promises = data.map(({ uid, enrollment }) =>
       deleteEnrollmentMutation.mutateAsync({ uid, enrollment }),
     );
-    await Promise.all(promises);
+    const results = await Promise.allSettled(promises);
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
     toast.success(`Successfully deleted ${data.length} enrollment(s).`);
-    refetch();
+    void usersQuery.refetch();
   };
 
   const [isAddEnrollmentsOpen, setAddEnrollmentsOpen] = useState(false);
   const [isImportEnrollmentsOpen, setImportEnrollmentsOpen] = useState(false);
+  const [isDeleting, setDeleting] = useState(false);
 
-  const handleCreate = (
+  const handleCreate = async (
     data: AddEnrollmentSubmissionSchema | ImportEnrollmentSubmissionSchema,
   ) => {
     const mutationData = data.roaster.map((row) => {
@@ -102,49 +107,76 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
       } satisfies Enrollment;
       return { uid: row.email, name: row.name, enrollment };
     });
-    createEnrollments(mutationData).then(() => {
+    try {
+      await createEnrollments(mutationData);
       setAddEnrollmentsOpen(false);
       setImportEnrollmentsOpen(false);
-    });
+    } catch {
+      // The mutation cache reports errors; keep the dialog and its values.
+      void usersQuery.refetch();
+    }
   };
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (isDeleting) return;
+    setDeleting(true);
     const es = selection.map((s) => ({
       uid: s.user.email,
       enrollment: s.enrollment,
     }));
-    deleteEnrollments(es).then(() => {
+    try {
+      await deleteEnrollments(es);
+    } catch {
+      // The mutation cache reports errors, including partial failures.
+      void usersQuery.refetch();
+    } finally {
       setSelection([]);
       tableRef.current?.clearSelection();
-    });
+      setDeleting(false);
+    }
   };
+  const rosterUnavailable = usersQuery.isPending || usersQuery.isError;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-end gap-4">
+      <div className="flex flex-wrap items-center justify-end gap-4">
         <Button
           variant="destructive"
-          onClick={() => handleDelete()}
-          disabled={
-            selection.length === 0 || deleteEnrollmentMutation.isPending
-          }
+          onClick={() => void handleDelete()}
+          disabled={rosterUnavailable || selection.length === 0 || isDeleting}
         >
-          {deleteEnrollmentMutation.isPending
+          {isDeleting
             ? "Deleting..."
             : `Delete ${selection.length} Enrollment(s)`}
         </Button>
-        <Button onClick={() => setImportEnrollmentsOpen(true)}>
+        <Button
+          onClick={() => setImportEnrollmentsOpen(true)}
+          disabled={rosterUnavailable || isDeleting}
+        >
           Import Enrollment(s)
         </Button>
-        <Button onClick={() => setAddEnrollmentsOpen(true)}>
+        <Button
+          onClick={() => setAddEnrollmentsOpen(true)}
+          disabled={rosterUnavailable || isDeleting}
+        >
           Add Enrollment(s)
         </Button>
       </div>
 
-      <EnrollmentTable
-        enrollments={enrollments}
-        updateSelection={setSelection}
-        ref={tableRef}
-      />
+      {usersQuery.isError ? (
+        <QueryError
+          message="Could not load enrollments."
+          onRetry={() => void usersQuery.refetch()}
+          isRetrying={usersQuery.isFetching}
+        />
+      ) : usersQuery.isPending ? (
+        <Spinner variant="ellipsis" />
+      ) : (
+        <EnrollmentTable
+          enrollments={enrollments}
+          updateSelection={setSelection}
+          ref={tableRef}
+        />
+      )}
 
       <FieldDescription>
         You can import enrollments in bulk. You can delete enrollments by
@@ -153,11 +185,14 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
       </FieldDescription>
 
       <Dialog open={isAddEnrollmentsOpen} onOpenChange={setAddEnrollmentsOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Add Enrollments</DialogTitle>
           </DialogHeader>
-          <AddEnrollmentForm onSubmit={handleCreate} />
+          <AddEnrollmentForm
+            onSubmit={handleCreate}
+            disabled={rosterUnavailable || isDeleting}
+          />
         </DialogContent>
       </Dialog>
 
@@ -165,11 +200,14 @@ export function EnrollmentManager({ cid }: { cid: CourseID }) {
         open={isImportEnrollmentsOpen}
         onOpenChange={setImportEnrollmentsOpen}
       >
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Import Enrollments</DialogTitle>
           </DialogHeader>
-          <ImportEnrollmentForm onSubmit={handleCreate} />
+          <ImportEnrollmentForm
+            onSubmit={handleCreate}
+            disabled={rosterUnavailable || isDeleting}
+          />
         </DialogContent>
       </Dialog>
     </div>

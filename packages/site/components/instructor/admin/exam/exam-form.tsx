@@ -227,11 +227,11 @@ export function ExamForm({
                 }
               }}
             >
-              {removing ? "Removing…" : "Remove"}
+              {removing ? "Removing..." : "Remove"}
             </Button>
           )}
           <Button type="submit">
-            {form.formState.isSubmitting ? "Saving…" : "Save"}
+            {form.formState.isSubmitting ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </fieldset>

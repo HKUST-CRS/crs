@@ -127,10 +127,7 @@ export function ExamsConfig({
       )}
 
       <Dialog open={isFormOpen} onOpenChange={setFormOpen}>
-        <DialogContent
-          aria-describedby={undefined}
-          className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain"
-        >
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>{focusExam ? "Edit Exam" : "Add Exam"}</DialogTitle>
           </DialogHeader>

@@ -77,7 +77,7 @@ export default function RequestThread({ request }: RequestThreadProps) {
   const canAppeal = context?.canAppeal ?? false;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <StatusBanner status={status} />
 
       {/* Immutable request header */}
@@ -124,7 +124,7 @@ export default function RequestThread({ request }: RequestThreadProps) {
                 ) : context ? (
                   "No grader is currently assigned. Contact your instructor."
                 ) : (
-                  "Loading…"
+                  "Loading..."
                 )}
               </dd>
             </div>
@@ -218,10 +218,10 @@ function ThreadEntryView({
   if (entry.kind === "comment") {
     return (
       <div className="flex flex-col gap-2 rounded-md border p-3">
-        <div className="typo-muted text-sm">
+        <div className="typo-muted break-words text-sm">
           {authorLabel} commented · {timestamp}
         </div>
-        <p className="whitespace-pre-wrap text-sm">{entry.text}</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{entry.text}</p>
         {entry.proofs && entry.proofs.length > 0 && (
           <ProofList proofs={entry.proofs} />
         )}
@@ -243,7 +243,7 @@ function ThreadEntryView({
     );
   }
   return (
-    <div className="flex items-center gap-2 text-sm">
+    <div className="flex flex-wrap items-center gap-2 text-sm">
       <span
         className={clsx(
           "rounded px-2 py-0.5 font-medium",

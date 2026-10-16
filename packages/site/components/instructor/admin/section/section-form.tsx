@@ -68,7 +68,7 @@ export function SectionForm({
               id="section-code"
               autoComplete="off"
               spellCheck={false}
-              placeholder="L1/T1/LA1/…"
+              placeholder="L1/T1/LA1/..."
               {...field}
             />
             <FieldError errors={[fieldState.error]} />

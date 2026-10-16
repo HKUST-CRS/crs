@@ -20,10 +20,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RoasterParser } from "@/lib/roaster-parser";
-import { showError, showErrorMessage } from "@/lib/showError";
+import { showErrorMessage } from "@/lib/showError";
 
 export const ImportEnrollmentFormSchema = z.strictObject({
-  roaster: z.file().min(1, "Roaster file is required."),
+  roaster: z.file().min(1, "Roster file is required."),
   section: z.string().min(1, "Section is required."),
   role: Role.nonoptional("Role is required."),
 });
@@ -51,14 +51,12 @@ function toMessage(roaster: RoasterParser.Roaster) {
   ));
 }
 
-function toErrorMessage(error: z.ZodError) {
-  return z.prettifyError(error);
-}
-
 export function ImportEnrollmentForm({
   onSubmit,
+  disabled = false,
 }: {
-  onSubmit: (v: ImportEnrollmentSubmissionSchema) => void;
+  onSubmit: (v: ImportEnrollmentSubmissionSchema) => Promise<void>;
+  disabled?: boolean;
 }) {
   const form = useForm<ImportEnrollmentFormSchema>({
     resolver: zodResolver(ImportEnrollmentFormSchema),
@@ -68,45 +66,55 @@ export function ImportEnrollmentForm({
   });
 
   const roasterFile = form.watch("roaster");
-  const [[roaster, error], setParseResult] = useState<
-    [RoasterParser.Roaster, null] | [null, z.ZodError]
-  >([[], null]);
+  const [[parsedFile, parsedRoaster, parseError], setParseResult] = useState<
+    [File | undefined, RoasterParser.Roaster | null, string | null]
+  >([undefined, [], null]);
+  const isCurrentFile = parsedFile === roasterFile;
+  const roaster = isCurrentFile ? parsedRoaster : null;
+  const error = isCurrentFile ? parseError : null;
+  const isParsing = !!roasterFile && !isCurrentFile;
   useEffect(() => {
+    let cancelled = false;
     if (roasterFile) {
       async function parse() {
         try {
           const data = await roasterFile.arrayBuffer();
-          setParseResult([RoasterParser.parseSheet(data), null] as const);
+          const rows = RoasterParser.parseSheet(data);
+          if (!cancelled) {
+            setParseResult([
+              roasterFile,
+              rows,
+              rows.length
+                ? null
+                : 'No enrollment rows found. Check the "Email Address" column in your roster.',
+            ]);
+          }
         } catch (e) {
-          if (e instanceof z.ZodError) {
-            setParseResult([null, e]);
-          } else {
-            setParseResult([[], null]);
+          if (!cancelled) {
+            const message =
+              e instanceof z.ZodError
+                ? z.prettifyError(e)
+                : e instanceof RoasterParser.RoasterParserError
+                  ? e.message
+                  : "Could not read this roster. Please choose a valid CSV or Excel file.";
+            setParseResult([roasterFile, null, message]);
           }
-          if (e instanceof Error) {
-            showError(e);
-          }
-          throw e;
         }
       }
-      parse();
+      void parse();
     } else {
-      setParseResult([[], null]);
+      setParseResult([undefined, [], null]);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [roasterFile]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: IDK Biome
-  const message = useMemo(() => {
-    if (roaster) {
-      return toMessage(roaster);
-    } else {
-      return toErrorMessage(error);
-    }
-  }, [roaster, error]);
+  const message = useMemo(() => toMessage(roaster ?? []), [roaster]);
 
-  const handleSubmit = (data: ImportEnrollmentFormSchema) => {
-    if (roaster && roaster.length > 0) {
-      onSubmit({
+  const handleSubmit = async (data: ImportEnrollmentFormSchema) => {
+    if (!disabled && roaster?.length && !isParsing) {
+      await onSubmit({
         roaster,
         section: data.section,
         role: data.role,
@@ -124,9 +132,11 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Roaster</FieldLabel>
+            <FieldLabel htmlFor="import-enrollment-roster">Roster</FieldLabel>
             <Input
-              onChange={async (e) => {
+              id="import-enrollment-roster"
+              disabled={disabled || form.formState.isSubmitting}
+              onChange={(e) => {
                 const files = e.target.files;
 
                 if (!files || files.length === 0) {
@@ -152,15 +162,16 @@ export function ImportEnrollmentForm({
               ].join(",")}
             />
             <FieldDescription>
-              Upload the roaster from SIS in CSV or Excel (XLS, XLSX) format.
-              The file should contain only one sheet, and the sheet should have
-              a header row with "Email Address" and optionally "Name" columns.
+              Upload the roster from SIS in CSV or Excel (XLS, XLSX) format. The
+              file should contain only one sheet, and the sheet should have a
+              header row with "Email Address" and optionally "Name" columns.
             </FieldDescription>
             <div className="max-h-32 overflow-y-auto">
               <FieldDescription className="whitespace-pre-wrap font-mono">
-                {message}
+                {isParsing ? "Reading roster..." : message}
               </FieldDescription>
             </div>
+            {error && <FieldError>{error}</FieldError>}
             <FieldError errors={[fieldState.error]} />
           </Field>
         )}
@@ -171,8 +182,13 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Section</FieldLabel>
-            <Input placeholder="L1" {...field} />
+            <FieldLabel htmlFor="import-enrollment-section">Section</FieldLabel>
+            <Input
+              id="import-enrollment-section"
+              placeholder="L1"
+              {...field}
+              disabled={disabled || form.formState.isSubmitting}
+            />
             <FieldDescription>
               The section to enroll the users into. A request for a section can
               only be made by a student in the section, and a request for a
@@ -190,9 +206,13 @@ export function ImportEnrollmentForm({
         control={form.control}
         render={({ field, fieldState }) => (
           <Field>
-            <FieldLabel>Role</FieldLabel>
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className="w-full">
+            <FieldLabel htmlFor="import-enrollment-role">Role</FieldLabel>
+            <Select
+              value={field.value ?? ""}
+              onValueChange={field.onChange}
+              disabled={disabled || form.formState.isSubmitting}
+            >
+              <SelectTrigger id="import-enrollment-role" className="w-full">
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
               <SelectContent>
@@ -217,7 +237,17 @@ export function ImportEnrollmentForm({
       />
 
       <DialogFooter className="col-span-full gap-2">
-        <Button type="submit">Add</Button>
+        <Button
+          type="submit"
+          disabled={
+            disabled ||
+            form.formState.isSubmitting ||
+            isParsing ||
+            !roaster?.length
+          }
+        >
+          {form.formState.isSubmitting ? "Adding..." : "Add"}
+        </Button>
       </DialogFooter>
     </form>
   );

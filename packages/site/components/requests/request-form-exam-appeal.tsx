@@ -63,7 +63,7 @@ export function ExamAppealRequestForm({
     if (submitting.current) return;
     submitting.current = true;
     onPendingChange(true);
-    const toastId = toast.loading("Submitting the request…");
+    const toastId = toast.loading("Submitting the request...");
     try {
       const id = await mutation.mutateAsync({
         request: { class: base.class, type: data.type, metadata: data.meta },
@@ -189,7 +189,7 @@ export function ExamAppealRequestForm({
                 <Textarea
                   {...field}
                   disabled={busy}
-                  placeholder="Explain the grading issue for this question…"
+                  placeholder="Explain the grading issue for this question..."
                 />
               </FormControl>
               <FormDescription>
@@ -207,7 +207,7 @@ export function ExamAppealRequestForm({
         )}
         <div className="col-span-full flex justify-end">
           <Button type="submit" disabled={busy}>
-            {busy ? "Submitting…" : "Submit"}
+            {busy ? "Submitting..." : "Submit"}
           </Button>
         </div>
       </form>

@@ -13,6 +13,8 @@ import {
 import { sortBy, uniqBy } from "es-toolkit";
 import { ArrowUpDown, CalendarIcon } from "lucide-react";
 import { DateTime } from "luxon";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   forwardRef,
   useEffect,
@@ -58,7 +60,7 @@ import { REQUEST_STATUS_LABEL } from "./request-status";
 
 interface RequestTableProps {
   data: Request[];
-  onClick?: (row: Request) => void;
+  getRequestHref: (request: Request) => string;
 }
 
 export interface RequestTableHandle {
@@ -116,7 +118,9 @@ const requestFilter =
     return true;
   };
 
-const columns: ColumnDef<Request>[] = [
+const createColumns = (
+  getRequestHref: RequestTableProps["getRequestHref"],
+): ColumnDef<Request>[] => [
   {
     accessorKey: "from",
     header: ({ column }) => {
@@ -156,7 +160,10 @@ const columns: ColumnDef<Request>[] = [
     },
     cell: ({ row }) => {
       return (
-        <div>
+        <Link
+          href={getRequestHref(row.original)}
+          className="block rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        >
           <div className="font-medium">{row.original.type}</div>
           {row.original.type === "Exam Appeal" && (
             <div className="text-muted-foreground text-xs">
@@ -169,7 +176,7 @@ const columns: ColumnDef<Request>[] = [
               {row.original.metadata.examCode}
             </div>
           )}
-        </div>
+        </Link>
       );
     },
   },
@@ -266,7 +273,15 @@ const columns: ColumnDef<Request>[] = [
 ];
 
 export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
-  function RequestTable({ data: rawData, onClick }: RequestTableProps, ref) {
+  function RequestTable(
+    { data: rawData, getRequestHref }: RequestTableProps,
+    ref,
+  ) {
+    const router = useRouter();
+    const columns = useMemo(
+      () => createColumns(getRequestHref),
+      [getRequestHref],
+    );
     const [sorting, setSorting] = useState<SortingState>([
       {
         id: "time",
@@ -353,6 +368,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
       <div className="flex flex-col gap-4">
         <div className="flex items-center">
           <Input
+            aria-label="Search requests"
             placeholder="Search..."
             value={globalFilter}
             onChange={(e) => table.setGlobalFilter(String(e.target.value))}
@@ -361,7 +377,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <Field className="col-span-1">
-            <FieldLabel>Status</FieldLabel>
+            <FieldLabel htmlFor="request-filter-status">Status</FieldLabel>
             <Select
               value={statusFilter ?? "__all"}
               onValueChange={(value) => {
@@ -371,7 +387,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-status" className="w-full">
                 <SelectValue placeholder="Choose a status" />
               </SelectTrigger>
               <SelectContent>
@@ -386,7 +402,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field className="col-span-1">
-            <FieldLabel>Term</FieldLabel>
+            <FieldLabel htmlFor="request-filter-term">Term</FieldLabel>
             <Select
               value={termFilter ?? "__all"}
               onValueChange={(value) => {
@@ -394,7 +410,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
               }}
               disabled={!termOptions.length}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-term" className="w-full">
                 <SelectValue placeholder="Choose a term" />
               </SelectTrigger>
               <SelectContent>
@@ -408,8 +424,8 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
             </Select>
           </Field>
 
-          <Field className="col-span-2">
-            <FieldLabel>Course</FieldLabel>
+          <Field className="col-span-1 md:col-span-2">
+            <FieldLabel htmlFor="request-filter-course">Course</FieldLabel>
             <Select
               value={courseFilter ? Courses.id2str(courseFilter) : "__all"}
               onValueChange={(value) => {
@@ -418,7 +434,7 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                 );
               }}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="request-filter-course" className="w-full">
                 <SelectValue placeholder="Choose a course" />
               </SelectTrigger>
               <SelectContent>
@@ -436,10 +452,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel>From</FieldLabel>
+            <FieldLabel htmlFor="request-filter-from">From</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button id="request-filter-from" variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {fromFilter ? (
                     formatDate(fromFilter)
@@ -466,10 +482,10 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
           </Field>
 
           <Field>
-            <FieldLabel>To</FieldLabel>
+            <FieldLabel htmlFor="request-filter-to">To</FieldLabel>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline">
+                <Button id="request-filter-to" variant="outline">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {toFilter ? formatDate(toFilter) : <span>Pick a date</span>}
                 </Button>
@@ -518,7 +534,17 @@ export const RequestTable = forwardRef<RequestTableHandle, RequestTableProps>(
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
-                    onClick={() => onClick?.(row.original)}
+                    onClick={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        event.target.closest(
+                          "a, button, input, select, textarea",
+                        )
+                      ) {
+                        return;
+                      }
+                      router.push(getRequestHref(row.original));
+                    }}
                     className="cursor-pointer"
                   >
                     {row.getVisibleCells().map((cell) => (

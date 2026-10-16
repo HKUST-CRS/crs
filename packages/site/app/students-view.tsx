@@ -5,6 +5,7 @@ import { FilePlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect } from "react";
+import { QueryError } from "@/components/query-error";
 import { RequestTable } from "@/components/requests/request-table";
 import TextType from "@/components/TextType";
 import { Button } from "@/components/ui/button";
@@ -47,11 +48,11 @@ export default function StudentsView() {
     useCallback(() => {
       userQuery.refetch();
       requestsQuery.refetch();
-    }, [userQuery, requestsQuery]),
+    }, [userQuery.refetch, requestsQuery.refetch]),
   );
 
   return (
-    <article className="mx-auto my-32 flex max-w-4xl flex-col gap-8 lg:my-64">
+    <article className="mx-auto my-16 flex w-full max-w-4xl flex-col gap-8 px-4 lg:my-32">
       <DYK />
       <header className="text-center">
         <h1>CRS</h1>
@@ -65,7 +66,7 @@ export default function StudentsView() {
             max: 240,
           }}
         />
-        <div className="text-gray-500 text-xs">
+        <div className="text-muted-foreground text-xs">
           (Students' View)
           {hasTeachingRole && (
             <>
@@ -79,20 +80,24 @@ export default function StudentsView() {
         </div>
       </header>
       <section className="mx-auto">
-        <Link href="/request">
-          <Button className="cursor-pointer">
+        <Button asChild className="cursor-pointer">
+          <Link href="/request">
             <FilePlus /> New Request
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </section>
       <section>
         <p className="pb-4 font-medium text-sm leading-none">My Requests</p>
-        {requests ? (
+        {requestsQuery.error ? (
+          <QueryError
+            message="Could not load your requests."
+            onRetry={() => void requestsQuery.refetch()}
+            isRetrying={requestsQuery.isFetching}
+          />
+        ) : requests ? (
           <RequestTable
             data={requests}
-            onClick={(request) => {
-              router.push(`/request/${request.id}`);
-            }}
+            getRequestHref={(request) => `/request/${request.id}`}
           />
         ) : (
           <Spinner variant="ellipsis" />

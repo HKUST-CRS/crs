@@ -79,7 +79,7 @@ export function AssignmentsConfig({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex flex-row items-end justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <CardTitle>Assignments (for request type Deadline Extension)</CardTitle>
         <Button onClick={handleNew} size="sm">
           <Plus className="mr-2 h-4 w-4" /> Add Assignment

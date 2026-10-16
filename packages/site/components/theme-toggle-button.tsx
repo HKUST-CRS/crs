@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggleButton({ className }: { className?: string }) {
-  const { theme, handleThemeChange } = useTheme();
+  const { handleThemeChange } = useTheme();
 
   return (
     <Button
@@ -16,11 +16,8 @@ export function ThemeToggleButton({ className }: { className?: string }) {
       aria-label="Toggle theme"
       onClick={handleThemeChange}
     >
-      {theme === "dark" ? (
-        <Sun className="text-yellow-400" />
-      ) : (
-        <Moon className="text-blue-800" />
-      )}
+      <Sun aria-hidden="true" className="hidden text-yellow-400 dark:block" />
+      <Moon aria-hidden="true" className="text-blue-800 dark:hidden" />
     </Button>
   );
 }
