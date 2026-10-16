@@ -262,9 +262,6 @@ export class RequestService<TUser extends UserID | null = null> {
         request.type,
       );
     }
-    if (!Object.hasOwn(course.sections, request.class.section)) {
-      throw new InvalidRequestError(request.class.course, request.type);
-    }
     switch (request.type) {
       case "Swap Section":
         if (!validateSwapSection(course, request.metadata)) {

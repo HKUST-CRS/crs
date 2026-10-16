@@ -502,7 +502,7 @@ describe("Exam appeals use exact-question thread permissions", () => {
     expect(await requests.auth(email).getRequestsAs(["grader"])).toEqual([]);
   });
 
-  test("rejects missing exam/question/section, disabled type and missing student enrollment before saving", async () => {
+  test("rejects missing exam/question, unenrolled class, disabled type and missing student enrollment before saving", async () => {
     const valid = appeal();
     const invalidRequests: RequestInit[] = [
       { ...valid.request, metadata: { examCode: "Final", question: "1" } },
@@ -511,17 +511,21 @@ describe("Exam appeals use exact-question thread permissions", () => {
         ...valid.request,
         metadata: { examCode: "constructor", question: "1" },
       },
-      { ...valid.request, class: { ...clazz, section: "NOPE" } },
     ];
-    await conn.collections.users.updateOne(
-      { email: student.email },
-      { $set: { "enrollment.0.section": "*" } },
-    );
     for (const input of invalidRequests)
       await expectFailure(
         requests.auth(student.email).createRequest(input, valid.comment),
         InvalidRequestError,
       );
+    await expectFailure(
+      requests
+        .auth(student.email)
+        .createRequest(
+          { ...valid.request, class: { ...clazz, section: "NOPE" } },
+          valid.comment,
+        ),
+      ClassPermissionError,
+    );
     await conn.collections.courses.updateOne(clazz.course, {
       $set: { "effectiveRequestTypes.Exam Appeal": false },
     });
